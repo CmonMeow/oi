@@ -1,0 +1,10 @@
+#include "resource.h"
+
+LANGUAGE 9, 1
+
+IDI_CORE           ICON   "Icon.ico"
+IDC_POINTER_WHITE  CURSOR "cursor_white.cur"
+IDC_POINTER_CYAN   CURSOR "cursor_cyan.cur"
+IDC_POINTER_GREEN  CURSOR "cursor_green.cur"
+IDC_POINTER_RED    CURSOR "cursor_red.cur"
+IDC_POINTER_YELLOW CURSOR "cursor_yellow.cur"

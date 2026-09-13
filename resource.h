@@ -1,0 +1,17 @@
+#pragma once
+
+#define IDS_APP_TITLE 0
+#define IDI_CORE 1
+#define IDC_POINTER 2
+#define IDC_POINTER_WHITE IDC_POINTER
+#define IDC_POINTER_CYAN 3
+#define IDC_POINTER_GREEN 4
+#define IDC_POINTER_RED 5
+#define IDC_POINTER_YELLOW 6
+
+#define IDD_CONSOLE 101
+#define IDC_CONSOLE_EDIT 1000
+
+#ifndef IDC_STATIC
+#define IDC_STATIC -1
+#endif
