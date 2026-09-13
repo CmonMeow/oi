@@ -28,6 +28,7 @@ inline void ClearLog()
 	}
 }
 
+// Log failures, exceptions, and unexpected states only; routine activity stays silent.
 inline void _cdecl Error(const char* format, ...)
 {
 	FILE* logfile = fopen("Log", "a");

@@ -239,9 +239,6 @@ NetStatus serverReceive(NetMessage* msgPtr, NetStatus event, void* data)
 			_server->Receive_Critical_Section.unlock();
 			return nsNoMoreCallbacks;
 		}
-		if (msg)
-			Error("serverReceive: merging user message (len=%3u, serial=%4u, flags=%04x, ID=%x)",
-				msg->getLength(), msg->getSerial(), (unsigned)msg->getFlags(), msg->id);
 	}
 
 	_server->insertReceived(msg.GetRef());
@@ -613,9 +610,6 @@ NetStatus clientReceive(NetMessage* msgPtr, NetStatus event, void* data)
 			_client->Receive_Critical_Section.unlock();
 			return nsNoMoreCallbacks;
 		}
-		if (msg)
-			Error("clientReceive: merging user message (len=%3u, serial=%4u, flags=%04x, ID=%x)",
-				msg->getLength(), msg->getSerial(), (unsigned)msg->getFlags(), msg->id);
 	}
 
 	if (msg)
@@ -1054,21 +1048,6 @@ void NetServer::destroyPlayer(NetChannel* ch, NetTerminationReason reason, const
 	out->send(true);
 }
 
-void NetServer::logUsers()
-{
-	char usersText[1024];
-
-	unsigned it;
-	__int32 key;
-	Ref<NetChannel> channel;
-	sprintf(usersText, "%d: ", users.card());
-	if (users.getFirst(it, channel, &key))
-		do
-			sprintf(usersText + strlen(usersText), " %d", key);
-		while (users.getNext(it, channel, &key));
-		Error("NetServer::logUsers %s", usersText);
-}
-
 void NetServer::finishDestroyPlayer(__int32 player)
 {
 	if (player == -1)
@@ -1094,7 +1073,6 @@ void NetServer::finishDestroyPlayer(__int32 player)
 	for (std::vector<CreatePlayerInfo>::iterator it = _createPlayers.begin(); it != _createPlayers.end(); ++it)
 		if (it->player == player)
 		{
-			Error("NetServer::finishDestroyPlayer(%d): DESTROY immediately after CREATE, both cancelled", player);
 			_createPlayers.erase(it);
 			User_Critical_Section.unlock();
 			return;
@@ -1102,8 +1080,6 @@ void NetServer::finishDestroyPlayer(__int32 player)
 	_deletePlayers.push_back(DeletePlayerInfo());
 	DeletePlayerInfo& info = _deletePlayers.back();
 	info.player = player;
-	Error("NetServer:finishDestroyPlayer (waiting for ProcessPlayers) - session.playerCount=%d, playerId=%d, |users|=%u",
-		session.playerCount, info.player, users.card());
 	User_Critical_Section.unlock();
 }
 
@@ -1450,9 +1426,6 @@ void NetServer::RemoveSendComplete()
 void NetServer::ProcessPlayers(CreatePlayerCallback* callbackCreate, DeletePlayerCallback* callbackDelete, void* context)
 {
 	User_Critical_Section.lock();
-	if (!_deletePlayers.empty() || !_createPlayers.empty())
-		Error("NetServer::ProcessPlayers(): users.card=%u, session.playerCount=%d, created=%d, deleted=%d",
-			users.card(), session.playerCount, (int)_createPlayers.size(), (int)_deletePlayers.size());
 	for (size_t i = 0; i < _deletePlayers.size(); i++)
 	{
 		DeletePlayerInfo& info = _deletePlayers[i];

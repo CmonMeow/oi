@@ -382,7 +382,6 @@ class cNetworkRuntime
         {
             if (_clientCrypto.acceptServerKey(keyBytes))
             {
-                Error("oi: client crypto accepted server key.");
                 sendRawIdentityFromClient();
                 sendPrivateChatKeyFromClient();
             }
@@ -463,7 +462,6 @@ class cNetworkRuntime
             string response;
             if (_serverCrypto[from].acceptClientHello(keyBytes, response))
             {
-                Error("oi: server accepted crypto hello from %d.", from);
                 NetworkMessageRaw raw;
                 raw.put(response.data(), (__int32)response.size());
                 sendPlainRawFromServer(from, NAMTKeyAccept, raw);

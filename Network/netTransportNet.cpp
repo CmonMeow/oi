@@ -530,7 +530,6 @@ protected:
 
 	void finishDestroyPlayer(__int32 player);
 
-	void logUsers();
 
 public:
 	
@@ -796,7 +795,6 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 
 			_server->User_Critical_Section.unlock();
 
-			Error("Server: challenge %x", chp.challenge);
 
 			Ref<NetMessage> out = NetMessagePool::pool()->newMessage(sizeof(chp), msg->getChannel());
 			if (out)
@@ -811,7 +809,6 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 		break;
 
 	case MAGIC_CREATE_W_CHALLENGE:
-		Error("Server: create player %d", magic == MAGIC_CREATE_W_CHALLENGE);
 		if (_server->m_enumResponse &&
 			(msg->getLength() == sizeof(CreatePlayerPacket) || msg->getLength() == sizeof(CreatePlayerPacketChallenge)))
 		{
@@ -836,7 +833,6 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 				}
 				else
 				{
-					Error("Server: MAGIC_CREATE_W_CHALLENGE accepted %x", challenge);
 					NetServer::DeleteChallengeAt(_server->_challengesSent, wasSent);
 				}
 			}
@@ -846,7 +842,6 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 				break;
 			}
 
-			Error("Server: old challenges cleared");
 			NetServer::DeleteAllChallenges(_server->_challengesSent, distant);
 
 			ConnectResult result = CROK;
@@ -925,9 +920,7 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 						strncpy(info.name, cpp->name, sizeof(info.name));
 						info.name[sizeof(info.name) - 1] = (char)0;
 						if (strcmp(cpp->name, info.name))
-							Error("NetServer: name of a new player is too long => truncating to '%S'", info.name);
-						Error("NetServer: new player (waiting for ProcessPlayers) - session.playerCount=%d, playerId=%d, bot=%d, name='%s', |users|=%u",
-							_server->session.playerCount, info.player, (__int32)info.botClient, info.name, _server->users.card());
+							Error("NetServer: name of a new player is too long => truncating to '%s'", info.name);
 						ch->setProcessRoutine(serverReceive);
 					}
 				}
@@ -1062,7 +1055,6 @@ NetStatus enumReceive(NetMessage* msg, NetStatus event, void* data)
 			_client->Send_Critical_Section.lock();
 			if (_client->challengePlayer == 0) 
 			{
-				Error("Client: Received challenge %x", chp->challenge);
 				_client->challengePlayer = chp->challenge;
 			}
 			_client->Send_Critical_Section.unlock();
@@ -1243,7 +1235,6 @@ ConnectResult NetClient::Init(std::string address, std::string password, bool bo
 					leaveAll();
 					return CRError;
 				}
-				Error("Client: send MAGIC_REQUEST_PLAYER to %u.%u.%u.%u:%u", (unsigned)IP4(daddr), (unsigned)IP3(daddr), (unsigned)IP2(daddr), (unsigned)IP1(daddr), (unsigned)PORT(daddr));
 			}
 			else
 			{ 
@@ -1255,7 +1246,6 @@ ConnectResult NetClient::Init(std::string address, std::string password, bool bo
 					leaveAll();
 					return CRError;
 				}
-				Error("Client: send MAGIC_CREATE_W_CHALLENGE %x", challengePlayer);
 			}
 
 			next = now + 1000 * CREATE_PLAYER_RESEND;
