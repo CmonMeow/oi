@@ -141,31 +141,8 @@ NetStatus serverReceive(NetMessage* msgPtr, NetStatus event, void* data)
 	msg->getDistant(dist);
 	unsigned flags = msg->getFlags();
 
-	bool isMagic = (flags & MSG_MAGIC_FLAG) != 0;
-	if (isMagic) 
-	{
-		if (len < 4)
-			return nsNoMoreCallbacks; 
-		unsigned __int32 magic = *(unsigned __int32*)msg->getData();
-
-		switch (magic)
-		{
-
-		case MAGIC_DESTROY_PLAYER: 
-		{
-			_server->User_Critical_Section.lock(); 
-			__int32 player = _server->channelToPlayer(msg->getChannel());
-			if (player == -1)
-				Error("No player found for channel %p - MAGIC_DESTROY_PLAYER message ignored", (void*)msg->getChannel());
-			else
-				_server->finishDestroyPlayer(player);
-			_server->User_Critical_Section.unlock();
-			break; 
-		}
-		}
-
-		return nsNoMoreCallbacks; 
-	}
+    // Control packets on established server channels cannot remove a player.
+    if (flags & MSG_MAGIC_FLAG) return nsNoMoreCallbacks;
 
 	_server->Receive_Critical_Section.lock();
 	
@@ -417,51 +394,11 @@ NetClient::NetClient()
 	setClient(this);
 }
 
-void NetClient::sendDisconnectMsg()
-{
-	Send_Critical_Section.lock();
-	if (!sessionTerminated) 
-	{
-		sessionTerminated = true;
-		whySessionTerminated = NTRDisconnected;
-		
-		if (channel)
-		{
-			Ref<NetMessage> out = NetMessagePool::pool()->newMessage(4, channel.GetRef());
-			if (out)
-			{
-				unsigned __int32 magic = MAGIC_DESTROY_PLAYER;
-				out->setFlags(MSG_ALL_FLAGS, MSG_MAGIC_FLAG);
-				out->setData((unsigned char*)&magic, sizeof(magic));
-				out->send(true);
-				Sleep(DESTRUCT_WAIT);
-			}
-		}
-	}
-	Send_Critical_Section.unlock();
-}
-
 NetClient::~NetClient()
 {
 	Send_Critical_Section.lock();
-	if (!sessionTerminated) 
-	{
-		sessionTerminated = true;
-		whySessionTerminated = NTRDisconnected;
-		
-		if (channel)
-		{
-			Ref<NetMessage> out = NetMessagePool::pool()->newMessage(4, channel.GetRef());
-			if (out)
-			{
-				unsigned __int32 magic = MAGIC_DESTROY_PLAYER;
-				out->setFlags(MSG_ALL_FLAGS, MSG_MAGIC_FLAG);
-				out->setData((unsigned char*)&magic, 4);
-				out->send(true);
-				Sleep(DESTRUCT_WAIT);
-			}
-		}
-	}
+	sessionTerminated = true;
+    whySessionTerminated = NTRDisconnected;
 
 	setClient(NULL);
 	
@@ -470,10 +407,10 @@ NetClient::~NetClient()
 
 	if (channel)
 	{
-		NetChannel* old = channel.GetRef();
+		Ref<NetChannel> old = channel;
 		channel = NULL;
 		Send_Critical_Section.unlock();
-		getPool()->deleteChannel(old);
+		getPool()->deleteChannel(old.GetRef());
 	}
 	else
 		Send_Critical_Section.unlock();
@@ -517,30 +454,7 @@ NetStatus clientReceive(NetMessage* msgPtr, NetStatus event, void* data)
 			}
 			break; 
 
-		case MAGIC_TERMINATE_SESSION: 
-									  
-			NetTerminationReason reason = NTROther;
-			_client->whySessionTerminatedStr[0] = 0; 
-			if (len >= 2 * sizeof(unsigned __int32))
-			{
-				reason = (NetTerminationReason)((unsigned __int32*)msg->getData())[1];
-				if (len >= 2 * sizeof(unsigned __int32))
-				{
-					__int32 len = ((__int32*)msg->getData())[2];
-					if (len > 0)
-					{
-						if (len > 511)
-							len = 511;
-						strncpy(_client->whySessionTerminatedStr, (char*)msg->getData() + 3 * sizeof(unsigned __int32), len);
-						_client->whySessionTerminatedStr[len] = 0; 
-					}
-				}
-			}
-			_client->Send_Critical_Section.lock();
-			_client->sessionTerminated = true;
-			_client->whySessionTerminated = reason;
-			_client->Send_Critical_Section.unlock();
-			break;
+
 		}
 
 		return nsNoMoreCallbacks;
@@ -808,8 +722,9 @@ bool NetClient::IsSessionTerminated()
 		sessionTerminated = true;
 		whySessionTerminated = NTRTimeout;
 	}
-	Send_Critical_Section.unlock();
-	return sessionTerminated;
+    const bool terminated = sessionTerminated;
+    Send_Critical_Section.unlock();
+    return terminated;
 }
 
 NetTerminationReason NetClient::GetWhySessionTerminated()
@@ -940,22 +855,6 @@ NetServer::NetServer()
 	User_Critical_Section.unlock();
 }
 
-void NetServer::disconnectAllPlayers()
-{
-	
-	m_enumResponse = false;
-	
-	unsigned it;
-	User_Critical_Section.lock();
-	Ref<NetChannel> ch;
-	if (users.getFirst(it, ch))
-		do
-			destroyPlayer(ch.GetRef(), NTRDisconnected);
-		while (users.getNext(it, ch));
-	User_Critical_Section.unlock();
-	Sleep(DESTRUCT_WAIT); 
-}
-
 NetServer::~NetServer()
 {
 	CancelAllMessages();
@@ -1006,46 +905,10 @@ void NetServer::GetConnectionLimits(__int32& maxBandwidthPerClient)
 	maxBandwidthPerClient = networkParams.maxBandwidth;
 }
 
-NetStatus destroyPlayerCallback(NetMessage* msg, NetStatus event, void* data)
-
+void NetServer::destroyPlayer(NetChannel* ch, NetTerminationReason, const char*)
 {
-	poolCriticalSection().lock();
-	__int32 player = static_cast<__int32>(reinterpret_cast<INT_PTR>(data));
-	if (_server)
-		_server->finishDestroyPlayer(player);
-	poolCriticalSection().unlock();
-	return nsNoMoreCallbacks;
-}
-
-void NetServer::destroyPlayer(NetChannel* ch, NetTerminationReason reason, const char* reasonStr)
-{
-	
-	ch->cancelAllMessages();
-	
-	char buf[1024];
-	unsigned __int32* magic = (unsigned __int32*)buf;
-	size_t reasonLenSize = (reasonStr ? strlen(reasonStr) : 0);
-	const size_t maxReasonLen = sizeof(buf) - 3 * sizeof(unsigned __int32) - 1;
-	if (reasonLenSize > maxReasonLen)
-		reasonLenSize = maxReasonLen;
-	__int32 reasonLen = static_cast<__int32>(reasonLenSize);
-	__int32 msgLen = 3 * sizeof(unsigned __int32) + reasonLen;
-	Ref<NetMessage> out = NetMessagePool::pool()->newMessage(msgLen, ch);
-	if (!out)
-		return;
-	magic[0] = MAGIC_TERMINATE_SESSION;
-	magic[1] = reason;
-	magic[2] = reasonLen;
-	if (reasonStr)
-	{
-		memcpy(buf + 3 * sizeof(unsigned __int32), reasonStr, reasonLen);
-		buf[msgLen] = 0;
-	}
-	out->setFlags(MSG_ALL_FLAGS, MSG_MAGIC_FLAG);
-	out->setData((unsigned char*)buf, msgLen);
-	
-	out->setCallback(destroyPlayerCallback, nsOutputSent, reinterpret_cast<void*>(static_cast<INT_PTR>(channelToPlayer(ch))));
-	out->send(true);
+    // Application code sends the encrypted notice before requesting local cleanup.
+    if (ch) finishDestroyPlayer(channelToPlayer(ch));
 }
 
 void NetServer::finishDestroyPlayer(__int32 player)

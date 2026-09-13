@@ -137,22 +137,6 @@ public:
 		return nsOK;
 	}
 
-	virtual NetStatus reconnect(struct sockaddr_in& distant)
-	{
-		if (!opened || !peer)
-			return nsError;
-		NetStatus result = nsOK;
-		Critical_Section.lock();
-		AddRef();
-		peer->unregisterChannel(this);
-		dist = distant;
-		if (!peer->registerChannel(distant, this))
-			result = nsInvalidSharing;
-		Release();
-		Critical_Section.unlock();
-		return result;
-	}
-
 	virtual bool isControl() const { return control; }
 
 	virtual unsigned getLatency()

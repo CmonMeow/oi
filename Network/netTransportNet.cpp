@@ -104,11 +104,8 @@ static __int32 GenerateServerChallenge(const sockaddr_in& distant)
 
 #define MAGIC_ACK_PLAYER 0xaaa51a7e
 
-#define MAGIC_RECONNECT_PLAYER 0x111044ec
 
-#define MAGIC_TERMINATE_SESSION 0x777814a1
 
-#define MAGIC_DESTROY_PLAYER 0xddd15072
 
 #pragma pack(push, netPackets, 1)
 
@@ -162,10 +159,7 @@ struct AckPlayerPacket : public MagicPacket
 	__int32 playerNo;
 };
 
-struct ReconnectPlayerPacket : public MagicPacket 
-{
-	__int32 playerNo;
-};
+
 
 #pragma pack(pop, netPackets)
 
@@ -277,7 +271,7 @@ protected:
 
 	NetTerminationReason whySessionTerminated;
 
-	char whySessionTerminatedStr[512];
+	char whySessionTerminatedStr[512] = {};
 
 	Ref<NetMessage> received;
 
@@ -330,7 +324,6 @@ public:
 		std::string address, std::string password, bool botClient, unsigned short& port,
 		std::string player, CancelNNCallback* cancelNNCallback = NULL);
 
-	virtual ConnectResult ReInit();
 
 	virtual Ref<NetMessage> SendMsg(BYTE* buffer, __int32 bufferSize, DWORD& msgID, NetMsgFlags flags, const Ref<NetMessage>& dependOn);
 
@@ -367,7 +360,6 @@ public:
 
 	virtual unsigned FreeMemory();
 
-	virtual void sendDisconnectMsg();
 };
 
 class ChannelSupport
@@ -523,7 +515,6 @@ protected:
 
 	friend NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data);
 	friend NetStatus serverReceive(NetMessage* msg, NetStatus event, void* data);
-	friend NetStatus destroyPlayerCallback(NetMessage* msg, NetStatus event, void* data);
 	friend NetStatus serverSendComplete(NetMessage* msg, NetStatus event, void* data);
 
 	void destroyPlayer(NetChannel* ch, NetTerminationReason reason, const char* reasonStr = NULL);
@@ -554,7 +545,6 @@ public:
 
 	virtual void CancelAllMessages();
 
-	virtual void disconnectAllPlayers();
 
 	virtual void GetSendQueueInfo(__int32 to, __int32& nMsg, __int32& nBytes, __int32& nMsgG, __int32& nBytesG);
 
@@ -598,17 +588,30 @@ static Ref<NetPeer> clientPeer;
 
 static Ref<NetPeer> serverPeer; 
 
+void destroyPool();
+
 void createPool()
 {
 	if (!pool)
 	{
-		pool = new NetPool();
+        pool = new NetPool();
+        // Run while all global pools and synchronization objects are still alive.
+        static const int registered = std::atexit(destroyPool);
+        if (registered != 0) Error("Could not register network shutdown");
 	}
 }
 
 void destroyPool()
 {
-	poolCriticalSection().lock();
+    // Listener callbacks may need the pool mutex; never hold it while joining them.
+    Ref<NetPeer> closingClient, closingServer;
+    poolCriticalSection().lock();
+    closingClient = clientPeer;
+    closingServer = serverPeer;
+    poolCriticalSection().unlock();
+    if (closingClient) closingClient->stopThreads();
+    if (closingServer) closingServer->stopThreads();
+    poolCriticalSection().lock();
 	if (clientPeer)
 	{
 		if (pool)
@@ -682,18 +685,6 @@ std::recursive_mutex& NatCriticalSection()
 
 void enterNN() { NatCriticalSection().lock(); }
 void leaveNN() { NatCriticalSection().unlock(); }
-
-void sendDisconnectMessages()
-{
-	if (_server)
-	{
-		_server->disconnectAllPlayers();
-	}
-	if (_client)
-	{
-		_client->sendDisconnectMsg();
-	}
-}
 
 void stopUdpListenSend()
 {
@@ -947,35 +938,7 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 		}
 		break;
 
-	case MAGIC_RECONNECT_PLAYER: 
-		if (_server->m_enumResponse && msg->getLength() == sizeof(ReconnectPlayerPacket))
-		{
-			ReconnectPlayerPacket* rpp = (ReconnectPlayerPacket*)msg->getData();
-			_server->User_Critical_Section.lock();
-			Ref<NetChannel> ch;
-			ConnectResult result = CRError;
-			if (_server->users.get(rpp->playerNo, ch) && 
-				ch->reconnect(distant) == nsOK)
-				result = CROK;
-			_server->User_Critical_Section.unlock();
-			
-			AckPlayerPacket app;
-			app.magic = MAGIC_ACK_PLAYER;
-			app.result = result;
-			app.playerNo = rpp->playerNo;
-			Ref<NetMessage> out = NetMessagePool::pool()->newMessage(sizeof(AckPlayerPacket), (result == CROK) ? ch.GetRef() : msg->getChannel());
-			if (out)
-			{
-				if (result != CROK)
-					out->setDistant(distant);
-				out->setFlags(MSG_ALL_FLAGS, MSG_MAGIC_FLAG | ((result == CROK) ? MSG_VIM_FLAG : MSG_FROM_BCAST_FLAG));
-				out->setData((unsigned char*)&app, sizeof(app));
-				out->send(true); 
-			}
-			if (result == CROK) 
-				ch->checkConnectivity(0);
-		}
-		break;
+
 	}
 
 	return nsNoMoreCallbacks;
@@ -998,7 +961,7 @@ NetStatus enumReceive(NetMessage* msg, NetStatus event, void* data)
 	{
 	case MAGIC_ENUM_RESPONSE: 
 	{
-		if (msg->getLength() != SESSION_PACKET_SIZE)
+		if (!_enum || !_enum->_running || msg->getLength() != SESSION_PACKET_SIZE)
 			break;
 
 		SessionPacket* s = (SessionPacket*)msg->getData();
@@ -1098,52 +1061,6 @@ void NetSessionEnum::sendRequest(NetChannel* br, struct sockaddr_in& addr, unsig
 		msg->setData((unsigned char*)&request, sizeof(MagicPacket));
 		msg->send();
 	}
-}
-
-ConnectResult NetClient::ReInit()
-{
-	Error("ReInit not used and no longer supported");
-	enterAll();
-	if (!channel) 
-	{
-		leaveAll();
-		return CRError;
-	}
-	
-	ReconnectPlayerPacket packet;
-	packet.magic = MAGIC_RECONNECT_PLAYER;
-	packet.playerNo = playerNo;
-
-	ackPlayer = CRNone;
-	challengePlayer = 0;
-
-	unsigned __int64 now = GetTickCount64();
-	unsigned __int64 next = now; 
-	unsigned __int64 timeout = now + 1000 * ACK_PLAYER_TIMEOUT;
-	do
-	{
-		if (now >= next)
-		{
-			Ref<NetMessage> msg = NetMessagePool::pool()->newMessage(sizeof(packet), channel.GetRef());
-			if (!msg)
-				return CRError;
-			msg->setFlags(MSG_ALL_FLAGS, MSG_TO_BCAST_FLAG | MSG_MAGIC_FLAG);
-			msg->setData((unsigned char*)&packet, sizeof(packet));
-			msg->send(true); 
-			next = now + 1000 * CREATE_PLAYER_RESEND;
-		}
-		leaveAll();
-		Sleep(NET_CHECK_WAIT);
-		enterAll();
-		now = GetTickCount64();
-	} while (ackPlayer == CRNone && now < timeout);
-
-	if (ackPlayer != CRNone) 
-		channel->checkConnectivity(0);
-
-	ConnectResult result = (ackPlayer == CRNone) ? CRError : (ConnectResult)ackPlayer;
-	leaveAll();
-	return result;
 }
 
 bool NetClient::SendMagicPacket(const void* data, size_t size)

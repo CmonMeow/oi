@@ -237,43 +237,42 @@ class cVoiceChat
     bool _transmitEnabled;
     bool _buttonTransmitEnabled = false;
     unsigned __int64 _lastVoiceSent = 0;
+    bool _captureFailed = false;
+    size_t _captureReadIndex = 0;
     bool _captureReady;
     bool _playbackReady;
     unsigned __int32 _sequence;
 
-    static void CALLBACK CaptureCallback(HWAVEIN waveIn, UINT message, DWORD_PTR instance, DWORD_PTR param1, DWORD_PTR)
+    // All application capture state and codec access stays on the UI thread.
+    void collectCapture()
     {
-        cVoiceChat* self = reinterpret_cast<cVoiceChat*>(instance);
-        if (!self || message != WIM_DATA)
-        {
-            return;
-        }
-
-        WAVEHDR* header = reinterpret_cast<WAVEHDR*>(param1);
-        if (self->_recording && header->dwBytesRecorded >= sizeof(__int16) * VOICE_SAMPLES_PER_PACKET)
-        {
-            NetworkVoicePacket packet;
-            packet.playerId = -1;
-            packet.sequence = self->_sequence++;
-            if (!self->_opus.encode(reinterpret_cast<const __int16*>(header->lpData), packet))
-            {
-                EncodeAdpcmVoicePacket(reinterpret_cast<const __int16*>(header->lpData), packet);
+        if (!_captureReady || !_recording) return;
+        for (size_t count = 0; count < 4; ++count) {
+            CaptureBuffer& buffer = _captureBuffers[_captureReadIndex];
+            WAVEHDR& header = buffer.header;
+            if (!(header.dwFlags & WHDR_DONE)) break;
+            _captureReadIndex = (_captureReadIndex + 1) % 4;
+            if (header.dwBytesRecorded >= sizeof(buffer.samples)) {
+                NetworkVoicePacket packet;
+                packet.playerId = -1;
+                packet.sequence = _sequence++;
+                if (!_opus.encode(buffer.samples, packet)) EncodeAdpcmVoicePacket(buffer.samples, packet);
+                _captureQueue.push_back(packet);
+                while (_captureQueue.size() > 16) _captureQueue.pop_front();
             }
-
-            EnterCriticalSection(&self->_queueLock);
-            self->_captureQueue.push_back(packet);
-            while (self->_captureQueue.size() > 16)
-            {
-                self->_captureQueue.pop_front();
+            header.dwBytesRecorded = 0;
+            if (waveInAddBuffer(_waveIn, &header, sizeof(header)) != MMSYSERR_NOERROR) {
+                captureFailed(); return;
             }
-            LeaveCriticalSection(&self->_queueLock);
         }
+    }
 
-        if (self->_recording)
-        {
-            header->dwBytesRecorded = 0;
-            waveInAddBuffer(waveIn, header, sizeof(WAVEHDR));
-        }
+    void captureFailed()
+    {
+        Error("Microphone start or buffer submission failed");
+        _captureFailed = true;
+        _transmitEnabled = _buttonTransmitEnabled = false;
+        stopRecording();
     }
 
     void openDevices()
@@ -301,7 +300,7 @@ class cVoiceChat
         format.wBitsPerSample = 16;
         format.nBlockAlign = 2;
         format.nAvgBytesPerSec = format.nSamplesPerSec * 2;
-        _captureReady = waveInOpen(&_waveIn, device, &format, (DWORD_PTR)CaptureCallback, (DWORD_PTR)this, CALLBACK_FUNCTION) == MMSYSERR_NOERROR;
+        _captureReady = waveInOpen(&_waveIn, device, &format, 0, 0, CALLBACK_NULL) == MMSYSERR_NOERROR;
         if (_captureReady)
         {
             for (size_t i = 0; i < 4; ++i)
@@ -343,7 +342,7 @@ class cVoiceChat
 
     void startRecording()
     {
-        if (!_captureReady || _recording)
+        if (!_captureReady || _recording || _captureFailed)
         {
             return;
         }
@@ -352,13 +351,16 @@ class cVoiceChat
             waveOutReset(_waveOut);
             cleanupPlaybackBuffers(true);
         }
+        _captureReadIndex = 0;
         _recording = true;
         for (size_t i = 0; i < 4; ++i)
         {
             _captureBuffers[i].header.dwBytesRecorded = 0;
-            waveInAddBuffer(_waveIn, &_captureBuffers[i].header, sizeof(WAVEHDR));
+            if (waveInAddBuffer(_waveIn, &_captureBuffers[i].header, sizeof(WAVEHDR)) != MMSYSERR_NOERROR) {
+                captureFailed(); return;
+            }
         }
-        waveInStart(_waveIn);
+        if (waveInStart(_waveIn) != MMSYSERR_NOERROR) captureFailed();
     }
 
     void stopRecording()
@@ -370,6 +372,7 @@ class cVoiceChat
         _recording = false;
         waveInStop(_waveIn);
         waveInReset(_waveIn);
+        _captureQueue.clear();
     }
 
     bool popCapturedPacket(NetworkVoicePacket& packet)
@@ -393,6 +396,10 @@ class cVoiceChat
             return;
         }
 
+        if (_playbackBuffers.size() >= 48) {
+            cleanupPlaybackBuffers(true);
+            if (_playbackBuffers.size() >= 48) return;
+        }
         PlaybackBuffer* buffer = new PlaybackBuffer;
         ZeroMemory(&buffer->header, sizeof(buffer->header));
         if (packet.codec == VOICE_CODEC_OPUS)
@@ -424,18 +431,11 @@ class cVoiceChat
             return;
         }
         _playbackBuffers.push_back(buffer);
-        while (_playbackBuffers.size() > 48)
-        {
-            PlaybackBuffer* old = _playbackBuffers.front();
-            _playbackBuffers.pop_front();
-            waveOutReset(_waveOut);
-            waveOutUnprepareHeader(_waveOut, &old->header, sizeof(WAVEHDR));
-            delete old;
-        }
     }
 
     void cleanupPlaybackBuffers(bool force = false)
     {
+        if (force && _playbackReady && waveOutReset(_waveOut) != MMSYSERR_NOERROR) return;
         while (!_playbackBuffers.empty())
         {
             PlaybackBuffer* buffer = _playbackBuffers.front();
@@ -443,8 +443,8 @@ class cVoiceChat
             {
                 break;
             }
+            if (waveOutUnprepareHeader(_waveOut, &buffer->header, sizeof(WAVEHDR)) != MMSYSERR_NOERROR) return;
             _playbackBuffers.pop_front();
-            waveOutUnprepareHeader(_waveOut, &buffer->header, sizeof(WAVEHDR));
             delete buffer;
         }
     }
@@ -492,7 +492,7 @@ public:
         while (popCapturedPacket(discarded)) {}
     }
 
-    bool micEnabled() const { return _transmitEnabled; }
+    bool micEnabled() const { return _transmitEnabled && _recording && _captureReady; }
 
     void update(cNetworkRuntime& network, bool talkKeyDown, const PackedClientSettings& settings, bool micClicked = false)
     {
@@ -509,6 +509,7 @@ public:
             return;
         }
 
+        if (!talkKeyDown) _captureFailed = false;
         if (micClicked) _buttonTransmitEnabled = !_buttonTransmitEnabled;
         // PTT takes over from a latched mic; releasing the key must mute it.
         if (talkKeyDown) _buttonTransmitEnabled = false;
@@ -523,6 +524,7 @@ public:
             stopRecording();
         }
 
+        collectCapture();
         NetworkVoicePacket packet;
         while (popCapturedPacket(packet))
         {

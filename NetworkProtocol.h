@@ -14,10 +14,8 @@ using std::vector;
 
 const char* DEFAULT_NETWORK_ADDRESS = "127.0.0.1";
 const unsigned short DEFAULT_NETWORK_PORT = 777;
-const __int32 APP_PROTOCOL_VERSION = 19;
+const __int32 APP_PROTOCOL_VERSION = 23;
 const char* const BAN_LIST_FILENAME = "banlist.txt";
-const char* const MODERATOR_LIST_FILENAME = "moderators.txt";
-const size_t IDENTITY_SUFFIX_CHARS = 6;
 const size_t CHAT_MAX_MESSAGE_CHARS = 140;
 const size_t CHAT_MAX_LINE_CHARS = 192;
 const size_t CHAT_WRAP_CHARS = 54;
@@ -30,7 +28,7 @@ struct NetworkIdentity
 {
     __int32 protocolVersion;
     bool voiceClient;
-    string id;
+    string driveSerial;
     string name;
 };
 
@@ -117,23 +115,12 @@ inline bool MatchesCommand(const string& text, const char* command)
            (text.size() == length || (text.size() > length && isspace((unsigned char)text[length])));
 }
 
-inline string HashIdentitySerial(const string& serial)
+// The existing C: volume serial is sent only to the host for ban matching.
+inline bool ValidDriveSerial(const string& serial)
 {
-    // Keep this legacy hash domain stable: changing it invalidates existing identities.
-    const string input = string("PathEngine identity v1:") + serial;
-    unsigned char hash[crypto_hash_sha256_BYTES];
-    crypto_hash_sha256(hash, reinterpret_cast<const unsigned char*>(input.data()), input.size());
-    char hex[crypto_hash_sha256_BYTES * 2 + 1];
-    sodium_bin2hex(hex, sizeof(hex), hash, sizeof(hash));
-    return hex;
-}
-
-inline bool ValidIdentityHash(const string& id)
-{
-    if (id.size() != 64) return false;
-    for (size_t i = 0; i < id.size(); ++i)
-        if (!((id[i] >= '0' && id[i] <= '9') || (id[i] >= 'a' && id[i] <= 'f'))) return false;
-    return true;
+    if (serial.empty() || serial.size() > 10 || (serial.size() > 1 && serial[0] == '0')) return false;
+    if (serial.find_first_not_of("0123456789") != string::npos) return false;
+    return serial.size() < 10 || serial <= "4294967295";
 }
 
 inline string CleanUserName(const string& text)
@@ -152,19 +139,19 @@ inline bool ValidUserName(const string& name)
     return !name.empty() && name.size() <= 32 && CleanUserName(name) == name;
 }
 
-inline string IdentityDisplayName(const string& name, const string& id)
+inline string IdentityDisplayName(const string& name, __int32 netId)
 {
-    return CleanUserName(name) + "_" + id.substr(0, IDENTITY_SUFFIX_CHARS);
+    return CleanUserName(name) + "_" + std::to_string(netId);
 }
 
-inline string LocalIdentityId()
+inline string LocalDriveSerial()
 {
     DWORD serial = 0;
     if (!GetVolumeInformationA("C:\\", NULL, 0, &serial, NULL, NULL, NULL, 0))
         return string();
     std::ostringstream value;
     value << serial;
-    return HashIdentitySerial(value.str());
+    return value.str();
 }
 
 inline string LocalUserName()
@@ -228,27 +215,12 @@ inline void SaveIdentityList(const char* filename, const vector<string>& list)
 inline void LoadBanList(vector<string>& list)
 {
     LoadIdentityList(BAN_LIST_FILENAME, list);
-    for (size_t i = 0; i < list.size(); ++i)
-        if (!list[i].empty() && list[i].find_first_not_of("0123456789") == string::npos && list[i].size() <= 10)
-            list[i] = HashIdentitySerial(list[i]);
+
 }
 
 inline void SaveBanList(const vector<string>& list)
 {
     SaveIdentityList(BAN_LIST_FILENAME, list);
-}
-
-inline void LoadModeratorList(vector<string>& list)
-{
-    LoadIdentityList(MODERATOR_LIST_FILENAME, list);
-    for (size_t i = 0; i < list.size(); ++i)
-        if (!list[i].empty() && list[i].find_first_not_of("0123456789") == string::npos && list[i].size() <= 10)
-            list[i] = HashIdentitySerial(list[i]);
-}
-
-inline void SaveModeratorList(const vector<string>& list)
-{
-    SaveIdentityList(MODERATOR_LIST_FILENAME, list);
 }
 
 class NetworkMessageRaw
@@ -429,7 +401,7 @@ inline string LocalExecutableName()
 inline void EncodeLocalIdentityRaw(NetworkMessageRaw& raw)
 {
     raw.putInt32(APP_PROTOCOL_VERSION);
-    raw.putString(LocalIdentityId(), 64);
+    raw.putString(LocalDriveSerial(), 10);
     raw.putString(LocalUserName(), 48);
     raw.putUInt8(_stricmp(LocalExecutableName().c_str(), "oi.exe") == 0 ? 1 : 0);
 }
@@ -452,7 +424,7 @@ inline bool ValidAppMessageType(NetAppMessageType type)
 {
     switch (type) {
     case NAMTConnect: case NAMTDisconnect: case NAMTChat: case NAMTHeartbeat:
-    case NAMTPlayerAssign: case NAMTVoice: case NAMTKeyHello: case NAMTKeyAccept:
+    case NAMTSessionEnd: case NAMTPlayerAssign: case NAMTVoice: case NAMTKeyHello: case NAMTKeyAccept:
     case NAMTChatKey: case NAMTPrivateChat: case NAMTEncrypted: return true;
     default: return false;
     }
@@ -554,11 +526,11 @@ inline bool ParseIdentityRaw(const char* buffer, __int32 bufferSize, NetworkIden
 
     NetworkMessageRaw raw(buffer + sizeof(NetAppMessageHeader), payloadSize);
     __int32 version = 0;
-    string id;
+    string driveSerial;
     string name;
     unsigned char voiceClient = 0;
     if (!raw.getInt32(version) ||
-        !raw.getString(id, 64) ||
+        !raw.getString(driveSerial, 10) ||
         !raw.getString(name, 48))
     {
         return false;
@@ -578,13 +550,13 @@ inline bool ParseIdentityRaw(const char* buffer, __int32 bufferSize, NetworkIden
 
     identity.protocolVersion = version;
     identity.voiceClient = voiceClient != 0;
-    identity.id = SanitiseIdentityText(id, 64);
+    identity.driveSerial = driveSerial;
     identity.name = SanitiseIdentityText(name, 48);
     if (identity.name.empty())
     {
         identity.name = "Anon";
     }
-    return ValidIdentityHash(identity.id);
+    return ValidDriveSerial(identity.driveSerial) && ValidUserName(identity.name);
 }
 
 #pragma pack(push, networkPlayerPackets, 1)
@@ -692,7 +664,7 @@ public:
 
     bool acceptServerKey(const string& payload)
     {
-        if (!_hasKeypair || payload.size() != crypto_kx_PUBLICKEYBYTES)
+        if (_ready || !_hasKeypair || payload.size() != crypto_kx_PUBLICKEYBYTES)
         {
             return false;
         }

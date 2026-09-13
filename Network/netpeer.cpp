@@ -255,7 +255,8 @@ DWORD WINAPI udpListenSend(void* param)
 
 		if (tickCounter-- <= 0)
 		{ 
-			for (const auto& it : peer->chMap)
+            const auto channels = peer->chMap;
+            for (const auto& it : channels)
 				if (it.second)
 					it.second->tick();
 
@@ -268,7 +269,8 @@ DWORD WINAPI udpListenSend(void* param)
 		if (checkCounter-- <= 0)
 		{ 
 			now = GetTickCount64();
-			for (const auto& it : peer->chMap)
+            const auto channels = peer->chMap;
+            for (const auto& it : channels)
 				if (it.second)
 					it.second->checkConnectivity(now);
 
@@ -295,10 +297,11 @@ void NetPeerUDP::close()
 	bool wasListen = listen;
 	listen = false;
 	
-	for (auto& it : chMap)
-		if (it.second)
-			it.second->close();
-	chMap.clear();
+    // close() unregisters the channel: preserve ownership and avoid invalidating iteration.
+    auto closingChannels = std::move(chMap);
+    chMap.clear();
+    for (auto& entry : closingChannels)
+        if (entry.second) entry.second->close();
 
 	if (broadcastCh)
 	{

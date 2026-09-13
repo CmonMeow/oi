@@ -2,6 +2,7 @@
 
 class cNetworkRuntime
 {
+    bool _remoteEnded = false;
     HWND _hWnd;
     NetTranspServer* _server;
     NetTranspClient* _client;
@@ -12,8 +13,7 @@ class cNetworkRuntime
     __int32 _localPlayerId;
     __int32 _latencyMS;
     __int32 _throughputBPS;
-    vector<string> _bannedIdentities;
-    vector<string> _moderatorIdentities;
+    vector<string> _bannedSerials;
     std::map<__int32, NetworkIdentity> _playerIdentities;
     std::map<__int32, string> _privateChatKeys;
     std::map<__int32, string> _privateChatNames;
@@ -227,7 +227,7 @@ class cNetworkRuntime
             messageSize = (__int32)decrypted.size();
             return true;
         }
-        return !_clientCrypto.ready() || header->type == NAMTKeyAccept;
+        return !_clientCrypto.ready() && header->type == NAMTKeyAccept;
     }
 
     bool prepareServerMessage(__int32 from, char* buffer, __int32 bufferSize, string& decrypted, const char*& message, __int32& messageSize)
@@ -301,6 +301,38 @@ class cNetworkRuntime
                packet.data.size() <= VOICE_MAX_OPUS_BYTES;
     }
 
+    // Bounded drain lets the transport send/retry notices before channel teardown.
+    void flushOutgoing(__int32 onlyPlayer = -1)
+    {
+        const unsigned __int64 deadline = GetTickCount64() + 250;
+        do {
+            bool pending = false;
+            __int32 count=0, bytes=0, guaranteed=0, guaranteedBytes=0;
+            if (_client) {
+                _client->GetSendQueueInfo(count,bytes,guaranteed,guaranteedBytes);
+                pending = count > 0 || guaranteed > 0;
+            }
+            if (_server) for (__int32 player : _players) {
+                if (onlyPlayer >= 0 && player != onlyPlayer) continue;
+                _server->GetSendQueueInfo(player,count,bytes,guaranteed,guaranteedBytes);
+                pending = pending || count > 0 || guaranteed > 0;
+            }
+            if (!pending) break;
+            Sleep(5);
+        } while (GetTickCount64() < deadline);
+    }
+
+    void endPlayerSession(__int32 player, NetTerminationReason reason, const char* text)
+    {
+        auto crypto = _serverCrypto.find(player);
+        if (crypto != _serverCrypto.end() && crypto->second.ready()) {
+            NetworkMessageRaw raw; raw.putString(text, CHAT_MAX_LINE_CHARS);
+            sendRawFromServer(player, NAMTSessionEnd, raw, (NetMsgFlags)(NMFGuaranteed | NMFHighPriority));
+            flushOutgoing(player);
+        }
+        _server->KickOff(player, reason, text);
+    }
+
     void onClientMessage(char* buffer, __int32 bufferSize)
     {
         string decrypted;
@@ -361,6 +393,11 @@ class cNetworkRuntime
         }
 
         string text;
+        if (ParseAppRawString(message, messageSize, NAMTSessionEnd, text, CHAT_MAX_LINE_CHARS)) {
+            addChatLine(text, CLKSystem);
+            _remoteEnded = true;
+            return;
+        }
         if (ParseAppRawString(message, messageSize, NAMTConnect, text, CHAT_MAX_LINE_CHARS) ||
             ParseAppRawString(message, messageSize, NAMTDisconnect, text, CHAT_MAX_LINE_CHARS))
         {
@@ -468,28 +505,20 @@ class cNetworkRuntime
             }
             else
             {
-                _server->KickOff(from, NTRKicked, "crypto failed");
+                endPlayerSession(from, NTRKicked, "crypto failed");
             }
             return;
         }
         NetworkIdentity rawIdentity;
         if (ParseIdentityRaw(message, messageSize, rawIdentity))
         {
-            if (std::find(_bannedIdentities.begin(), _bannedIdentities.end(), rawIdentity.id) != _bannedIdentities.end())
+            if (std::find(_bannedSerials.begin(), _bannedSerials.end(), rawIdentity.driveSerial) != _bannedSerials.end())
             {
-                _server->KickOff(from, NTRBanned, "banned");
+                endPlayerSession(from, NTRBanned, "banned");
                 return;
             }
             if (_playerIdentities.find(from) != _playerIdentities.end()) return;
-            for (std::map<__int32, NetworkIdentity>::const_iterator i = _playerIdentities.begin(); i != _playerIdentities.end(); ++i)
-            {
-                if (i->second.id.substr(0, IDENTITY_SUFFIX_CHARS) == rawIdentity.id.substr(0, IDENTITY_SUFFIX_CHARS))
-                {
-                    _server->KickOff(from, NTRKicked, "Identity already connected or suffix collision.");
-                    return;
-                }
-            }
-            rawIdentity.name = IdentityDisplayName(rawIdentity.name, rawIdentity.id);
+            rawIdentity.name = IdentityDisplayName(rawIdentity.name, from);
             _playerIdentities[from] = rawIdentity;
             sendInitialStateTo(from);
             return;
@@ -497,7 +526,7 @@ class cNetworkRuntime
 
         if (messageHeader->type == NAMTConnect)
         {
-            _server->KickOff(from, NTRKicked, "Incompatible identity; update your client.");
+            endPlayerSession(from, NTRKicked, "Incompatible identity; update your client.");
             return;
         }
 
@@ -508,6 +537,7 @@ class cNetworkRuntime
         if (ParseAppRawControl(message, messageSize, NAMTDisconnect))
         {
             _pendingLeaveMessages[from] = "client disconnecting";
+            _server->KickOff(from, NTRDisconnected, "Client left.");
             return;
         }
 
@@ -826,13 +856,6 @@ class cNetworkRuntime
         return fallback.str();
     }
 
-    bool isModerator(__int32 player) const
-    {
-        std::map<__int32, NetworkIdentity>::const_iterator found = _playerIdentities.find(player);
-        return found != _playerIdentities.end() &&
-               std::find(_moderatorIdentities.begin(), _moderatorIdentities.end(), found->second.id) != _moderatorIdentities.end();
-    }
-
     bool resolvePlayerReference(const string& reference, __int32& player, bool allowBaseName = false) const
     {
         string value = TrimWhitespace(reference);
@@ -849,15 +872,6 @@ class cNetworkRuntime
         {
             player = (__int32)numeric;
             return true;
-        }
-
-        for (std::map<__int32, NetworkIdentity>::const_iterator i = _playerIdentities.begin(); i != _playerIdentities.end(); ++i)
-        {
-            if (!i->second.id.empty() && _stricmp(i->second.id.substr(0, IDENTITY_SUFFIX_CHARS).c_str(), value.c_str()) == 0)
-            {
-                player = i->first;
-                return true;
-            }
         }
 
         for (std::map<__int32, NetworkIdentity>::const_iterator i = _playerIdentities.begin(); i != _playerIdentities.end(); ++i)
@@ -941,7 +955,7 @@ class cNetworkRuntime
     bool sendPrivateChatByReferenceInternal(const string& reference, const string& message)
     {
         __int32 target = -1;
-        if (!resolvePlayerReference(reference, target))
+        if (!resolvePlayerReference(reference, target, true))
         {
             addChatLine("system: private target not found", CLKSystem);
             return false;
@@ -971,38 +985,6 @@ class cNetworkRuntime
         return false;
     }
 
-    bool grantModerator(const string& reference, string& result)
-    {
-        if (!_server)
-        {
-            result = "host only command";
-            return false;
-        }
-
-        __int32 player = -1;
-        if (!resolvePlayerReference(reference, player))
-        {
-            result = "player not found";
-            return false;
-        }
-
-        std::map<__int32, NetworkIdentity>::const_iterator identity = _playerIdentities.find(player);
-        if (identity == _playerIdentities.end() || identity->second.id.empty())
-        {
-            result = "player has no identity yet";
-            return false;
-        }
-
-        if (AddUniqueString(_moderatorIdentities, identity->second.id))
-        {
-            SaveModeratorList(_moderatorIdentities);
-        }
-        result = playerDisplayName(player) + " is now a moderator";
-        addChatLine(string("system: ") + result, CLKSystem);
-        sendRawStringFromServerToAll(NAMTChat, string("system: ") + result, CHAT_MAX_LINE_CHARS);
-        return true;
-    }
-
     void sendUsersList(__int32 to)
     {
         std::ostringstream summary;
@@ -1028,13 +1010,11 @@ class cNetworkRuntime
     {
         if (_stricmp(command.c_str(), "/help") == 0)
         {
-            if (from == 0 || isModerator(from))
-            {
-                sendCommandResult(from, "/kick name|name_hash|netId - kick player");
-                sendCommandResult(from, "/ban name|name_hash|netId - ban player");
-            }
             if (from == 0)
-                sendCommandResult(from, "/gm name_hash|netId - grant moderator");
+            {
+                sendCommandResult(from, "/kick name|name_netId|netId - kick player");
+                sendCommandResult(from, "/ban name|name_netId|netId - ban player");
+            }
             return;
         }
         if (MatchesCommand(command, "/name"))
@@ -1057,7 +1037,7 @@ class cNetworkRuntime
                 return;
             }
             string oldName = identity->second.name;
-            identity->second.name = IdentityDisplayName(name, identity->second.id);
+            identity->second.name = IdentityDisplayName(name, from);
             _privateChatNames[from] = identity->second.name;
             std::map<__int32, string>::const_iterator key = _privateChatKeys.find(from);
             if (key != _privateChatKeys.end()) broadcastChatKey(from, identity->second.name, key->second);
@@ -1071,9 +1051,9 @@ class cNetworkRuntime
             sendUsersList(from);
             return;
         }
-        if (from != 0 && !isModerator(from))
+        if (from != 0)
         {
-            sendCommandResult(from, "moderator only command");
+            sendCommandResult(from, "host only command");
             return;
         }
 
@@ -1082,10 +1062,10 @@ class cNetworkRuntime
             string argument = TrimWhitespace(command.size() > 5 ? command.substr(5) : string());
             if (argument.empty())
             {
-                sendCommandResult(from, "usage: /kick name|name_hash|netId");
+                sendCommandResult(from, "usage: /kick name|name_netId|netId");
                 return;
             }
-            sendCommandResult(from, kickPlayer(argument, false) ? "kick sent" : "Player not found or name ambiguous; use name_hash or netId.");
+            sendCommandResult(from, kickPlayer(argument, false) ? "kick sent" : "Player not found or name ambiguous; use name_netId or netId.");
             return;
         }
         if (MatchesCommand(command, "/ban"))
@@ -1093,25 +1073,13 @@ class cNetworkRuntime
             string argument = TrimWhitespace(command.size() > 4 ? command.substr(4) : string());
             if (argument.empty())
             {
-                sendCommandResult(from, "usage: /ban name|name_hash|netId");
+                sendCommandResult(from, "usage: /ban name|name_netId|netId");
                 return;
             }
-            sendCommandResult(from, kickPlayer(argument, true) ? "ban sent" : "Player not found or name ambiguous; use name_hash or netId.");
+            sendCommandResult(from, kickPlayer(argument, true) ? "ban sent" : "Player not found or name ambiguous; use name_netId or netId.");
             return;
         }
-        if (MatchesCommand(command, "/gm"))
-        {
-            if (from != 0) { sendCommandResult(from, "host only command"); return; }
-            string argument = TrimWhitespace(command.size() > 3 ? command.substr(3) : string());
-            string result;
-            if (argument.empty())
-            {
-                sendCommandResult(from, "usage: /gm name_hash|netId");
-                return;
-            }
-            sendCommandResult(from, grantModerator(argument, result) ? result : result);
-            return;
-        }
+
         sendCommandResult(from, string("unknown command: ") + command);
     }
 
@@ -1134,6 +1102,7 @@ public:
 
     ~cNetworkRuntime()
     {
+        if (_client || _server) disconnect();
         delete _client;
         delete _server;
     }
@@ -1167,8 +1136,7 @@ public:
             return false;
         }
 
-        LoadBanList(_bannedIdentities);
-        LoadModeratorList(_moderatorIdentities);
+        LoadBanList(_bannedSerials);
         return true;
     }
 
@@ -1180,7 +1148,7 @@ public:
             return false;
         }
 
-        if (LocalIdentityId().empty())
+        if (LocalDriveSerial().empty())
         {
             addChatLine("Cannot read the C: volume identity.", CLKSystem);
             return false;
@@ -1223,13 +1191,12 @@ public:
         {
             _client->ProcessUserMessages(OnClientMessage, this);
             _client->GetConnectionInfo(_latencyMS, _throughputBPS);
-            if (_client->IsSessionTerminated())
+            if (_remoteEnded || _client->IsSessionTerminated())
             {
                 string reason = _client->GetWhySessionTerminatedStr();
-                addChatLine(reason.empty() ? "disconnected" : reason);
-                delete _client;
-                _client = NULL;
-                _localPlayerId = -1;
+                if (!_remoteEnded && !reason.empty()) addChatLine(reason);
+                _remoteEnded = true;
+                disconnect();
 
             }
             else
@@ -1308,10 +1275,10 @@ public:
         addChatLine("/disconnect - leave or stop hosting", CLKSystem);
         addChatLine("/clear - clear chat", CLKSystem);
         addChatLine("/users - list connected users", CLKSystem);
-        addChatLine("/pm name_hash|netId message - private message", CLKSystem);
-        addChatLine("/w name_hash|netId message - private message", CLKSystem);
-        addChatLine("/tell name_hash|netId message - private message", CLKSystem);
-        addChatLine("/direct name_hash|netId message - private message", CLKSystem);
+        addChatLine("/pm name_netId|netId message - private message", CLKSystem);
+        addChatLine("/w name_netId|netId message - private message", CLKSystem);
+        addChatLine("/tell name_netId|netId message - private message", CLKSystem);
+        addChatLine("/direct name_netId|netId message - private message", CLKSystem);
         if (_server)
         {
             runPlayerCommand(0, "/help");
@@ -1344,7 +1311,7 @@ public:
         file.close();
         if (!file) { addChatLine("Could not save your name.", CLKSystem); return; }
         if (_client) sendChat("/name " + name);
-        else addChatLine("Name saved: " + IdentityDisplayName(name, LocalIdentityId()), CLKSystem);
+        else addChatLine("Name saved: " + name, CLKSystem);
     }
 
     bool sendPrivateChatByReference(const string& reference, const string& message)
@@ -1387,7 +1354,7 @@ public:
         __int32 player = -1;
         if (!resolvePlayerReference(reference, player, true))
         {
-            addChatLine("Player not found or name ambiguous; use name_hash or netId.", CLKSystem);
+            addChatLine("Player not found or name ambiguous; use name_netId or netId.", CLKSystem);
             return false;
         }
         const string displayName = playerDisplayName(player);
@@ -1395,23 +1362,19 @@ public:
         {
             std::map<__int32, NetworkIdentity>::const_iterator identity = _playerIdentities.find(player);
             if (identity != _playerIdentities.end() &&
-                AddUniqueString(_bannedIdentities, identity->second.id))
+                AddUniqueString(_bannedSerials, identity->second.driveSerial))
             {
-                SaveBanList(_bannedIdentities);
+                SaveBanList(_bannedSerials);
             }
         }
         std::ostringstream line;
         line << displayName << (ban ? " was banned" : " was kicked");
         _pendingLeaveMessages[player] = line.str();
-        _server->KickOff(player, ban ? NTRBanned : NTRKicked, line.str().c_str());
+        endPlayerSession(player, ban ? NTRBanned : NTRKicked, line.str().c_str());
         return true;
     }
 
-    bool makeModerator(const string& reference)
-    {
-        string result;
-        return grantModerator(reference, result);
-    }
+
 
     bool isHost() const
     {
@@ -1452,13 +1415,15 @@ public:
     {
         if (!_client && !_server) return false;
         const bool hosting = _server != NULL;
-        if (_client) sendRawControlFromClient(NAMTDisconnect);
+        if (_client && !_remoteEnded) sendRawControlFromClient(NAMTDisconnect);
         if (_server)
-            sendRawStringFromServerToAll(NAMTDisconnect, "system: Host stopped the server.", CHAT_MAX_LINE_CHARS);
+            sendRawStringFromServerToAll(NAMTSessionEnd, "system: Host stopped the server.", CHAT_MAX_LINE_CHARS);
+        flushOutgoing();
         delete _client;
         delete _server;
         _client = NULL;
         _server = NULL;
+        _remoteEnded = false;
         _localPlayerId = -1;
         _players.clear();
         _playerIdentities.clear();

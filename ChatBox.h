@@ -315,7 +315,6 @@ class cChatBox
         Disconnect,
         Kick,
         Ban,
-        Gm,
         Users,
         Pm,
         Whisper,
@@ -340,7 +339,6 @@ class cChatBox
         { "/disconnect", ChatCommand::Disconnect },
         { "/kick",       ChatCommand::Kick       },
         { "/ban",        ChatCommand::Ban        },
-        { "/gm",         ChatCommand::Gm         },
         { "/users",      ChatCommand::Users      },
         { "/pm",         ChatCommand::Pm         },
         { "/w",          ChatCommand::Whisper    },
@@ -404,7 +402,6 @@ class cChatBox
 
         case ChatCommand::Kick:
         case ChatCommand::Ban:
-        case ChatCommand::Gm:
         case ChatCommand::Users:
             network.sendChat(command);
             break;

@@ -63,7 +63,6 @@ protected:
 public:
 	virtual NetStatus open(NetPeer* _peer, struct sockaddr_in& distant) = 0;
 
-	virtual NetStatus reconnect(struct sockaddr_in& distant) = 0;
 
 	virtual void getDistantAddress(struct sockaddr_in& distant) const = 0;
 
@@ -288,8 +287,9 @@ public:
 	{
 		if (!channel)
 			return;
-		channel->close();
-		for (auto it = channels.begin(); it != channels.end();)
+        Ref<NetChannel> keepAlive = channel;
+        channel->close();
+        for (auto it = channels.begin(); it != channels.end();)
 		{
 			if (it->second.GetRef() == channel)
 				it = channels.erase(it);

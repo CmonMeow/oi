@@ -82,7 +82,7 @@ enum NetMsgFlags {
 enum NetAppMessageType : unsigned char {
     NAMTConnect = 1, NAMTDisconnect = 2, NAMTChat = 3, NAMTHeartbeat = 4,
     NAMTPlayerAssign = 5, NAMTVoice = 12, NAMTKeyHello = 13, NAMTKeyAccept = 14,
-    NAMTChatKey = 17, NAMTPrivateChat = 18, NAMTEncrypted = 26
+    NAMTChatKey = 17, NAMTPrivateChat = 18, NAMTEncrypted = 26, NAMTSessionEnd = 27
 };
 
 #pragma pack(push, netAppMessage, 1)

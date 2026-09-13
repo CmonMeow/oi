@@ -88,17 +88,6 @@ static void RunConsoleCommand(const string& inputLine, cNetworkRuntime& network,
         }
         return;
     }
-    if (MatchesCommand(line, "/gm"))
-    {
-        if (network.isHost())
-        {
-            network.makeModerator(TrimWhitespace(line.size() > 3 ? line.substr(3) : string()));
-        }
-        else
-        {
-            network.sendChat(line);
-        }
-        return;
-    }
+
     network.sendChat(line);
 }

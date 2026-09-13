@@ -72,9 +72,9 @@ protected:
     std::atomic<unsigned __int64> outgoingBytes{0};
 	SOCKET sock;
 
-	HANDLE listener;
+	HANDLE listener = NULL;
 
-	bool listen;
+	std::atomic<bool> listen{false};
 
 	friend DWORD WINAPI udpListenSend(void* param);
 
@@ -148,15 +148,16 @@ public:
 
 	virtual void unregisterChannel(NetChannel* ch)
 	{
-		if (!ch)
-			return;
-		for (auto it = chMap.begin(); it != chMap.end();)
+        if (!ch) return;
+        Critical_Section.lock();
+        for (auto it = chMap.begin(); it != chMap.end();)
 		{
 			if (it->second.GetRef() == ch)
 				it = chMap.erase(it);
 			else
 				++it;
 		}
+        Critical_Section.unlock();
 	}
 
 	virtual NetChannel* findChannel(const struct sockaddr_in& distant);
@@ -224,9 +225,9 @@ public:
 	virtual void cancelAllMessages()
 	{
 		Critical_Section.lock();
-		for (const auto& it : chMap)
-			if (it.second)
-				it.second->cancelAllMessages();
+        const auto channels = chMap;
+        for (const auto& it : channels)
+            if (it.second) it.second->cancelAllMessages();
 
 		Critical_Section.unlock();
 	}
