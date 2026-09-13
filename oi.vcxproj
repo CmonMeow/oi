@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectName>VoiceClient</ProjectName>
+    <ProjectName>oi</ProjectName>
     <ProjectGuid>{D716CB4F-8140-43CE-B53B-7C057DC4DAA2}</ProjectGuid>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -41,8 +41,8 @@
     <_ProjectFileVersion>16.0.34930.59</_ProjectFileVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <TargetName>ChatClient</TargetName>
-    <OutDir>$(ProjectDir)bin\$(Platform)\</OutDir>
+    <TargetName>oi</TargetName>
+    <OutDir>$(ProjectDir)bin\</OutDir>
     <IntDir>$(ProjectDir)build\$(Platform)\$(ProjectName)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(IncludePath)</IncludePath>
@@ -50,8 +50,8 @@
     <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <TargetName>ChatClient</TargetName>
-    <OutDir>$(ProjectDir)bin\$(Platform)\</OutDir>
+    <TargetName>oi</TargetName>
+    <OutDir>$(ProjectDir)bin\</OutDir>
     <IntDir>$(ProjectDir)build\$(Platform)\$(ProjectName)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(IncludePath)</IncludePath>
@@ -79,7 +79,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>ws2_32.lib;winmm.lib;user32.lib;shell32.lib;opengl32.lib;gdi32.lib;$(ProjectDir)third_party\opus\lib\Win32\Release\opus.lib;$(ProjectDir)third_party\libsodium\lib\Win32\Release\libsodium.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)ChatClient.exe</OutputFile>
+      <OutputFile>$(OutDir)oi.exe</OutputFile>
       <ProgramDatabaseFile>$(IntDir)$(ProjectName).pdb</ProgramDatabaseFile>
       <ImportLibrary>$(IntDir)$(ProjectName).lib</ImportLibrary>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -114,7 +114,7 @@
     <Link>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>ws2_32.lib;winmm.lib;user32.lib;shell32.lib;opengl32.lib;gdi32.lib;$(ProjectDir)third_party\opus\lib\x64\Release\opus.lib;$(ProjectDir)third_party\libsodium\lib\x64\Release\libsodium.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)ChatClient.exe</OutputFile>
+      <OutputFile>$(OutDir)oi.exe</OutputFile>
       <ProgramDatabaseFile>$(IntDir)$(ProjectName).pdb</ProgramDatabaseFile>
       <ImportLibrary>$(IntDir)$(ProjectName).lib</ImportLibrary>
       <GenerateDebugInformation>true</GenerateDebugInformation>

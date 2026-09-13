@@ -87,7 +87,7 @@ int main()
     wc.hIcon = LoadIconA(instance, MAKEINTRESOURCEA(IDI_CORE));
     wc.hCursor = LoadCursorA(instance, MAKEINTRESOURCEA(IDC_POINTER_GREEN));
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-    wc.lpszClassName = "ChatClientWindow";
+    wc.lpszClassName = "oiWindow";
     wc.hIconSm = wc.hIcon;
 
     if (!RegisterClassExA(&wc))
@@ -101,7 +101,7 @@ int main()
     HWND hwnd = CreateWindowExA(
         0,
         wc.lpszClassName,
-        "Chat",
+        "oi",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
         CW_USEDEFAULT,
         CW_USEDEFAULT,

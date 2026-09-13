@@ -382,7 +382,7 @@ class cNetworkRuntime
         {
             if (_clientCrypto.acceptServerKey(keyBytes))
             {
-                Error("Chat: client crypto accepted server key.");
+                Error("oi: client crypto accepted server key.");
                 sendRawIdentityFromClient();
                 sendPrivateChatKeyFromClient();
             }
@@ -463,7 +463,7 @@ class cNetworkRuntime
             string response;
             if (_serverCrypto[from].acceptClientHello(keyBytes, response))
             {
-                Error("Chat: server accepted crypto hello from %d.", from);
+                Error("oi: server accepted crypto hello from %d.", from);
                 NetworkMessageRaw raw;
                 raw.put(response.data(), (__int32)response.size());
                 sendPlainRawFromServer(from, NAMTKeyAccept, raw);
@@ -1160,7 +1160,7 @@ public:
         ensurePrivateChatKey();
         _nextServerBroadcast = 0;
         _server = CreateNetServer();
-        if (!_server || !_server->Init("Chat", "", port))
+        if (!_server || !_server->Init("oi", "", port))
         {
             addChatLine("host failed");
             Error("Network host failed on port %u", port);
@@ -1189,7 +1189,7 @@ public:
         }
         unsigned short port = DEFAULT_NETWORK_PORT;
         _client = CreateNetClient();
-        ConnectResult result = _client ? _client->Init(address, "", false, port, "ChatClient", NULL) : CRError;
+        ConnectResult result = _client ? _client->Init(address, "", false, port, "oi", NULL) : CRError;
         if (result != CROK)
         {
             addChatLine(string("Failed to join. Error: ") + ConnectResultName(result));

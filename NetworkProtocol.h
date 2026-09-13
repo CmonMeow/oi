@@ -415,7 +415,7 @@ inline string LocalExecutableName()
     char path[MAX_PATH];
     if (!GetModuleFileNameA(NULL, path, sizeof(path)))
     {
-        return "ChatClient.exe";
+        return "oi.exe";
     }
     const char* slash = strrchr(path, '\\');
     const char* slash2 = strrchr(path, '/');
@@ -431,7 +431,7 @@ inline void EncodeLocalIdentityRaw(NetworkMessageRaw& raw)
     raw.putInt32(APP_PROTOCOL_VERSION);
     raw.putString(LocalIdentityId(), 64);
     raw.putString(LocalUserName(), 48);
-    raw.putUInt8(_stricmp(LocalExecutableName().c_str(), "ChatClient.exe") == 0 ? 1 : 0);
+    raw.putUInt8(_stricmp(LocalExecutableName().c_str(), "oi.exe") == 0 ? 1 : 0);
 }
 
 inline string BuildAppRawMessage(NetAppMessageType type, const NetworkMessageRaw& raw)
