@@ -91,7 +91,7 @@ void RunChatClient(HWND hWnd)
         if (now - lastTitleUpdate >= 1000 || previousTitle.empty())
         {
             unsigned __int64 incoming = 0, outgoing = 0;
-            const bool connected = network.clientTrafficTotals(incoming, outgoing);
+            const bool connected = network.trafficTotals(incoming, outgoing);
             char title[192];
             if (connected)
             {
@@ -100,14 +100,15 @@ void RunChatClient(HWND hWnd)
                     incoming >= previousIncoming && outgoing >= previousOutgoing;
                 const double inputRate = validSample ? (incoming - previousIncoming) / seconds / 1024.0 : 0;
                 const double outputRate = validSample ? (outgoing - previousOutgoing) / seconds / 1024.0 : 0;
-                if (network.clientReady())
+                if (network.isHost())
+                    snprintf(title, sizeof(title), "Hosting | Avg ping: %d ms | In: %.1f KiB/s | Out: %.1f KiB/s",
+                             network.latencyMS(), inputRate, outputRate);
+                else if (network.clientReady())
                     snprintf(title, sizeof(title), "Ping: %d ms | In: %.1f KiB/s | Out: %.1f KiB/s",
                              network.latencyMS(), inputRate, outputRate);
                 else
                     snprintf(title, sizeof(title), "Connecting | In: %.1f KiB/s | Out: %.1f KiB/s", inputRate, outputRate);
             }
-            else if (network.isHost())
-                snprintf(title, sizeof(title), "Hosting | UDP port %u", DEFAULT_NETWORK_PORT);
             else
                 snprintf(title, sizeof(title), "Disconnected");
             if (previousTitle != title)

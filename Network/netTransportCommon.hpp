@@ -868,6 +868,14 @@ NetServer::~NetServer()
 	FreeMemory();
 }
 
+void NetServer::GetTrafficTotals(unsigned __int64& incoming, unsigned __int64& outgoing) const
+{
+    std::lock_guard<std::recursive_mutex> guard(poolCriticalSection());
+    NetPeer* peer = getServerPeer(false);
+    incoming = outgoing = 0;
+    if (peer) peer->getTrafficTotals(incoming, outgoing);
+}
+
 void NetServer::GetSendQueueInfo(__int32 to, __int32& nMsg, __int32& nBytes, __int32& nMsgG, __int32& nBytesG)
 {
 	User_Critical_Section.lock();

@@ -536,7 +536,7 @@ class cNetworkRuntime
         }
         if (ParseAppRawControl(message, messageSize, NAMTDisconnect))
         {
-            _pendingLeaveMessages[from] = "client disconnecting";
+            _pendingLeaveMessages[from] = playerDisplayName(from) + " disconnected";
             _server->KickOff(from, NTRDisconnected, "Client left.");
             return;
         }
@@ -889,8 +889,8 @@ class cNetworkRuntime
             for (std::map<__int32, NetworkIdentity>::const_iterator i = _playerIdentities.begin(); i != _playerIdentities.end(); ++i)
             {
                 const string& name = i->second.name;
-                size_t suffix = name.rfind('_');
-                if (suffix == string::npos || _stricmp(name.substr(0, suffix).c_str(), value.c_str()) != 0) continue;
+                size_t prefix = name.find(':');
+                if (prefix == string::npos || _stricmp(name.substr(prefix + 1).c_str(), value.c_str()) != 0) continue;
                 if (found) return false;
                 match = i->first;
                 found = true;
@@ -1000,7 +1000,7 @@ class cNetworkRuntime
                 latency = 0;
             }
             std::ostringstream line;
-            line << "#" << player << " " << playerDisplayName(player);
+            line << playerDisplayName(player);
             line << " " << latency << "ms";
             sendCommandResult(to, line.str());
         }
@@ -1012,8 +1012,8 @@ class cNetworkRuntime
         {
             if (from == 0)
             {
-                sendCommandResult(from, "/kick name|name_netId|netId - kick player");
-                sendCommandResult(from, "/ban name|name_netId|netId - ban player");
+                sendCommandResult(from, "/kick name|netId:name|netId - kick player");
+                sendCommandResult(from, "/ban name|netId:name|netId - ban player");
             }
             return;
         }
@@ -1062,10 +1062,10 @@ class cNetworkRuntime
             string argument = TrimWhitespace(command.size() > 5 ? command.substr(5) : string());
             if (argument.empty())
             {
-                sendCommandResult(from, "usage: /kick name|name_netId|netId");
+                sendCommandResult(from, "usage: /kick name|netId:name|netId");
                 return;
             }
-            sendCommandResult(from, kickPlayer(argument, false) ? "kick sent" : "Player not found or name ambiguous; use name_netId or netId.");
+            sendCommandResult(from, kickPlayer(argument, false) ? "kick sent" : "Player not found or name ambiguous; use netId:name or netId.");
             return;
         }
         if (MatchesCommand(command, "/ban"))
@@ -1073,10 +1073,10 @@ class cNetworkRuntime
             string argument = TrimWhitespace(command.size() > 4 ? command.substr(4) : string());
             if (argument.empty())
             {
-                sendCommandResult(from, "usage: /ban name|name_netId|netId");
+                sendCommandResult(from, "usage: /ban name|netId:name|netId");
                 return;
             }
-            sendCommandResult(from, kickPlayer(argument, true) ? "ban sent" : "Player not found or name ambiguous; use name_netId or netId.");
+            sendCommandResult(from, kickPlayer(argument, true) ? "ban sent" : "Player not found or name ambiguous; use netId:name or netId.");
             return;
         }
 
@@ -1231,11 +1231,12 @@ public:
         }
     }
 
-    bool clientTrafficTotals(unsigned __int64& incoming, unsigned __int64& outgoing) const
+    bool trafficTotals(unsigned __int64& incoming, unsigned __int64& outgoing) const
     {
         incoming = outgoing = 0;
-        if (!_client) return false;
-        _client->GetTrafficTotals(incoming, outgoing);
+        if (_server) _server->GetTrafficTotals(incoming, outgoing);
+        else if (_client) _client->GetTrafficTotals(incoming, outgoing);
+        else return false;
         return true;
     }
 
@@ -1275,10 +1276,10 @@ public:
         addChatLine("/disconnect - leave or stop hosting", CLKSystem);
         addChatLine("/clear - clear chat", CLKSystem);
         addChatLine("/users - list connected users", CLKSystem);
-        addChatLine("/pm name_netId|netId message - private message", CLKSystem);
-        addChatLine("/w name_netId|netId message - private message", CLKSystem);
-        addChatLine("/tell name_netId|netId message - private message", CLKSystem);
-        addChatLine("/direct name_netId|netId message - private message", CLKSystem);
+        addChatLine("/pm name|netId:name|netId message - private message", CLKSystem);
+        addChatLine("/w name|netId:name|netId message - private message", CLKSystem);
+        addChatLine("/tell name|netId:name|netId message - private message", CLKSystem);
+        addChatLine("/direct name|netId:name|netId message - private message", CLKSystem);
         if (_server)
         {
             runPlayerCommand(0, "/help");
@@ -1354,7 +1355,7 @@ public:
         __int32 player = -1;
         if (!resolvePlayerReference(reference, player, true))
         {
-            addChatLine("Player not found or name ambiguous; use name_netId or netId.", CLKSystem);
+            addChatLine("Player not found or name ambiguous; use netId:name or netId.", CLKSystem);
             return false;
         }
         const string displayName = playerDisplayName(player);

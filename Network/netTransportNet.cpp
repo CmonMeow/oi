@@ -549,6 +549,7 @@ public:
 	virtual void GetSendQueueInfo(__int32 to, __int32& nMsg, __int32& nBytes, __int32& nMsgG, __int32& nBytesG);
 
 	virtual bool GetConnectionInfo(__int32 to, __int32& latencyMS, __int32& throughputBPS);
+    void GetTrafficTotals(unsigned __int64& incoming, unsigned __int64& outgoing) const override;
 	virtual void GetConnectionLimits(__int32& maxBandwidthPerClient);
 
 	virtual void UpdateSessionDescription(__int32 state);

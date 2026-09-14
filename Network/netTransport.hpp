@@ -219,6 +219,7 @@ public:
 	virtual void CancelAllMessages() = 0;
 	virtual void GetSendQueueInfo(__int32 to, __int32& nMsg, __int32& nBytes, __int32& nMsgG, __int32& nBytesG) = 0;
 	virtual bool GetConnectionInfo(__int32 to, __int32& latencyMS, __int32& throughputBPS) = 0;
+    virtual void GetTrafficTotals(unsigned __int64& incoming, unsigned __int64& outgoing) const = 0;
 	virtual bool GetConnectionInfoRaw(__int32 to, __int32& latencyMS, __int32& throughputBPS)
 	{
 		return GetConnectionInfo(to, latencyMS, throughputBPS);

@@ -141,7 +141,7 @@ inline bool ValidUserName(const string& name)
 
 inline string IdentityDisplayName(const string& name, __int32 netId)
 {
-    return CleanUserName(name) + "_" + std::to_string(netId);
+    return std::to_string(netId) + ":" + CleanUserName(name);
 }
 
 inline string LocalDriveSerial()
