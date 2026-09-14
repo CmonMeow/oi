@@ -2,6 +2,8 @@
 
 #include "NetworkProtocol.h"
 #include "opus.h"
+#include "VoiceProcessing.h"
+#include <algorithm>
 #include <deque>
 #include <vector>
 #include <windows.h>
@@ -233,6 +235,65 @@ class cVoiceChat
     CRITICAL_SECTION _queueLock;
     std::deque<NetworkVoicePacket> _captureQueue;
     cOpusCodec _opus;
+    cVoiceProcessing _processing;
+    typedef cVoiceProcessing::Frame AudioFrame;
+    struct ReferenceFrame { unsigned __int64 start; AudioFrame samples; };
+    std::deque<AudioFrame> _pendingPlayback;
+    std::deque<ReferenceFrame> _playbackHistory;
+    unsigned __int64 _playbackSubmitted = 0;
+    unsigned __int64 _captureConsumed = 0;
+    unsigned __int64 _inputPosition = 0, _outputPosition = 0;
+    bool _positionFailed = false;
+
+    // WinMM positions are 32-bit sample counters. Extend wraps before comparing
+    // them with the 64-bit capture and playback histories.
+    static unsigned __int64 extendPosition(DWORD sample, unsigned __int64& previous)
+    {
+        previous += static_cast<DWORD>(sample - static_cast<DWORD>(previous));
+        return previous;
+    }
+
+    static bool positionSamples(const MMTIME& time, unsigned __int64& counter, unsigned __int64& samples)
+    {
+        switch (time.wType)
+        {
+        case TIME_SAMPLES: samples = extendPosition(time.u.sample, counter); return true;
+        case TIME_BYTES: samples = extendPosition(time.u.cb, counter) / sizeof(__int16); return true;
+        case TIME_MS: samples = extendPosition(time.u.ms, counter) * VOICE_SAMPLE_RATE / 1000; return true;
+        default: return false;
+        }
+    }
+
+    bool devicePositions(unsigned __int64& input, unsigned __int64& output)
+    {
+        MMTIME in = {}, out = {};
+        in.wType = out.wType = TIME_SAMPLES;
+        if (!_playbackReady || waveInGetPosition(_waveIn, &in, sizeof(in)) != MMSYSERR_NOERROR ||
+            waveOutGetPosition(_waveOut, &out, sizeof(out)) != MMSYSERR_NOERROR ||
+            !positionSamples(in, _inputPosition, input) || !positionSamples(out, _outputPosition, output))
+        {
+            if (!_positionFailed) Error("Audio device sample positions unavailable; echo reference disabled");
+            _positionFailed = true;
+            return false;
+        }
+        _positionFailed = false;
+        return true;
+    }
+
+    AudioFrame playbackReference(__int64 start) const
+    {
+        AudioFrame reference = {};
+        for (const ReferenceFrame& frame : _playbackHistory)
+        {
+            __int64 offset = static_cast<__int64>(frame.start) - start;
+            if (offset >= VOICE_SAMPLES_PER_PACKET) break;
+            if (offset <= -VOICE_SAMPLES_PER_PACKET) continue;
+            for (int i = 0; i < VOICE_SAMPLES_PER_PACKET; ++i)
+                if (offset + i >= 0 && offset + i < VOICE_SAMPLES_PER_PACKET)
+                    reference[static_cast<size_t>(offset + i)] = frame.samples[i];
+        }
+        return reference;
+    }
     bool _recording;
     bool _transmitEnabled;
     bool _buttonTransmitEnabled = false;
@@ -244,22 +305,38 @@ class cVoiceChat
     unsigned __int32 _sequence;
 
     // All application capture state and codec access stays on the UI thread.
-    void collectCapture()
+    void collectCapture(bool pushToTalk)
     {
         if (!_captureReady || !_recording) return;
+        unsigned __int64 inputNow = 0, outputNow = 0;
+        const bool havePositions = devicePositions(inputNow, outputNow);
         for (size_t count = 0; count < 4; ++count) {
             CaptureBuffer& buffer = _captureBuffers[_captureReadIndex];
             WAVEHDR& header = buffer.header;
             if (!(header.dwFlags & WHDR_DONE)) break;
+            // A buffer may finish after the position snapshot was taken.
+            if (havePositions && inputNow < _captureConsumed + header.dwBytesRecorded / sizeof(__int16)) break;
             _captureReadIndex = (_captureReadIndex + 1) % 4;
             if (header.dwBytesRecorded >= sizeof(buffer.samples)) {
-                NetworkVoicePacket packet;
-                packet.playerId = -1;
-                packet.sequence = _sequence++;
-                if (!_opus.encode(buffer.samples, packet)) EncodeAdpcmVoicePacket(buffer.samples, packet);
-                _captureQueue.push_back(packet);
-                while (_captureQueue.size() > 16) _captureQueue.pop_front();
+                // Subtract the capture backlog from the current output position:
+                // use what the device played, not what just arrived over the network.
+                AudioFrame reference = {};
+                if (havePositions && inputNow >= _captureConsumed)
+                    reference = playbackReference(static_cast<__int64>(outputNow) -
+                        static_cast<__int64>(inputNow - _captureConsumed));
+                _processing.process(buffer.samples, reference, pushToTalk);
+                AudioFrame clean;
+                while (_processing.pop(clean))
+                {
+                    NetworkVoicePacket packet;
+                    packet.playerId = -1;
+                    packet.sequence = _sequence++;
+                    if (!_opus.encode(clean.data(), packet)) EncodeAdpcmVoicePacket(clean.data(), packet);
+                    _captureQueue.push_back(packet);
+                    while (_captureQueue.size() > 16) _captureQueue.pop_front();
+                }
             }
+            _captureConsumed += header.dwBytesRecorded / sizeof(__int16);
             header.dwBytesRecorded = 0;
             if (waveInAddBuffer(_waveIn, &header, sizeof(header)) != MMSYSERR_NOERROR) {
                 captureFailed(); return;
@@ -346,11 +423,8 @@ class cVoiceChat
         {
             return;
         }
-        if (_playbackReady)
-        {
-            waveOutReset(_waveOut);
-            cleanupPlaybackBuffers(true);
-        }
+        _captureConsumed = _inputPosition = 0;
+        _processing.reset();
         _captureReadIndex = 0;
         _recording = true;
         for (size_t i = 0; i < 4; ++i)
@@ -373,6 +447,7 @@ class cVoiceChat
         waveInStop(_waveIn);
         waveInReset(_waveIn);
         _captureQueue.clear();
+        _processing.reset();
     }
 
     bool popCapturedPacket(NetworkVoicePacket& packet)
@@ -396,25 +471,41 @@ class cVoiceChat
             return;
         }
 
-        if (_playbackBuffers.size() >= 48) {
-            cleanupPlaybackBuffers(true);
-            if (_playbackBuffers.size() >= 48) return;
+        vector<__int16> decoded;
+        if (packet.codec == VOICE_CODEC_OPUS) _opus.decode(packet, decoded);
+        else if (packet.codec == VOICE_CODEC_ADPCM) DecodeAdpcmVoicePacket(packet, decoded);
+        if (decoded.empty() || decoded.size() > VOICE_SAMPLES_PER_PACKET) return;
+        AudioFrame frame = {};
+        std::copy(decoded.begin(), decoded.end(), frame.begin());
+        _pendingPlayback.push_back(frame);
+        // Bound latency when packets arrive in a burst.
+        while (_pendingPlayback.size() > 12) _pendingPlayback.pop_front();
+    }
+
+    void servicePlayback()
+    {
+        if (!_playbackReady) return;
+        bool underrun = !_playbackBuffers.empty();
+        for (PlaybackBuffer* buffer : _playbackBuffers)
+            if (!(buffer->header.dwFlags & WHDR_DONE)) underrun = false;
+        cleanupPlaybackBuffers();
+        if (underrun) _processing.resetEcho();
+        // Keep a continuous output sample clock, including silence. A short
+        // queue lets capture map to the actual speaker timeline for AEC.
+        while (_playbackBuffers.size() < 3)
+        {
+            AudioFrame frame = {};
+            if (!_pendingPlayback.empty()) frame = _pendingPlayback.front();
+            if (!submitPlayback(frame)) break;
+            if (!_pendingPlayback.empty()) _pendingPlayback.pop_front();
         }
+    }
+
+    bool submitPlayback(const AudioFrame& frame)
+    {
         PlaybackBuffer* buffer = new PlaybackBuffer;
         ZeroMemory(&buffer->header, sizeof(buffer->header));
-        if (packet.codec == VOICE_CODEC_OPUS)
-        {
-            _opus.decode(packet, buffer->samples);
-        }
-        else if (packet.codec == VOICE_CODEC_ADPCM)
-        {
-            DecodeAdpcmVoicePacket(packet, buffer->samples);
-        }
-        if (buffer->samples.empty())
-        {
-            delete buffer;
-            return;
-        }
+        buffer->samples.assign(frame.begin(), frame.end());
         buffer->header.lpData = reinterpret_cast<LPSTR>(&buffer->samples[0]);
         buffer->header.dwBufferLength = (__int32)(buffer->samples.size() * sizeof(__int16));
         buffer->header.dwUser = reinterpret_cast<DWORD_PTR>(buffer);
@@ -422,20 +513,31 @@ class cVoiceChat
         if (waveOutPrepareHeader(_waveOut, &buffer->header, sizeof(WAVEHDR)) != MMSYSERR_NOERROR)
         {
             delete buffer;
-            return;
+            return false;
         }
         if (waveOutWrite(_waveOut, &buffer->header, sizeof(WAVEHDR)) != MMSYSERR_NOERROR)
         {
             waveOutUnprepareHeader(_waveOut, &buffer->header, sizeof(WAVEHDR));
             delete buffer;
-            return;
+            return false;
         }
         _playbackBuffers.push_back(buffer);
+        _playbackHistory.push_back({ _playbackSubmitted, frame });
+        _playbackSubmitted += VOICE_SAMPLES_PER_PACKET;
+        while (_playbackHistory.size() > 100) _playbackHistory.pop_front();
+        return true;
     }
 
     void cleanupPlaybackBuffers(bool force = false)
     {
         if (force && _playbackReady && waveOutReset(_waveOut) != MMSYSERR_NOERROR) return;
+        if (force)
+        {
+            _pendingPlayback.clear();
+            _playbackHistory.clear();
+            _playbackSubmitted = _outputPosition = 0;
+            _processing.resetEcho();
+        }
         while (!_playbackBuffers.empty())
         {
             PlaybackBuffer* buffer = _playbackBuffers.front();
@@ -459,6 +561,8 @@ public:
           _playbackReady(false),
           _sequence(0)
     {
+        static_assert(VOICE_SAMPLE_RATE == cVoiceProcessing::SampleRate &&
+            VOICE_SAMPLES_PER_PACKET == cVoiceProcessing::FrameSamples, "Voice DSP format mismatch");
         InitializeCriticalSection(&_queueLock);
         openDevices();
     }
@@ -524,8 +628,10 @@ public:
             stopRecording();
         }
 
-        collectCapture();
         NetworkVoicePacket packet;
+        while (network.consumeVoicePacket(packet)) playPacket(packet);
+        servicePlayback();
+        collectCapture(talkKeyDown);
         while (popCapturedPacket(packet))
         {
             if (_transmitEnabled && _recording && (network.clientReady() || network.isHost()))
@@ -534,10 +640,6 @@ public:
                 _lastVoiceSent = GetTickCount64();
             }
         }
-        while (network.consumeVoicePacket(packet))
-        {
-            playPacket(packet);
-        }
-        cleanupPlaybackBuffers();
+
     }
 };
