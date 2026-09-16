@@ -40,9 +40,8 @@ static void DrawChatButton(const char* text, vec2i pos, bool on)
 void RunChatClient(HWND hWnd)
 {
     HDC dc = GetDC(hWnd);
-    cNetworkRuntime network(hWnd);
-    
     PackedClientSettings settings;
+    cNetworkRuntime network(hWnd, &settings);
     cChatBox chatBox;
     cVoiceChat voiceChat;
     unsigned __int64 lastTitleUpdate = 0;

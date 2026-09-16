@@ -1,9 +1,14 @@
 #pragma once
+#include "ClientSettings.h"
 
 class cNetworkRuntime
 {
     bool _remoteEnded = false;
     HWND _hWnd;
+    PackedClientSettings* _settings;
+    string _connectingAddress;
+    bool _transportConnecting = false;
+    unsigned __int64 _connectDeadline = 0;
     NetTranspServer* _server;
     NetTranspClient* _client;
     vector<__int32> _players;
@@ -347,6 +352,8 @@ class cNetworkRuntime
         if (ParseAppPacket(message, messageSize, NAMTPlayerAssign, assignPacket))
         {
             _localPlayerId = assignPacket.playerId;
+            if (_localPlayerId >= 0) _connectDeadline = 0;
+            if (_settings && _localPlayerId >= 0) _settings->setServerAddress(_connectingAddress);
 
             return;
         }
@@ -1084,8 +1091,9 @@ class cNetworkRuntime
     }
 
 public:
-    cNetworkRuntime(HWND hWnd)
+    cNetworkRuntime(HWND hWnd, PackedClientSettings* settings = NULL)
         : _hWnd(hWnd),
+          _settings(settings),
           _server(NULL),
           _client(NULL),
           _nextClientHeartbeat(0),
@@ -1140,7 +1148,7 @@ public:
         return true;
     }
 
-    bool connectTo(const string& address)
+    bool connectTo(const string& requestedAddress)
     {
         if (_client || _server)
         {
@@ -1153,10 +1161,12 @@ public:
             addChatLine("Cannot read the C: volume identity.", CLKSystem);
             return false;
         }
+        const string address = requestedAddress.empty()
+            ? (_settings ? _settings->serverAddress : DEFAULT_NETWORK_ADDRESS) : requestedAddress;
         unsigned short port = DEFAULT_NETWORK_PORT;
         _client = CreateNetClient();
         ConnectResult result = _client ? _client->Init(address, "", false, port, "oi", NULL) : CRError;
-        if (result != CROK)
+        if (result != CROK && result != CRNone)
         {
             addChatLine(string("Failed to join. Error: ") + ConnectResultName(result));
             delete _client;
@@ -1164,13 +1174,37 @@ public:
             return false;
         }
 
-        addChatLine(string("joined ") + address);
-        beginClientCryptoHandshake();
+        _connectingAddress = address;
+        _transportConnecting = result == CRNone;
+        _connectDeadline = GetTickCount64() + 10000;
+        addChatLine("connecting");
+        if (!_transportConnecting) beginClientCryptoHandshake();
         return true;
     }
 
     void update()
     {
+        if (_client && _connectDeadline && GetTickCount64() >= _connectDeadline)
+        {
+            addChatLine("connection timed out", CLKSystem);
+            _remoteEnded = true;
+            disconnect();
+        }
+        if (_client && _transportConnecting)
+        {
+            ConnectResult result = _client->PollInit();
+            if (result == CRNone) return;
+            _transportConnecting = false;
+            if (result != CROK)
+            {
+                addChatLine(result == CRTimeout ? "connection timed out" :
+                    string("Failed to join. Error: ") + ConnectResultName(result), CLKSystem);
+                _remoteEnded = true;
+                disconnect();
+                return;
+            }
+            beginClientCryptoHandshake();
+        }
         if (_server)
         {
             _server->ProcessPlayers(OnCreatePlayer, OnDeletePlayer, this);
@@ -1416,6 +1450,8 @@ public:
     {
         if (!_client && !_server) return false;
         const bool hosting = _server != NULL;
+        _transportConnecting = false;
+        _connectDeadline = 0;
         if (_client && !_remoteEnded) sendRawControlFromClient(NAMTDisconnect);
         if (_server)
             sendRawStringFromServerToAll(NAMTSessionEnd, "system: Host stopped the server.", CHAT_MAX_LINE_CHARS);

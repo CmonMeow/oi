@@ -61,7 +61,7 @@ static void RunConsoleCommand(const string& inputLine, cNetworkRuntime& network,
     if (MatchesCommand(line, "/connect"))
     {
         string address = TrimWhitespace(line.size() > 8 ? line.substr(8) : string());
-        network.connectTo(address.empty() ? DEFAULT_NETWORK_ADDRESS : address);
+        network.connectTo(address);
         return;
     }
     if (MatchesCommand(line, "/kick"))

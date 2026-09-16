@@ -154,6 +154,7 @@
     <ClInclude Include="Network\netmessage.hpp" />
     <ClInclude Include="Network\netpch.hpp" />
     <ClInclude Include="Network\netpeer.hpp" />
+    <ClInclude Include="Network\AsyncResolver.h" />
     <ClInclude Include="RunClient.h" />
   </ItemGroup>
   <ItemGroup>

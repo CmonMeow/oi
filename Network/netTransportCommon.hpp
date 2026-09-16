@@ -859,6 +859,20 @@ NetServer::~NetServer()
 {
 	CancelAllMessages();
 	setServer(NULL);
+    // Release registered channels as well as the user map. Otherwise a later
+    // host in this process finds orphaned endpoints and rejects reconnects.
+    {
+        std::lock_guard<std::recursive_mutex> poolGuard(poolCriticalSection());
+        std::lock_guard<std::recursive_mutex> userGuard(User_Critical_Section);
+        unsigned iterator;
+        __int32 player;
+        Ref<NetChannel> old;
+        while (users.getFirst(iterator, old, &player))
+        {
+            users.removeKey(player);
+            getPool()->deleteChannel(old.GetRef());
+        }
+    }
 	
 	RemoveUserMessages();
 	RemoveSendComplete();

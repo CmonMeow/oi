@@ -9,6 +9,7 @@
 #include "netpch.hpp"
 #include "netpeer.hpp"
 #include "netchannel.hpp"
+#include "AsyncResolver.h"
 
 class NetSessionEnum;
 class NetClient;
@@ -78,11 +79,10 @@ static __int32 GenerateServerChallenge(const sockaddr_in& distant)
 
 #define MIN_ENUM_RETRY 4000
 
-#define ACK_PLAYER_TIMEOUT 8000
+#define ACK_PLAYER_TIMEOUT_MS 8000
 
-#define CREATE_PLAYER_RESEND 2000
+#define CREATE_PLAYER_RESEND_MS 2000
 
-#define NET_CHECK_WAIT 100
 
 #define DESTRUCT_WAIT 500
 
@@ -252,6 +252,14 @@ std::recursive_mutex& poolCriticalSection()
 
 class NetClient : public NetTranspClient
 {
+    AsyncResolver resolver;
+    sockaddr_in connectingAddress = {};
+    CreatePlayerPacketChallenge connectPacket = {};
+    unsigned __int64 connectDeadline = 0, nextConnectSend = 0;
+    bool resolving = false, challengeSent = false;
+    ConnectResult connectResult = CRError;
+    CancelNNCallback* cancelConnect = nullptr;
+
 
 protected:
 	
@@ -324,6 +332,8 @@ public:
 		std::string address, std::string password, bool botClient, unsigned short& port,
 		std::string player, CancelNNCallback* cancelNNCallback = NULL);
 
+
+	ConnectResult PollInit() override;
 
 	virtual Ref<NetMessage> SendMsg(BYTE* buffer, __int32 bufferSize, DWORD& msgID, NetMsgFlags flags, const Ref<NetMessage>& dependOn);
 
@@ -783,7 +793,7 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 			chp.challenge = _server->_challengesSent[wasSent].challenge;
 			_server->_challengesSent[wasSent].time = now;
 
-			_server->Expire(_server->_challengesSent, ACK_PLAYER_TIMEOUT);
+			_server->Expire(_server->_challengesSent, ACK_PLAYER_TIMEOUT_MS);
 
 			_server->User_Critical_Section.unlock();
 
@@ -1082,112 +1092,80 @@ bool NetClient::SendMagicPacket(const void* data, size_t size)
 }
 
 ConnectResult NetClient::Init(std::string address, std::string password, bool botClient, unsigned short& port,
-	std::string player, CancelNNCallback* cancelNNCallback)
+    std::string player, CancelNNCallback* cancelNNCallback)
 {
-	enterAll();
-	if (channel) 
-	{
-		leaveAll();
-		return CRError;
-	}
-	if (address.length() == 0) 
-	{
-		char buf[64];
-		sprintf(buf, "127.0.0.1:%d", port);
-		address = buf;
-	}
+    if (channel || connectResult == CRNone) return CRError;
+    std::string ip;
+    decodeURLAddress(address.empty() ? "127.0.0.1" : address, ip, port);
+    connectingAddress.sin_family = AF_INET;
+    connectingAddress.sin_port = htons(port);
+    resolving = InetPtonA(AF_INET, ip.c_str(), &connectingAddress.sin_addr) != 1;
+    connectDeadline = GetTickCount64() + ACK_PLAYER_TIMEOUT_MS;
+    nextConnectSend = 0;
+    challengeSent = false;
+    cancelConnect = cancelNNCallback;
+    connectPacket = {};
+    connectPacket.magic = MAGIC_CREATE_W_CHALLENGE;
+    strncpy(connectPacket.name, player.c_str(), LEN_PLAYER_NAME - 1);
+    strncpy(connectPacket.password, password.c_str(), LEN_PASSWORD_NAME - 1);
+    connectPacket.botClient = botClient ? 1 : 0;
+    amIBot = botClient;
+    ackPlayer = CRNone;
+    challengePlayer = 0;
+    sessionTerminated = false;
+    whySessionTerminated = NTROther;
+    connectResult = CRNone;
+    if (resolving) resolver.start(ip);
+    return CRNone;
+}
 
-	struct sockaddr_in daddr;
-	std::string ip;
-
-	decodeURLAddress(address.data(), ip, port); 
-
-	if (!getHostAddress(daddr, ip.c_str(), port))
-	{
-		leaveAll();
-		return CRError;
-	}
-	
-	sessionTerminated = false;
-	whySessionTerminated = NTROther;
-
-	poolCriticalSection().lock();
-	if (getPool())
-		channel = getPool()->createChannel(daddr, getClientPeer());
-	if (!channel)
-	{
-		poolCriticalSection().unlock();
-		leaveAll();
-		return CRError;
-	}
-	poolCriticalSection().unlock();
-
-	channel->setProcessRoutine(clientReceive, channel.GetRef());
-
-	amIBot = botClient;
-
-	CreatePlayerPacketChallenge packet;
-	packet.magic = MAGIC_CREATE_W_CHALLENGE;
-	strncpy(packet.name, player.c_str(), LEN_PLAYER_NAME);
-	packet.name[LEN_PLAYER_NAME - 1] = (char)0;
-	strncpy(packet.password, password.c_str(), LEN_PASSWORD_NAME);
-	packet.password[LEN_PASSWORD_NAME - 1] = (char)0;
-	packet.botClient = (botClient ? 1 : 0);
-
-	ackPlayer = CRNone;
-	challengePlayer = 0;
-
-	unsigned __int64 now = GetTickCount64();
-	unsigned __int64 next = now; 
-	unsigned __int64 timeout = now + 1000 * ACK_PLAYER_TIMEOUT;
-	bool challengeReceived = false;
-	do
-	{
-		if (now >= next || !challengeReceived && challengePlayer != 0)
-		{
-			if (challengePlayer == 0)
-			{
-				unsigned __int32 requestPacket = MAGIC_REQUEST_PLAYER;
-				if (!SendMagicPacket(&requestPacket, sizeof(requestPacket)))
-				{
-					leaveAll();
-					return CRError;
-				}
-			}
-			else
-			{ 
-				challengeReceived = true;
-				packet.challenge = challengePlayer;
-				packet.magic = MAGIC_CREATE_W_CHALLENGE;
-				if (!SendMagicPacket(&packet, sizeof(packet)))
-				{
-					leaveAll();
-					return CRError;
-				}
-			}
-
-			next = now + 1000 * CREATE_PLAYER_RESEND;
-		}
-
-		leaveAll();
-
-		Sleep(NET_CHECK_WAIT);
-		enterAll();
-		now = GetTickCount64();
-
-	} while (ackPlayer == CRNone && now < timeout);
-
-	if (ackPlayer != CRNone) 
-	{
-		channel->checkConnectivity(0);
-		struct sockaddr_in distant;
-		channel->getDistantAddress(distant);
-		port = ntohs(distant.sin_port);
-	}
-
-	ConnectResult result = (ackPlayer == CRNone) ? CRError : (ConnectResult)ackPlayer;
-	leaveAll();
-	return result;
+ConnectResult NetClient::PollInit()
+{
+    if (connectResult != CRNone) return connectResult;
+    const unsigned __int64 now = GetTickCount64();
+    if (now >= connectDeadline || (cancelConnect && cancelConnect()))
+    {
+        resolver.cancel();
+        return connectResult = CRTimeout;
+    }
+    if (resolving)
+    {
+        int result = resolver.poll(connectingAddress);
+        if (!result) return CRNone;
+        if (result < 0) return connectResult = CRError;
+        resolving = false;
+    }
+    enterAll();
+    if (!channel)
+    {
+        channel = getPool()->createChannel(connectingAddress, getClientPeer());
+        if (!channel) { leaveAll(); return connectResult = CRError; }
+        channel->setProcessRoutine(clientReceive, channel.GetRef());
+    }
+    if (ackPlayer != CRNone)
+    {
+        channel->checkConnectivity(0);
+        connectResult = static_cast<ConnectResult>(ackPlayer);
+    }
+    else if (now >= nextConnectSend || (!challengeSent && challengePlayer != 0))
+    {
+        bool sent;
+        if (!challengePlayer)
+        {
+            unsigned __int32 request = MAGIC_REQUEST_PLAYER;
+            sent = SendMagicPacket(&request, sizeof(request));
+        }
+        else
+        {
+            challengeSent = true;
+            connectPacket.challenge = challengePlayer;
+            sent = SendMagicPacket(&connectPacket, sizeof(connectPacket));
+        }
+        if (!sent) connectResult = CRError;
+        nextConnectSend = now + CREATE_PLAYER_RESEND_MS;
+    }
+    leaveAll();
+    return connectResult;
 }
 
 void VoiceDataSent(__int32 pid, __int32 len)

@@ -385,9 +385,8 @@ class cChatBox
         {
             string address = Trim(command.size() > 8 ? command.substr(8) : string());
 
-            if (address.empty()) address = DEFAULT_NETWORK_ADDRESS;
 
-            _notice = network.connectTo(address) ? string("connecting to ") + address : string("connection failed");
+            _notice = network.connectTo(address) ? string() : string("connection failed");
 
             break;
         }

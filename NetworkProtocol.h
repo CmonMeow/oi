@@ -12,7 +12,7 @@
 using std::string;
 using std::vector;
 
-const char* DEFAULT_NETWORK_ADDRESS = "127.0.0.1";
+const char* DEFAULT_NETWORK_ADDRESS = "nigger.observer";
 const unsigned short DEFAULT_NETWORK_PORT = 777;
 const __int32 APP_PROTOCOL_VERSION = 23;
 const char* const BAN_LIST_FILENAME = "banlist.txt";
@@ -440,7 +440,8 @@ inline const char* ConnectResultName(ConnectResult result)
     case CRError: return "Error";
     case CRName: return "Bad Name";
     case CRSessionFull: return "Session Full";
-    case CRNone: return "Timeout";
+    case CRNone: return "Connecting";
+    case CRTimeout: return "Timeout";
     default: return "Unknown";
     }
 }

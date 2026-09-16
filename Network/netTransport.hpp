@@ -69,6 +69,7 @@ enum ConnectResult : __int32
 	CRError,
 	CRName,
 	CRSessionFull,
+	CRTimeout,
 };
 
 enum NetMsgFlags {
@@ -169,6 +170,9 @@ public:
 	virtual ConnectResult Init(
 		std::string address, std::string password, bool botClient, unsigned short& port,
 		std::string player, CancelNNCallback* cancelNNCallback = NULL) = 0;
+
+	// Init starts an attempt; poll without blocking until the result is not CRNone.
+	virtual ConnectResult PollInit() = 0;
 
 	virtual Ref<NetMessage> SendMsg(BYTE* buffer, __int32 bufferSize, DWORD& msgID, NetMsgFlags flags, const Ref<NetMessage>& dependOn) = 0;
 	virtual void GetSendQueueInfo(__int32& nMsg, __int32& nBytes, __int32& nMsgG, __int32& nBytesG) = 0;

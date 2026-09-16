@@ -1,5 +1,6 @@
 #pragma once
 #include <fstream>
+#include <string>
 
 enum ClientSettingBits
 {
@@ -10,6 +11,7 @@ struct PackedClientSettings
 {
     unsigned char bits;
     unsigned char talkKey = VK_SHIFT;
+    std::string serverAddress = DEFAULT_NETWORK_ADDRESS;
 
     PackedClientSettings()
         : bits(CSVoiceEnabled)
@@ -30,6 +32,11 @@ struct PackedClientSettings
                 unsigned char savedKey = 0;
                 if (file.read((char*)&savedKey, sizeof(savedKey)) && savedKey >= VK_BACK && savedKey != VK_ESCAPE && savedKey < 255)
                     talkKey = savedKey;
+                // Optional extension after the original two settings bytes.
+                // Old files keep the built-in server default.
+                char address[256] = {};
+                if (file.getline(address, sizeof(address)) && address[0])
+                    serverAddress = address;
             }
         }
     }
@@ -39,6 +46,14 @@ struct PackedClientSettings
         std::ofstream file("ClientSettings", std::ios::binary | std::ios::trunc);
         file.write((const char*)&bits, sizeof(bits));
         file.write((const char*)&talkKey, sizeof(talkKey));
+        file << serverAddress << '\n';
+    }
+
+    void setServerAddress(const std::string& address)
+    {
+        if (address.empty() || address.size() > 255 || address.find_first_of("\r\n") != std::string::npos || address == serverAddress) return;
+        serverAddress = address;
+        save();
     }
 
     bool voiceEnabled() const
