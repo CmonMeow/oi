@@ -17,7 +17,7 @@ private:
     {
         OpusDecoder* decoder;
         std::deque<NetworkVoicePacket> packets;
-        uint64_t lastArrival = 0, queuedAt = 0;
+        uint64_t lastArrival = 0, queuedAt = 0, speakingUntil = 0;
         uint32_t next = 0;
         bool haveSequence = false, playing = false;
         int concealed = 0;
@@ -71,6 +71,11 @@ private:
 
 public:
     void clear() { _streams.clear(); _gain = 1.f; }
+    bool speaking(int32_t player, uint64_t now) const
+    {
+        auto found = _streams.find(player);
+        return found != _streams.end() && now < found->second->speakingUntil;
+    }
 
     void push(const NetworkVoicePacket& packet, uint64_t now)
     {
@@ -109,6 +114,9 @@ public:
             Stream& stream = *it->second;
             if (now - stream.lastArrival > 30000) { it = _streams.erase(it); continue; }
             Frame frame = read(stream, now);
+            int64_t energy = 0;
+            for (int16_t sample : frame) energy += static_cast<int64_t>(sample) * sample;
+            if (energy > VOICE_SAMPLES_PER_PACKET * 80LL * 80) stream.speakingUntil = now + 250;
             for (size_t i = 0; i < frame.size(); ++i) sum[i] += frame[i];
             ++it;
         }

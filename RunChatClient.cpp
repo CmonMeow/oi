@@ -23,20 +23,85 @@ static bool ChatButtonHovered(vec2i pos)
            y >= pos.y && y < pos.y + 22;
 }
 
-static void DrawChatButton(const char* text, vec2i pos, bool on)
+static void DrawChatButton(const char* text, vec2i pos, bool on, bool speaking = false)
 {
     QueueChatRect((float)pos.x, (float)pos.y, (float)pos.x + 128.f, (float)pos.y + 22.f,
-                  on ? 0.f : .02f, on ? .55f : .02f, on ? .52f : .02f, .92f, false);
-    const float border = ChatButtonHovered(pos) ? .8f : .5f;
+                  on ? 0.f : .02f, on ? .26f : .02f, on ? .23f : .02f, .92f, false);
+    const float border = speaking ? 1.f : ChatButtonHovered(pos) ? .8f : .35f;
     QueueChatRect((float)pos.x, (float)pos.y, (float)pos.x + 128.f, (float)pos.y + 22.f,
-                  border, border, border, .95f, true);
-    const float textX = (float)pos.x + (128.f - (float)strlen(text) * 12.f) * .5f;
+                  speaking ? .3f : border, border, speaking ? .8f : border, .95f, true);
+    const float textX = (float)pos.x + (128.f - (float)ChatTextWidth(text)) * .5f;
     QueueChatText(text, textX, (float)pos.y + 5.f, .92f, .98f, .96f);
 }
 
 #include "ClientSettings.h"
 #include "VoiceChat.h"
 #include "ChatBox.h"
+struct ChatParticipantView
+{
+    string label;
+    bool local;
+    bool speaking;
+};
+struct ChatStatusView
+{
+    string status;
+    bool online;
+    bool connecting;
+    vector<ChatParticipantView> people;
+};
+
+static ChatStatusView MakeChatStatus(const cNetworkRuntime& network, const cVoiceChat& voice)
+{
+    ChatStatusView view;
+    view.online = network.isHost() || network.clientReady();
+    view.connecting = network.hasConnection() && !view.online;
+    view.status = network.isHost() ? "Hosting" : network.clientReady() ? "Connected" : view.connecting ? "Connecting..." : "Disconnected";
+    for (const auto& person : network.participants())
+    {
+        bool local = person.first == network.localPlayerId();
+        const string suffix = local ? " (you)" : person.first == 0 ? " (host)" : "";
+        view.people.push_back({FitChatText(person.second, 210 - ChatTextWidth(suffix)) + suffix, local, voice.speaking(person.first, network)});
+    }
+    if (view.online && !view.people.empty()) view.status += " | " + std::to_string(view.people.size()) + (view.people.size() == 1 ? " user" : " users");
+    std::stable_sort(view.people.begin(), view.people.end(), [](const auto& a, const auto& b) {
+        return (a.local ? 0 : a.speaking ? 1 : 2) < (b.local ? 0 : b.speaking ? 1 : 2);
+    });
+    return view;
+}
+
+static void DrawChatStatus(const ChatStatusView& view, size_t historyOffset = 0)
+{
+    const string history = historyOffset ? " | history +" + std::to_string(historyOffset) : "";
+    const string status = FitChatText(view.status, App.size.x - 300 - ChatTextWidth(history));
+    QueueChatText(status.c_str(), 20.f, (float)App.size.y - 23.f,
+        view.online ? .50f : .65f, view.online ? .88f : .70f, view.online ? .74f : .67f);
+    if (!history.empty())
+        QueueChatText(history.c_str(), 20.f + ChatTextWidth(status), (float)App.size.y - 23.f, .90f, .77f, .46f);
+    float x = 20.f, y = (float)App.size.y - 53.f;
+    if (view.people.empty())
+    {
+        QueueChatText(view.connecting || view.online ? "Waiting for server..." : "Type /connect or /host to begin", x, y, .43f, .51f, .48f);
+        return;
+    }
+    for (size_t i = 0; i < view.people.size(); ++i)
+    {
+        const auto& person = view.people[i];
+        string label = FitChatText(person.label, 210);
+        const int width = ChatTextWidth(label) + 24;
+        const int reserve = i + 1 < view.people.size() ? 105 : 0;
+        if (x + width + reserve > App.size.x - 20)
+        {
+            string more = "+" + std::to_string(view.people.size() - i) + " more";
+            QueueChatText(more.c_str(), x, y, .53f, .61f, .58f);
+            break;
+        }
+        QueueChatText(person.speaking ? "*" : "-", x, y, person.speaking ? .3f : .38f, person.speaking ? 1.f : .46f, person.speaking ? .8f : .43f);
+        QueueChatText(label.c_str(), x + 16.f, y, person.speaking ? .72f : .57f, person.speaking ? 1.f : .66f, person.speaking ? .90f : .62f);
+        x += width + 12;
+    }
+}
+
 void RunChatClient(HWND hWnd)
 {
     HDC dc = GetDC(hWnd);
@@ -145,9 +210,10 @@ void RunChatClient(HWND hWnd)
         glDisable(GL_DEPTH_TEST);
         glMatrixMode(GL_PROJECTION); glLoadIdentity(); glOrtho(0, App.size.x, 0, App.size.y, -1, 1);
         glMatrixMode(GL_MODELVIEW); glLoadIdentity();
-        chatBox.draw(network);
+        chatBox.draw(network, GetForegroundWindow() == hWnd);
+        DrawChatStatus(MakeChatStatus(network, voiceChat), chatBox.historyOffset());
         DrawChatButton(voiceChat.micEnabled() ? "MIC ON" : "MIC OFF",
-                                    micButton, voiceChat.micEnabled());
+                                    micButton, voiceChat.micEnabled(), voiceChat.transmitting(network));
         DrawChatButton(selectingHotkey ? "PRESS KEY" : settings.talkKeyLabel().c_str(), hotkeyButton, selectingHotkey);
         SwapBuffers(dc);
 

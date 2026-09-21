@@ -417,6 +417,21 @@ unsigned char serif[96][32] = {
 
 #define Glyphs serif
 
+int ChatTextWidth(const string& text)
+{
+    int width = 0;
+    for (unsigned char c : text) width += c == ' ' ? 6 : c == '\t' ? 18 : (c >= 33 && c <= 127 ? 12 : 0);
+    return width;
+}
+
+string FitChatText(string text, int pixels)
+{
+    if (ChatTextWidth(text) <= pixels) return text;
+    if (pixels < 36) return string();
+    while (!text.empty() && ChatTextWidth(text) + 36 > pixels) text.pop_back();
+    return text + "...";
+}
+
 vec2i drawstring(const char* text = "Error", vec3f pos = { 0, 0, 0 }, vec3f color = { .8f, .8f, .8f })
 {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -427,7 +442,7 @@ vec2i drawstring(const char* text = "Error", vec3f pos = { 0, 0, 0 }, vec3f colo
     for (int pass = 0; pass < 2; ++pass)
     {
         const bool shadow = pass == 0;
-        if (shadow) glColor3f(.2f, .2f, .2f);
+        if (shadow) glColor3f(.065f, .07f, .07f);
         else glColor3f(color.x, color.y, color.z);
 
         int line = 0;
@@ -435,7 +450,7 @@ vec2i drawstring(const char* text = "Error", vec3f pos = { 0, 0, 0 }, vec3f colo
         // Both passes use the same transformed origin. Offset the shadow in
         // framebuffer pixels so scaling and raster rounding cannot separate it.
         glRasterPos3f(pos.x, pos.y, pos.z);
-        if (shadow) glBitmap(0, 0, 0.f, 0.f, 2.f, -2.f, NULL);
+        if (shadow) glBitmap(0, 0, 0.f, 0.f, 1.f, -1.f, NULL);
         for (const unsigned char* c = (const unsigned char*)text; *c; ++c)
         {
             if (*c == '\n')
@@ -444,7 +459,7 @@ vec2i drawstring(const char* text = "Error", vec3f pos = { 0, 0, 0 }, vec3f colo
                 width = 0;
                 ++line;
                 glRasterPos3f(pos.x, pos.y - line * 16.f, pos.z);
-                if (shadow) glBitmap(0, 0, 0.f, 0.f, 2.f, -2.f, NULL);
+                if (shadow) glBitmap(0, 0, 0.f, 0.f, 1.f, -1.f, NULL);
                 continue;
             }
             float advance = 0.f;

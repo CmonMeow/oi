@@ -6,7 +6,6 @@ class cChatBox
 {
     bool _active;
     string _draft;
-    string _notice;
     size_t _cursor;
     size_t _inputViewStart;
     size_t _scrollOffset;
@@ -103,17 +102,12 @@ class cChatBox
 
     size_t visibleRows() const
     {
-        return CHAT_VISIBLE_ROWS;
+        return (size_t)(std::max)(1, (App.size.y - 68 - BOX_Y - INPUT_HEIGHT - 18) / LINE_HEIGHT);
     }
 
     float boxWidth() const
     {
-        const float margin = (float)(BOX_X * 2);
-        if (App.size.x > margin + 120.f && App.size.x - margin < BOX_WIDTH)
-        {
-            return App.size.x - margin;
-        }
-        return BOX_WIDTH;
+        return (float)(std::max)(120, App.size.x - BOX_X * 2);
     }
 
     void clampCursor()
@@ -158,12 +152,14 @@ class cChatBox
     {
         const __int32 mouseX = input.mouse.x;
         size_t viewStart = inputViewStart();
-        int relativeX = mouseX - INPUT_TEXT_X - INPUT_CHAR_WIDTH * 2;
-        size_t clicked = relativeX > 0 ? (size_t)(relativeX / INPUT_CHAR_WIDTH) : 0;
-        _cursor = viewStart + clicked;
-        if (_cursor > _draft.size())
+        int relativeX = mouseX - INPUT_TEXT_X - ChatTextWidth("> ");
+        _cursor = viewStart;
+        while (_cursor < _draft.size())
         {
-            _cursor = _draft.size();
+            int advance = _draft[_cursor] == ' ' ? 6 : 12;
+            if (relativeX < advance / 2) break;
+            relativeX -= advance;
+            ++_cursor;
         }
     }
 
@@ -249,14 +245,14 @@ class cChatBox
             size_t urlEnd = 0;
             if (!FindNextUrl(line, offset, urlStart, urlEnd))
             {
-                QueueChatText(line.substr(offset).c_str(), x + (float)offset * INPUT_CHAR_WIDTH, y, r, g, b);
+                QueueChatText(line.substr(offset).c_str(), x + (float)ChatTextWidth(line.substr(0, offset)), y, r, g, b);
                 break;
             }
             if (urlStart > offset)
             {
-                QueueChatText(line.substr(offset, urlStart - offset).c_str(), x + (float)offset * INPUT_CHAR_WIDTH, y, r, g, b);
+                QueueChatText(line.substr(offset, urlStart - offset).c_str(), x + (float)ChatTextWidth(line.substr(0, offset)), y, r, g, b);
             }
-            QueueChatText(line.substr(urlStart, urlEnd - urlStart).c_str(), x + (float)urlStart * INPUT_CHAR_WIDTH, y, 1.0f, .92f, .22f);
+            QueueChatText(line.substr(urlStart, urlEnd - urlStart).c_str(), x + (float)ChatTextWidth(line.substr(0, urlStart)), y, 1.0f, .92f, .22f);
             offset = urlEnd;
         }
     }
@@ -276,7 +272,15 @@ class cChatBox
             const float lineY = textTop - (float)(i - first) * LINE_HEIGHT;
             if (mouseY >= lineY - 2.f && mouseY <= lineY + LINE_HEIGHT - 2.f && mouseX >= BOX_X + 8.f)
             {
-                size_t character = (size_t)((mouseX - (BOX_X + 8.f)) / INPUT_CHAR_WIDTH);
+                size_t character = 0;
+                float remainingX = mouseX - (BOX_X + 8.f);
+                while (character < lines[i].text.size())
+                {
+                    int advance = lines[i].text[character] == ' ' ? 6 : 12;
+                    if (remainingX < advance) break;
+                    remainingX -= advance;
+                    ++character;
+                }
                 string url;
                 if (UrlAtCharacter(lines[i].text, character, url))
                 {
@@ -365,7 +369,7 @@ class cChatBox
         {
         case ChatCommand::Help:
             network.showHelp();
-            _notice = "Scroll chat to read help.";
+            network.showNotice("Scroll chat to read help.");
             break;
 
         case ChatCommand::Name:
@@ -374,11 +378,11 @@ class cChatBox
 
         case ChatCommand::Host:
             if (!Trim(command.substr(5)).empty())
-                _notice = "usage: /host";
+                network.showNotice("usage: /host", true);
             else if (network.hasConnection())
-                _notice = "Use /disconnect before hosting.";
+                network.showNotice("Use /disconnect before hosting.", true);
             else
-                _notice = network.hostOnPort() ? "Hosting on UDP port 777." : "Host failed; port may be in use.";
+                network.hostOnPort();
             break;
 
         case ChatCommand::Connect:
@@ -386,7 +390,7 @@ class cChatBox
             string address = Trim(command.size() > 8 ? command.substr(8) : string());
 
 
-            _notice = network.connectTo(address) ? string() : string("connection failed");
+            network.connectTo(address);
 
             break;
         }
@@ -396,7 +400,7 @@ class cChatBox
             break;
 
         case ChatCommand::Disconnect:
-            if(network.disconnect()) _notice = "disconnected";
+            network.disconnect();
             break;
 
         case ChatCommand::Kick:
@@ -417,7 +421,7 @@ class cChatBox
 
             if (!ParsePrivateCommand(command, prefix, target, message))
             {
-                _notice = "usage: /pm name|netId message";
+                network.showNotice("usage: /pm name|netId message", true);
             }
             else
             {
@@ -428,7 +432,7 @@ class cChatBox
         }
 
         default:
-            _notice = string("unknown command: ") + command;
+            network.showNotice(string("unknown command: ") + command, true);
             break;
         }
     }
@@ -460,6 +464,8 @@ public:
     {
     }
 
+    size_t historyOffset() const { return _scrollOffset; }
+
     bool active() const
     {
         return _active;
@@ -467,7 +473,7 @@ public:
 
     bool mouseOver() const
     {
-        const float height = (float)(CHAT_VISIBLE_ROWS * LINE_HEIGHT) + INPUT_HEIGHT + 18.f;
+        const float height = (float)(visibleRows() * LINE_HEIGHT) + INPUT_HEIGHT + 18.f;
         const float width = boxWidth();
         const float mouseX = (float)input.mouse.x;
         const float mouseY = (float)(-input.mouse.y + App.size.y);
@@ -610,7 +616,7 @@ public:
         }
     }
 
-    void draw(const cNetworkRuntime& network)
+    void draw(const cNetworkRuntime& network, bool windowFocused = true)
     {
         clampScroll(network);
         const float x = BOX_X;
@@ -636,9 +642,13 @@ public:
             float b = .96f;
             if (lines[i].kind == CLKSystem)
             {
-                r = 1.0f;
-                g = .30f;
-                b = .25f;
+                r = .58f;
+                g = .65f;
+                b = .63f;
+            }
+            else if (lines[i].kind == CLKError)
+            {
+                r = 1.f; g = .38f; b = .32f;
             }
             else if (lines[i].kind == CLKPrivate)
             {
@@ -661,28 +671,20 @@ public:
         {
             cursorInView = draft.size();
         }
-        string inputLine = _active ? string("> ") + draft.substr(0, cursorInView) + "|" + draft.substr(cursorInView) : string("> ");
-        QueueChatRect(x + 6.f, y + 6.f, x + width - 6.f, y + inputHeight + 4.f, .07f, .085f, .08f, .92f, false);
-        QueueChatText(inputLine.c_str(), x + 10.f, y + 12.f, _active ? .95f : .60f, _active ? .96f : .68f, _active ? .92f : .66f);
-
-        if (_scrollOffset > 0)
+        string inputLine = "> " + draft;
+        QueueChatRect(x + 6.f, y + 6.f, x + width - 6.f, y + inputHeight + 4.f, .045f, .065f, .06f, .92f, false);
+        if (_active && windowFocused)
+            QueueChatRect(x + 6.f, y + 6.f, x + width - 6.f, y + inputHeight + 4.f, .18f, .65f, .57f, 1.f, true);
+        QueueChatText(inputLine.c_str(), x + 10.f, y + 12.f, .90f, .94f, .92f);
+        if (_draft.empty())
+            QueueChatText(FitChatText("Message or /command", (int)width - 48).c_str(), x + 28.f, y + 12.f, .42f, .50f, .47f);
+        if (_active && windowFocused && (GetTickCount64() / 500) % 2 == 0)
         {
-            char scrollText[48];
-            sprintf(scrollText, "history +%u", (unsigned)_scrollOffset);
-            const float scrollTextX = x + width - 8.f - (float)strlen(scrollText) * INPUT_CHAR_WIDTH - (float)(INPUT_CHAR_WIDTH * 5);
-            QueueChatText(scrollText, scrollTextX, y + height - 22.f, .95f, .82f, .48f);
+            float caretX = x + 10.f + ChatTextWidth("> " + draft.substr(0, cursorInView));
+            QueueChatRect(caretX, y + 12.f, caretX + 1.f, y + 26.f, .70f, 1.f, .9f, 1.f, false);
         }
 
-        if (!_notice.empty())
-        {
-            // Reserve the right side of the header for the two voice buttons.
-            const int available = App.size.x - 284 - (int)(x + 8.f);
-            const size_t chars = available > 0 ? (size_t)available / INPUT_CHAR_WIDTH : 0;
-            string notice = _notice;
-            if (notice.size() > chars)
-                notice = chars > 3 ? notice.substr(0, chars - 3) + "..." : string();
-            QueueChatText(notice.c_str(), x + 8.f, y + height + 4.f, .95f, .82f, .48f);
-        }
+
     }
 };
 

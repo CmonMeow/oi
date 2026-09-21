@@ -101,7 +101,7 @@ int main()
     HWND hwnd = CreateWindowExA(
         0,
         wc.lpszClassName,
-        "oi",
+        "Disconnected",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
         CW_USEDEFAULT,
         CW_USEDEFAULT,

@@ -382,6 +382,11 @@ public:
         while (popCapturedPacket(discarded)) {}
     }
 
+    bool speaking(__int32 player, const cNetworkRuntime& network) const
+    {
+        return player == network.localPlayerId() ? transmitting(network) : _mixer.speaking(player, GetTickCount64());
+    }
+
     bool micEnabled() const { return _transmitEnabled && _recording && _captureReady; }
 
     void update(cNetworkRuntime& network, bool talkKeyDown, const PackedClientSettings& settings, bool micClicked = false)

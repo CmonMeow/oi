@@ -4,6 +4,7 @@
 class cNetworkRuntime
 {
     bool _remoteEnded = false;
+    unsigned __int32 _rosterRevision = 0;
     HWND _hWnd;
     PackedClientSettings* _settings;
     string _connectingAddress;
@@ -29,12 +30,6 @@ class cNetworkRuntime
     unsigned char _privateChatSecretKey[crypto_box_SECRETKEYBYTES];
     bool _privateChatKeyReady;
     std::deque<NetworkVoicePacket> _voicePackets;
-
-    static bool looksLikeSystemLine(const string& line)
-    {
-        return _strnicmp(line.c_str(), "system:", 7) == 0 ||
-               _strnicmp(line.c_str(), "server:", 7) == 0;
-    }
 
     string privateChatPublicKeyBytes() const
     {
@@ -338,6 +333,27 @@ class cNetworkRuntime
         _server->KickOff(player, reason, text);
     }
 
+    void sendPresenceTo(__int32 player)
+    {
+        NetworkMessageRaw raw;
+        raw.putInt32(_rosterRevision);
+        raw.putInt32(static_cast<__int32>(_playerIdentities.size() + 1));
+        raw.putInt32(0);
+        raw.putString("system", 48);
+        for (const auto& entry : _playerIdentities)
+        {
+            raw.putInt32(entry.first);
+            raw.putString(entry.second.name, 48);
+        }
+        sendRawFromServer(player, NAMTPresence, raw, (NetMsgFlags)(NMFGuaranteed | NMFHighPriority));
+    }
+
+    void broadcastPresence()
+    {
+        ++_rosterRevision;
+        for (const auto& entry : _playerIdentities) sendPresenceTo(entry.first);
+    }
+
     void onClientMessage(char* buffer, __int32 bufferSize)
     {
         string decrypted;
@@ -355,6 +371,30 @@ class cNetworkRuntime
             if (_localPlayerId >= 0) _connectDeadline = 0;
             if (_settings && _localPlayerId >= 0) _settings->setServerAddress(_connectingAddress);
 
+            return;
+        }
+
+        if (messageSize < sizeof(NetAppMessageHeader)) return;
+        if (reinterpret_cast<const NetAppMessageHeader*>(message)->type == NAMTPresence)
+        {
+            NetworkMessageRaw raw(message + sizeof(NetAppMessageHeader), messageSize - sizeof(NetAppMessageHeader));
+            __int32 revision, count;
+            if (!raw.getInt32(revision) || !raw.getInt32(count) || count < 1 || count > 256) return;
+            std::map<__int32, NetworkIdentity> roster;
+            for (__int32 i = 0; i < count; ++i)
+            {
+                __int32 id;
+                string name;
+                if (!raw.getInt32(id) || id < 0 || !raw.getString(name, 48) || name.empty() || roster.count(id)) return;
+                roster[id] = {};
+                roster[id].name = SanitiseChatLine(name);
+            }
+            if (!raw.fullyRead() || static_cast<__int32>(static_cast<unsigned __int32>(revision) - _rosterRevision) < 0) return;
+            _rosterRevision = revision;
+            _playerIdentities.swap(roster);
+            for (auto it = _privateChatKeys.begin(); it != _privateChatKeys.end();)
+                if (!_playerIdentities.count(it->first)) { _privateChatNames.erase(it->first); it = _privateChatKeys.erase(it); }
+                else ++it;
             return;
         }
 
@@ -381,7 +421,6 @@ class cNetworkRuntime
             {
                 _privateChatKeys[keyPlayer] = publicKey;
                 _privateChatNames[keyPlayer] = keyName;
-                _playerIdentities[keyPlayer].name = keyName;
             }
             return;
         }
@@ -408,7 +447,17 @@ class cNetworkRuntime
         if (ParseAppRawString(message, messageSize, NAMTConnect, text, CHAT_MAX_LINE_CHARS) ||
             ParseAppRawString(message, messageSize, NAMTDisconnect, text, CHAT_MAX_LINE_CHARS))
         {
-            addChatLine(text);
+            addChatLine(text, CLKSystem);
+            return;
+        }
+        if (ParseAppRawString(message, messageSize, NAMTSystemNotice, text, CHAT_MAX_LINE_CHARS))
+        {
+            addChatLine(text, CLKSystem);
+            return;
+        }
+        if (ParseAppRawString(message, messageSize, NAMTCommandError, text, CHAT_MAX_LINE_CHARS))
+        {
+            addChatLine(text, CLKError);
             return;
         }
         if (ParseAppRawString(message, messageSize, NAMTChat, text, CHAT_MAX_LINE_CHARS))
@@ -581,6 +630,7 @@ class cNetworkRuntime
         _privateChatKeys.erase(player);
         _privateChatNames.erase(player);
         _serverCrypto.erase(player);
+        broadcastPresence();
     }
 
     void sendInitialStateTo(__int32 player)
@@ -594,6 +644,7 @@ class cNetworkRuntime
         sendPacketFromServer(player, NAMTPlayerAssign, assignPacket);
 
         sendKnownChatKeysTo(player);
+        broadcastPresence();
 
         std::ostringstream status;
         status << "system: " << playerDisplayName(player) << " joined";
@@ -606,10 +657,6 @@ class cNetworkRuntime
         if (line.empty())
         {
             return;
-        }
-        if (kind == CLKNormal && looksLikeSystemLine(line))
-        {
-            kind = CLKSystem;
         }
         if (!_hWnd) printf("%s\n", SanitiseChatLine(line).c_str());
         string text = SanitiseChatLine(line);
@@ -907,14 +954,14 @@ class cNetworkRuntime
         return false;
     }
 
-    void sendCommandResult(__int32 player, const string& message)
+    void sendCommandResult(__int32 player, const string& message, bool error = false)
     {
         if (player == 0 && std::find(_players.begin(), _players.end(), player) == _players.end())
         {
-            addChatLine(string("system: ") + message, CLKSystem);
+            addChatLine(string("system: ") + message, error ? CLKError : CLKSystem);
             return;
         }
-        sendRawStringFromServer(player, NAMTChat, string("system: ") + message, CHAT_MAX_LINE_CHARS);
+        sendRawStringFromServer(player, error ? NAMTCommandError : NAMTSystemNotice, string("system: ") + message, CHAT_MAX_LINE_CHARS);
     }
 
     void handleChatFromClient(__int32 from, string text)
@@ -953,7 +1000,7 @@ class cNetworkRuntime
         }
         if (std::find(_players.begin(), _players.end(), target) == _players.end())
         {
-            sendCommandResult(from, "private target not found");
+            sendCommandResult(from, "private target not found", true);
             return;
         }
         sendPrivateChatToClient(target, from, fromName, cipher);
@@ -964,14 +1011,14 @@ class cNetworkRuntime
         __int32 target = -1;
         if (!resolvePlayerReference(reference, target, true))
         {
-            addChatLine("system: private target not found", CLKSystem);
+            addChatLine("system: private target not found", CLKError);
             return false;
         }
         string text = SanitiseChatText(message);
         string cipher;
         if (text.empty() || !encryptPrivateText(target, text, cipher))
         {
-            addChatLine("system: private key unavailable", CLKSystem);
+            addChatLine("system: private key unavailable", CLKError);
             return false;
         }
         if (_client)
@@ -995,20 +1042,22 @@ class cNetworkRuntime
     void sendUsersList(__int32 to)
     {
         std::ostringstream summary;
-        summary << "users online: " << _players.size();
+        const auto people = participants();
+        summary << "users online: " << people.size();
         sendCommandResult(to, summary.str());
-        for (size_t i = 0; i < _players.size(); ++i)
+        for (const auto& person : people)
         {
-            __int32 player = _players[i];
+            __int32 player = person.first;
             __int32 latency = 0;
             __int32 throughput = 0;
-            if (!_server || !_server->GetConnectionInfo(player, latency, throughput))
+            if (player == 0 || !_server || !_server->GetConnectionInfo(player, latency, throughput))
             {
                 latency = 0;
             }
             std::ostringstream line;
-            line << playerDisplayName(player);
-            line << " " << latency << "ms";
+            line << person.second;
+            if (player == 0) line << " (host)";
+            else line << " " << latency << "ms";
             sendCommandResult(to, line.str());
         }
     }
@@ -1035,22 +1084,23 @@ class cNetworkRuntime
             string name = TrimWhitespace(command.substr(5));
             if (name.empty())
             {
-                sendCommandResult(from, "usage: /name username");
+                sendCommandResult(from, "usage: /name username", true);
                 return;
             }
             if (!ValidUserName(name))
             {
-                sendCommandResult(from, "usage: /name username (1-32 letters: a-z, A-Z only)");
+                sendCommandResult(from, "usage: /name username (1-32 letters: a-z, A-Z only)", true);
                 return;
             }
             string oldName = identity->second.name;
             identity->second.name = IdentityDisplayName(name, from);
+            broadcastPresence();
             _privateChatNames[from] = identity->second.name;
             std::map<__int32, string>::const_iterator key = _privateChatKeys.find(from);
             if (key != _privateChatKeys.end()) broadcastChatKey(from, identity->second.name, key->second);
             string notice = "system: " + oldName + " is now " + identity->second.name;
             addChatLine(notice, CLKSystem);
-            sendRawStringFromServerToAll(NAMTChat, notice, CHAT_MAX_LINE_CHARS);
+            sendRawStringFromServerToAll(NAMTSystemNotice, notice, CHAT_MAX_LINE_CHARS);
             return;
         }
         if (_stricmp(command.c_str(), "/users") == 0)
@@ -1060,7 +1110,7 @@ class cNetworkRuntime
         }
         if (from != 0)
         {
-            sendCommandResult(from, "host only command");
+            sendCommandResult(from, "host only command", true);
             return;
         }
 
@@ -1069,10 +1119,11 @@ class cNetworkRuntime
             string argument = TrimWhitespace(command.size() > 5 ? command.substr(5) : string());
             if (argument.empty())
             {
-                sendCommandResult(from, "usage: /kick name|netId:name|netId");
+                sendCommandResult(from, "usage: /kick name|netId:name|netId", true);
                 return;
             }
-            sendCommandResult(from, kickPlayer(argument, false) ? "kick sent" : "Player not found or name ambiguous; use netId:name or netId.");
+            const bool sent = kickPlayer(argument, false);
+            sendCommandResult(from, sent ? "kick sent" : "Player not found or name ambiguous; use netId:name or netId.", !sent);
             return;
         }
         if (MatchesCommand(command, "/ban"))
@@ -1080,14 +1131,15 @@ class cNetworkRuntime
             string argument = TrimWhitespace(command.size() > 4 ? command.substr(4) : string());
             if (argument.empty())
             {
-                sendCommandResult(from, "usage: /ban name|netId:name|netId");
+                sendCommandResult(from, "usage: /ban name|netId:name|netId", true);
                 return;
             }
-            sendCommandResult(from, kickPlayer(argument, true) ? "ban sent" : "Player not found or name ambiguous; use netId:name or netId.");
+            const bool sent = kickPlayer(argument, true);
+            sendCommandResult(from, sent ? "ban sent" : "Player not found or name ambiguous; use netId:name or netId.", !sent);
             return;
         }
 
-        sendCommandResult(from, string("unknown command: ") + command);
+        sendCommandResult(from, string("unknown command: ") + command, true);
     }
 
 public:
@@ -1119,12 +1171,13 @@ public:
     {
         if (_server || _client)
         {
-            addChatLine("network already active");
+            addChatLine("network already active", CLKError);
             return false;
         }
 
         _players.clear();
         _playerIdentities.clear();
+        _rosterRevision = 0;
         _privateChatKeys.clear();
         _privateChatNames.clear();
         _pendingLeaveMessages.clear();
@@ -1137,7 +1190,7 @@ public:
         _server = CreateNetServer();
         if (!_server || !_server->Init("oi", "", port))
         {
-            addChatLine("host failed");
+            addChatLine("host failed", CLKError);
             Error("Network host failed on port %u", port);
             delete _server;
             _server = NULL;
@@ -1152,13 +1205,13 @@ public:
     {
         if (_client || _server)
         {
-            addChatLine("network already active");
+            addChatLine("network already active", CLKError);
             return false;
         }
 
         if (LocalDriveSerial().empty())
         {
-            addChatLine("Cannot read the C: volume identity.", CLKSystem);
+            addChatLine("Cannot read the C: volume identity.", CLKError);
             return false;
         }
         const string address = requestedAddress.empty()
@@ -1168,7 +1221,7 @@ public:
         ConnectResult result = _client ? _client->Init(address, "", false, port, "oi", NULL) : CRError;
         if (result != CROK && result != CRNone)
         {
-            addChatLine(string("Failed to join. Error: ") + ConnectResultName(result));
+            addChatLine(string("Failed to join. Error: ") + ConnectResultName(result), CLKError);
             delete _client;
             _client = NULL;
             return false;
@@ -1177,7 +1230,7 @@ public:
         _connectingAddress = address;
         _transportConnecting = result == CRNone;
         _connectDeadline = GetTickCount64() + 10000;
-        addChatLine("connecting");
+        addChatLine("connecting", CLKSystem);
         if (!_transportConnecting) beginClientCryptoHandshake();
         return true;
     }
@@ -1186,7 +1239,7 @@ public:
     {
         if (_client && _connectDeadline && GetTickCount64() >= _connectDeadline)
         {
-            addChatLine("connection timed out", CLKSystem);
+            addChatLine("connection timed out", CLKError);
             _remoteEnded = true;
             disconnect();
         }
@@ -1198,7 +1251,7 @@ public:
             if (result != CROK)
             {
                 addChatLine(result == CRTimeout ? "connection timed out" :
-                    string("Failed to join. Error: ") + ConnectResultName(result), CLKSystem);
+                    string("Failed to join. Error: ") + ConnectResultName(result), CLKError);
                 _remoteEnded = true;
                 disconnect();
                 return;
@@ -1228,7 +1281,7 @@ public:
             if (_remoteEnded || _client->IsSessionTerminated())
             {
                 string reason = _client->GetWhySessionTerminatedStr();
-                if (!_remoteEnded && !reason.empty()) addChatLine(reason);
+                if (!_remoteEnded && !reason.empty()) addChatLine(reason, CLKError);
                 _remoteEnded = true;
                 disconnect();
 
@@ -1273,6 +1326,19 @@ public:
         else return false;
         return true;
     }
+
+    std::vector<std::pair<__int32, string>> participants() const
+    {
+        std::vector<std::pair<__int32, string>> result;
+        if (_server) result.push_back({0, "system"});
+        if (_server || clientReady())
+            for (const auto& entry : _playerIdentities) result.push_back({entry.first, entry.second.name});
+        return result;
+    }
+
+    __int32 localPlayerId() const { return _server ? 0 : _localPlayerId; }
+
+    void showNotice(const string& text, bool error = false) { addChatLine(text, error ? CLKError : CLKSystem); }
 
     bool clientReady() const { return _client && _localPlayerId >= 0; }
 
@@ -1333,18 +1399,18 @@ public:
         if (_server) { addChatLine("The server uses the name system.", CLKSystem); return; }
         if (name.empty())
         {
-            addChatLine("usage: /name username", CLKSystem);
+            addChatLine("usage: /name username", CLKError);
             return;
         }
         if (!ValidUserName(name))
         {
-            addChatLine("usage: /name username (1-32 letters: a-z, A-Z only)", CLKSystem);
+            addChatLine("usage: /name username (1-32 letters: a-z, A-Z only)", CLKError);
             return;
         }
         std::ofstream file("ClientName.txt", std::ios::trunc);
         file << name << "\n";
         file.close();
-        if (!file) { addChatLine("Could not save your name.", CLKSystem); return; }
+        if (!file) { addChatLine("Could not save your name.", CLKError); return; }
         if (_client) sendChat("/name " + name);
         else addChatLine("Name saved: " + name, CLKSystem);
     }
@@ -1364,6 +1430,7 @@ public:
 
         if (_client)
         {
+            if (!clientReady()) { addChatLine("Still connecting.", CLKError); return; }
             sendRawStringFromClient(NAMTChat, message, CHAT_MAX_MESSAGE_CHARS);
         }
         else if (_server)
@@ -1374,22 +1441,23 @@ public:
                 return;
             }
             string line = string("system: ") + message;
-            addChatLine(line, CLKSystem);
+            addChatLine(line, CLKNormal);
             sendRawStringFromServerToAll(NAMTChat, line, CHAT_MAX_LINE_CHARS);
         }
+        else addChatLine("Not connected. Use /connect or /host.", CLKError);
     }
 
     bool kickPlayer(const string& reference, bool ban)
     {
         if (!_server)
         {
-            addChatLine("host only command");
+            addChatLine("host only command", CLKError);
             return false;
         }
         __int32 player = -1;
         if (!resolvePlayerReference(reference, player, true))
         {
-            addChatLine("Player not found or name ambiguous; use netId:name or netId.", CLKSystem);
+            addChatLine("Player not found or name ambiguous; use netId:name or netId.", CLKError);
             return false;
         }
         const string displayName = playerDisplayName(player);
@@ -1464,6 +1532,7 @@ public:
         _localPlayerId = -1;
         _players.clear();
         _playerIdentities.clear();
+        _rosterRevision = 0;
         _privateChatKeys.clear();
         _privateChatNames.clear();
         _pendingLeaveMessages.clear();
