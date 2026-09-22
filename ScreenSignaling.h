@@ -153,7 +153,17 @@ public:
         e.payload.assign(bytes.begin(),bytes.end());
         auto& b=budgets[from]; auto now=GetTickCount64();
         if(now-b.start>=1000) { b.start=now;b.messages=b.bytes=0; }
-        if(++b.messages>(host()?128u:1024u) || (b.bytes+=(unsigned)bytes.size())>(host()?131072u:1048576u)) return;
+        unsigned messageLimit=1024,byteLimit=1048576;
+        if(host()) {
+            unsigned links=0;
+            for(const auto& c:connections)if(c.second.owner==from||c.second.viewer==from)++links;
+            links=(std::min)(links,25u);
+            // One sharer negotiates separately with every viewer. Allow that
+            // legitimate burst while keeping a small budget for unconnected peers.
+            messageLimit=(std::max)(128u,links*16u);
+            byteLimit=(std::max)(131072u,links*32768u);
+        }
+        if(++b.messages>messageLimit || (b.bytes+=(unsigned)bytes.size())>byteLimit) return;
         if(host() && (e.kind==Start || e.kind==Watch)) {
             if(now-b.controlStart>=10000) { b.controlStart=now;b.controls=0; }
             if(++b.controls>4) {

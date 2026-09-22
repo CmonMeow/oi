@@ -9,7 +9,7 @@
 using Microsoft::WRL::ComPtr;
 using Microsoft::WRL::Callback;
 namespace {
-const wchar_t* const ScreenUrl=L"https://screen.oi.invalid/";
+const wchar_t* const ScreenUrl=L"https://oi/";
 constexpr UINT FocusScreenMessage=WM_APP+1;
 // WebView initialization callbacks need the same DPI context as their window,
 // even when the chat window uses Windows' automatic scaling.
@@ -159,16 +159,20 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
                             if(source&&wcscmp(source,ScreenUrl)==0&&SUCCEEDED(args->TryGetWebMessageAsString(&text)))s->message(narrowScreen(text));
                             CoTaskMemFree(source);CoTaskMemFree(text);return S_OK;
                         }).Get(),&token);
-                        s->web->add_NavigationStarting(Callback<ICoreWebView2NavigationStartingEventHandler>([](ICoreWebView2*,ICoreWebView2NavigationStartingEventArgs* args)->HRESULT {
-                            LPWSTR uri=nullptr;args->get_Uri(&uri);if(!uri||wcscmp(uri,ScreenUrl)!=0)args->put_Cancel(TRUE);CoTaskMemFree(uri);return S_OK;
+                        s->web->add_NavigationStarting(Callback<ICoreWebView2NavigationStartingEventHandler>([weak,current](ICoreWebView2*,ICoreWebView2NavigationStartingEventArgs* args)->HRESULT {
+                            auto s=weak.lock();LPWSTR uri=nullptr;args->get_Uri(&uri);
+                            // Reloading would discard media without retiring the native share offer.
+                            if(!s||s->generation!=current||s->ready||!uri||wcscmp(uri,ScreenUrl)!=0)args->put_Cancel(TRUE);
+                            CoTaskMemFree(uri);return S_OK;
                         }).Get(),&token);
                         s->web->add_NewWindowRequested(Callback<ICoreWebView2NewWindowRequestedEventHandler>([](ICoreWebView2*,ICoreWebView2NewWindowRequestedEventArgs* args)->HRESULT {args->put_Handled(TRUE);return S_OK;}).Get(),&token);
                         s->web->add_PermissionRequested(Callback<ICoreWebView2PermissionRequestedEventHandler>([](ICoreWebView2*,ICoreWebView2PermissionRequestedEventArgs* args)->HRESULT {args->put_State(COREWEBVIEW2_PERMISSION_STATE_DENY);return S_OK;}).Get(),&token);
                         s->web->add_ProcessFailed(Callback<ICoreWebView2ProcessFailedEventHandler>([weak,current](ICoreWebView2*,ICoreWebView2ProcessFailedEventArgs*)->HRESULT {
                             auto s=weak.lock();if(s&&s->generation==current){s->error("Screen viewer stopped unexpectedly.");PostMessageW(s->window,WM_CLOSE,0,0);}return S_OK;
                         }).Get(),&token);
-                        s->web->AddWebResourceRequestedFilter(L"*",COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
-                        s->web->add_WebResourceRequested(Callback<ICoreWebView2WebResourceRequestedEventHandler>([weak,current](ICoreWebView2*,ICoreWebView2WebResourceRequestedEventArgs* args)->HRESULT {
+                        HRESULT filter=s->web->AddWebResourceRequestedFilter(L"*",COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
+                        if(FAILED(filter)){s->error("Could not configure the local screen page.",filter);PostMessageW(s->window,WM_CLOSE,0,0);return S_OK;}
+                        HRESULT resourceHandler=s->web->add_WebResourceRequested(Callback<ICoreWebView2WebResourceRequestedEventHandler>([weak,current](ICoreWebView2*,ICoreWebView2WebResourceRequestedEventArgs* args)->HRESULT {
                             auto s=weak.lock();if(!s||s->generation!=current||!s->environment)return S_OK;
                             ComPtr<ICoreWebView2WebResourceRequest> request;args->get_Request(&request);LPWSTR uri=nullptr;if(request)request->get_Uri(&uri);
                             ComPtr<IStream> body;bool allowed=uri&&wcscmp(uri,ScreenUrl)==0;CoTaskMemFree(uri);
@@ -178,6 +182,7 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
                             s->environment->CreateWebResourceResponse(body.Get(),body?200:403,body?L"OK":L"Forbidden",L"Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store",&response);
                             args->put_Response(response.Get());return S_OK;
                         }).Get(),&token);
+                        if(FAILED(resourceHandler)){s->error("Could not serve the local screen page.",resourceHandler);PostMessageW(s->window,WM_CLOSE,0,0);return S_OK;}
                         if(FAILED(s->web->Navigate(ScreenUrl))){s->error("Could not load the screen viewer.");PostMessageW(s->window,WM_CLOSE,0,0);}
                         return S_OK;
                     }).Get());

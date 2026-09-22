@@ -12,7 +12,7 @@
 <section id="remoteSection"><h2>Watching screen</h2><video id="remote" autoplay muted playsinline controls controlslist="nodownload noplaybackrate" disablepictureinpicture></video></section></main>
 <script>
 'use strict';
-const $=id=>document.getElementById(id), peers=new Map();
+const $=id=>document.getElementById(id), peers=new Map(), pendingJobs=new Set();
 let stream=null, share='', picking=false, incoming=0, outgoing=0;
 const tell=(type,peer=-1,id='',connection='',payload='')=>chrome.webview.postMessage([type,peer,id,connection,payload].join('\n'));
 const status=text=>{$('status').textContent=text};
@@ -25,6 +25,7 @@ const codecs=role=>{
  return [...av1,...caps.codecs.filter(c=>c.mimeType.toLowerCase()==='video/rtx')];
 };
 function drop(connection,notify=true){
+ for(const job of pendingJobs)if(job.key===connection)job.cancelled=true;
  const p=peers.get(connection);if(!p)return;
  peers.delete(connection);clearTimeout(p.timeout);p.pc.close();
  if(p.role==='receive'){$('remote').srcObject=null;$('remoteSection').style.display='none';}
@@ -33,6 +34,7 @@ function drop(connection,notify=true){
 function stop(){
  if(stream){for(const track of stream.getTracks())track.stop();stream=null;}
  const old=share;share='';for(const [connection,p] of peers)if(p.role==='send')drop(connection);
+ for(const job of pendingJobs)if(job.type==='watch'&&job.shared===old)job.cancelled=true;
  $('local').srcObject=null;$('localSection').style.display='none';$('stop').style.display='none';$('choose').disabled=false;
  if(old)tell('stop',-1,old);status('Screen sharing stopped.');
 }
@@ -43,10 +45,11 @@ function connection(peer,shared,key,role){
  const p={pc,peer,share:shared,role,pending:[],lastIn:0,lastOut:0};peers.set(key,p);
  pc.onicecandidate=e=>{if(e.candidate&&peers.has(key))tell('signal',peer,shared,key,JSON.stringify({candidate:e.candidate.toJSON()}));};
  pc.onconnectionstatechange=()=>{
+  if(peers.get(key)!==p)return;
   if(pc.connectionState==='connected'){clearTimeout(p.timeout);status('');}
   if(pc.connectionState==='failed'){drop(key);fail('Direct screen connection failed. A NAT or firewall may prevent this connection.');}
  };
- pc.ontrack=e=>{if(role!=='receive'||e.track.kind!=='video'){e.track.stop();return;}
+ pc.ontrack=e=>{if(peers.get(key)!==p||role!=='receive'||e.track.kind!=='video'){e.track.stop();return;}
   $('remote').srcObject=new MediaStream([e.track]);$('remoteSection').style.display='block';};
  p.timeout=setTimeout(()=>{if(peers.has(key)&&pc.connectionState!=='connected'){drop(key);fail('Direct screen connection timed out.');}},30000);
  return p;
@@ -70,6 +73,8 @@ async function signal(peer,shared,key,body){
  const p=peers.get(key);if(!p||p.peer!==peer||p.share!==shared)return;
  const data=JSON.parse(body);
  if(data.description){
+  if(p.descriptionReceived)throw Error('Duplicate screen negotiation.');
+  p.descriptionReceived=true;
   if(data.description.type!==(p.role==='receive'?'offer':'answer'))throw Error('Invalid screen negotiation.');
   // Limit media to the one negotiated video transceiver; no audio or data channels.
   const sdp=data.description.sdp;
@@ -86,25 +91,29 @@ $('choose').onclick=async()=>{
  if(picking||stream)return;picking=true;$('choose').disabled=true;
  try{
   codecs('send');stream=await navigator.mediaDevices.getDisplayMedia({video:{width:{max:1920},height:{max:1080},frameRate:{ideal:60,max:60}},audio:false});
-  share=id();const track=stream.getVideoTracks()[0];track.contentHint='detail';track.onended=stop;
+  share=id();const captured=stream,track=captured.getVideoTracks()[0];track.contentHint='detail';track.onended=()=>{if(stream===captured)stop();};
   $('local').srcObject=stream;$('localSection').style.display='block';$('stop').style.display='inline-block';
   tell('start',-1,share);status('Sharing offered in chat. Waiting for viewers.');
- }catch(e){if(e.name==='NotAllowedError')status('Screen selection cancelled.');else fail(e.message);$('choose').disabled=false;}
+ }catch(e){if(stream)stop();if(e.name==='NotAllowedError')status('Screen selection cancelled.');else fail(e.message);$('choose').disabled=false;}
  finally{picking=false;}
 };
 $('stop').onclick=stop;
 let chain=Promise.resolve();
 chrome.webview.addEventListener('message',event=>{
  const parts=event.data.split('\n'),type=parts.shift(),peer=Number(parts.shift()),shared=parts.shift(),key=parts.shift(),body=parts.join('\n');
+ // Closing media must not wait behind asynchronous negotiation work.
+ if(type==='stop-local'){stop();return;}
+ if(type==='close'){for(const job of pendingJobs)if(job.key===key)job.cancelled=true;drop(key,false);if(body)fail(body);return;}
+ if(type==='stop'){for(const job of pendingJobs)if(job.shared===shared)job.cancelled=true;if(share===shared)stop();for(const [connection,p]of peers)if(p.share===shared)drop(connection,false);if(body)fail(body);else status('Screen share ended.');return;}
+ if(pendingJobs.size>=256){if(key)drop(key);fail('Too many pending screen requests.');return;}
+ const job={type,shared,key,cancelled:false};pendingJobs.add(job);
  chain=chain.then(async()=>{
+  if(job.cancelled)return;
   if(type==='choose'){ $('choose').focus();return; }
-  if(type==='stop-local'){stop();return;}
   if(type==='view'){await requestWatch(peer,shared);return;}
   if(type==='watch'){await startPeer(peer,shared,key);return;}
   if(type==='signal'){await signal(peer,shared,key,body);return;}
-  if(type==='close'){drop(key,false);if(body)fail(body);return;}
-  if(type==='stop'){if(share===shared)stop();for(const [connection,p]of peers)if(p.share===shared)drop(connection,false);if(body)fail(body);else status('Screen share ended.');}
- }).catch(e=>{if(key&&!peers.has(key)&&e.name==='InvalidStateError')return;if(key)drop(key);fail(e.message||'Screen connection failed.');});
+ }).catch(e=>{if(key&&!peers.has(key)&&e.name==='InvalidStateError')return;if(key)drop(key);fail(e.message||'Screen connection failed.');}).finally(()=>{pendingJobs.delete(job);});
 });
 const videoRates=['local','remote'].map(name=>{
  const video=$(name),rate={video,frames:0};
@@ -121,7 +130,9 @@ setInterval(()=>{
  });
  tell('video',-1,'','',values.join(','));
 },1000);
+let sampling=false;
 setInterval(async()=>{
+ if(sampling)return;sampling=true;
  for(const [key,p]of peers){
   try{const stats=await p.pc.getStats();let bytesIn=0,bytesOut=0;
    for(const s of stats.values()){
@@ -134,6 +145,7 @@ setInterval(async()=>{
   }catch(e){if(peers.has(key)){drop(key);fail('Screen statistics failed.');}}
  }
  tell('stats',-1,'','',`${incoming},${outgoing}`);
+ sampling=false;
 },1000);
 tell('ready');
 </script></html>

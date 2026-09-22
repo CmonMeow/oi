@@ -44,7 +44,7 @@ Rejected share/watch requests reset the pending operation and report an error so
 the user can retry. Screen windows and asynchronous WebView initialization use a
 consistent DPI context, including after closing and reopening the window.
 
-The page is an embedded resource served at a synthetic HTTPS origin. External
+The page is an embedded resource served at a internal `https://oi/` origin. External
 navigation, popups, camera/microphone permission requests, and page resource
 requests are blocked. Network input is delivered as structured strings, never
 executed as JavaScript or inserted as HTML. WebView2 stores its local profile in
