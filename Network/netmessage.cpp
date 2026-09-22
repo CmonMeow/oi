@@ -35,6 +35,7 @@ Ref<NetMessagePool> NetMessagePool::msgPool(new NetMessagePool);
 
 NetMessagePool::~NetMessagePool()
 {
+	freeMemory();
 }
 
 Ref<NetMessage> NetMessagePool::newMessage(unsigned minLen, NetChannel* ch)
@@ -169,12 +170,14 @@ unsigned NetMessagePool::freeOneItem()
 	}
 	if (oldestIt != recycled.end())
 	{
-		NetMessage* tmp = oldestIt->second.GetRef();
-
-		while (tmp)
+		// Detach each link before releasing it; a large pool must not recurse
+		// through Ref destructors and exhaust the stack.
+		while (oldestIt->second)
 		{
-			size += tmp->totalLen + sizeof(NetMessage);
-			tmp = tmp->next.GetRef();
+			Ref<NetMessage> msg = oldestIt->second;
+			size += msg->totalLen + sizeof(NetMessage);
+			oldestIt->second = msg->next;
+			msg->next = NULL;
 		}
 		recycled.erase(oldestIt);
 	}
@@ -190,12 +193,12 @@ unsigned NetMessagePool::freeMemory()
 	Critical_Section.lock();
 	for (auto it = recycled.begin(); it != recycled.end();)
 	{
-		Ref<NetMessage> msg = it->second;
-		NetMessage* tmp = msg.GetRef();
-		while (tmp)
+		while (it->second)
 		{ 
-			size += tmp->totalLen + sizeof(NetMessage);
-			tmp = tmp->next.GetRef();
+			Ref<NetMessage> msg = it->second;
+			size += msg->totalLen + sizeof(NetMessage);
+			it->second = msg->next;
+			msg->next = NULL;
 		}
 		it = recycled.erase(it);
 	}

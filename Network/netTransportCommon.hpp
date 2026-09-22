@@ -444,7 +444,8 @@ Ref<NetMessage> NetClient::SendMsg(BYTE* buffer, __int32 bufferSize, DWORD& msgI
 		}
 		if (dependOn)
 			msg->setOrdered(dependOn.GetRef());
-		msg->setCallback(clientSendComplete, nsOutputSent, this);
+		if (flags & NMFSetCallback)
+			msg->setCallback(clientSendComplete, nsOutputSent, this);
 		msg->setSendTimeout(SEND_TIMEOUT);
 		msg->setData((unsigned char*)buffer, bufferSize);
 		msg->send();
@@ -912,7 +913,8 @@ Ref<NetMessage> NetServer::SendMsg(__int32 to, BYTE* buffer, __int32 bufferSize,
 				}
 				else 
 				{
-					msg->setCallback(serverSendComplete, nsOutputSent, this);
+					if (setCallback)
+						msg->setCallback(serverSendComplete, nsOutputSent, this);
 					if (dependOn)
 						msg->setOrdered(dependOn.GetRef());
 					msg->setSendTimeout(SEND_TIMEOUT);
@@ -946,7 +948,7 @@ Ref<NetMessage> NetServer::SendMsg(__int32 to, BYTE* buffer, __int32 bufferSize,
 				msg = NetMessagePool::pool()->newMessage(packet, channel.GetRef());
 				if (!msg)
 				{
-					Send_Critical_Section.unlock();
+					User_Critical_Section.unlock();
 					Error("NetServer: pool()->newMessage failed when sending to %d", to);
 					return NULL;
 				}
@@ -977,7 +979,8 @@ Ref<NetMessage> NetServer::SendMsg(__int32 to, BYTE* buffer, __int32 bufferSize,
 			}
 			else 
 			{
-				msg->setCallback(serverSendComplete, nsOutputSent, this);
+				if (setCallback)
+					msg->setCallback(serverSendComplete, nsOutputSent, this);
 				if (dependOn)
 					msg->setOrdered(dependOn.GetRef());
 				msg->setSendTimeout(SEND_TIMEOUT);

@@ -625,6 +625,7 @@ void NetChannelBasic::tick()
 		if (!opened)
 			return;
 		Critical_Section.lock();
+		runTime = now;
 		Ref<NetMessage> msg;
 
 		unsigned __int64 lostTime = now - (unsigned __int64)(2.5f * aveLatency + 150.f);

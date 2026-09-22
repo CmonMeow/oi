@@ -95,7 +95,22 @@ class cNetworkRuntime
     unsigned char _privateChatPublicKey[crypto_box_PUBLICKEYBYTES];
     unsigned char _privateChatSecretKey[crypto_box_SECRETKEYBYTES];
     bool _privateChatKeyReady;
-    std::deque<NetworkVoicePacket> _voicePackets;
+    std::map<__int32, std::deque<NetworkVoicePacket>> _voicePackets;
+
+    void queueVoicePacket(const NetworkVoicePacket& packet)
+    {
+        auto found = _voicePackets.find(packet.playerId);
+        if (found == _voicePackets.end())
+        {
+            if (_voicePackets.size() >= 128) return;
+            found = _voicePackets.emplace(packet.playerId, std::deque<NetworkVoicePacket>()).first;
+        }
+        // Match the mixer's 240 ms bound per speaker. A busy room must not
+        // overflow a single shared queue before the mixer gets its next turn.
+        auto& packets = found->second;
+        if (packets.size() >= 12) packets.pop_front();
+        packets.push_back(packet);
+    }
 
     string privateChatPublicKeyBytes() const
     {
@@ -474,11 +489,7 @@ class cNetworkRuntime
             if (saneVoicePacket(voicePacket))
             {
                 _voiceActiveUntil = GetTickCount64() + 2000;
-                _voicePackets.push_back(voicePacket);
-                while (_voicePackets.size() > 32)
-                {
-                    _voicePackets.pop_front();
-                }
+                queueVoicePacket(voicePacket);
             }
             return;
         }
@@ -584,11 +595,7 @@ class cNetworkRuntime
             {
                 _voiceActiveUntil = GetTickCount64() + 2000;
                 voicePacket.playerId = from;
-                _voicePackets.push_back(voicePacket);
-                while (_voicePackets.size() > 32)
-                {
-                    _voicePackets.pop_front();
-                }
+                queueVoicePacket(voicePacket);
                 broadcastVoicePacket(voicePacket, from);
             }
             return;
@@ -1533,8 +1540,10 @@ public:
         {
             return false;
         }
-        packet = _voicePackets.front();
-        _voicePackets.pop_front();
+        auto first = _voicePackets.begin();
+        packet = first->second.front();
+        first->second.pop_front();
+        if (first->second.empty()) _voicePackets.erase(first);
         return true;
     }
 

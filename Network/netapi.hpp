@@ -15,7 +15,8 @@ class NetChannel;
 class NetPool;
 class NetMessage;
 
-#define RCVBUFSize 65535;
+// Absorb simultaneous file chunks and voice from a room of senders.
+constexpr int RCVBUFSize = 1024 * 1024;
 
 struct NetworkParams {
 	unsigned ackTimeoutB;					
