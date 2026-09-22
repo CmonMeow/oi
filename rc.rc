@@ -8,3 +8,5 @@ IDC_POINTER_CYAN   CURSOR "cursor_cyan.cur"
 IDC_POINTER_GREEN  CURSOR "cursor_green.cur"
 IDC_POINTER_RED    CURSOR "cursor_red.cur"
 IDC_POINTER_YELLOW CURSOR "cursor_yellow.cur"
+
+200 RCDATA "ScreenShare.html"

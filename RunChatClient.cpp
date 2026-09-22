@@ -38,6 +38,7 @@ static void DrawChatButton(const char* text, vec2i pos, bool on, bool speaking =
 #include "ClientSettings.h"
 #include "VoiceChat.h"
 #include "ChatBox.h"
+#include "ScreenShare.h"
 struct ChatParticipantView
 {
     string label;
@@ -57,14 +58,14 @@ static ChatStatusView MakeChatStatus(const cNetworkRuntime& network, const cVoic
     ChatStatusView view;
     view.online = network.isHost() || network.clientReady();
     view.connecting = network.hasConnection() && !view.online;
-    view.status = network.isHost() ? "Hosting" : network.clientReady() ? "Connected" : view.connecting ? "Connecting..." : "Disconnected";
+    view.status = view.connecting ? "Connecting..." : "Disconnected";
     for (const auto& person : network.participants())
     {
         bool local = person.first == network.localPlayerId();
         const string suffix = local ? " (you)" : person.first == 0 ? " (host)" : "";
         view.people.push_back({FitChatText(person.second, 210 - ChatTextWidth(suffix)) + suffix, local, voice.speaking(person.first, network)});
     }
-    if (view.online && !view.people.empty()) view.status += " | " + std::to_string(view.people.size()) + (view.people.size() == 1 ? " user" : " users");
+    if (view.online) view.status = std::to_string(view.people.size()) + (view.people.size() == 1 ? " user" : " users");
     std::stable_sort(view.people.begin(), view.people.end(), [](const auto& a, const auto& b) {
         return (a.local ? 0 : a.speaking ? 1 : 2) < (b.local ? 0 : b.speaking ? 1 : 2);
     });
@@ -74,7 +75,7 @@ static ChatStatusView MakeChatStatus(const cNetworkRuntime& network, const cVoic
 static void DrawChatStatus(const ChatStatusView& view, size_t historyOffset = 0)
 {
     const string history = historyOffset ? " | history +" + std::to_string(historyOffset) : "";
-    const string status = FitChatText(view.status, App.size.x - 300 - ChatTextWidth(history));
+    const string status = FitChatText(view.status, App.size.x - 436 - ChatTextWidth(history));
     QueueChatText(status.c_str(), 20.f, (float)App.size.y - 23.f,
         view.online ? .50f : .65f, view.online ? .88f : .70f, view.online ? .74f : .67f);
     if (!history.empty())
@@ -112,6 +113,10 @@ void RunChatClient(HWND hWnd)
     if (settings.dedicated()) network.hostOnPort();
     cChatBox chatBox;
     cVoiceChat voiceChat;
+    ScreenShare screenShare(hWnd,
+        [&](const ScreenSignaling::Event& event){ network.sendScreenEvent(event); },
+        [&](const string& message,bool error){ network.showNotice(message,error); });
+    network.openScreen=[&](int owner,const string& share){ screenShare.watch(owner,share); };
     unsigned __int64 lastTitleUpdate = 0;
     unsigned __int64 previousIncoming = 0, previousOutgoing = 0;
     bool hadTrafficSample = false;
@@ -171,11 +176,16 @@ void RunChatClient(HWND hWnd)
         }
 
         network.update();
+        if(!network.isHost() && !network.clientReady()) screenShare.close();
+        ScreenSignaling::Event screenEvent;
+        while(network.popScreenEvent(screenEvent)) screenShare.receive(screenEvent);
         const unsigned __int64 now = GetTickCount64();
         if (now - lastTitleUpdate >= 1000 || previousTitle.empty())
         {
             unsigned __int64 incoming = 0, outgoing = 0;
             const bool connected = network.trafficTotals(incoming, outgoing);
+            unsigned __int64 screenIn=0,screenOut=0;screenShare.traffic(screenIn,screenOut);
+            incoming+=screenIn;outgoing+=screenOut;
             char title[192];
             if (connected)
             {
@@ -206,10 +216,17 @@ void RunChatClient(HWND hWnd)
             lastTitleUpdate = now;
         }
         const vec2i micButton(App.size.x - 140, App.size.y - 28);
+        const vec2i screenButton(App.size.x - 412, App.size.y - 28);
         const vec2i hotkeyButton(App.size.x - 276, App.size.y - 28);
         const bool micClicked = ChatButtonHovered(micButton) && input.leftClick();
         const bool hotkeyClicked = ChatButtonHovered(hotkeyButton) && input.leftClick();
-        if (micClicked || hotkeyClicked) input.KeyUp(VK_LBUTTON);
+        const bool screenClicked=ChatButtonHovered(screenButton) && input.leftClick();
+        if (micClicked || hotkeyClicked || screenClicked) input.KeyUp(VK_LBUTTON);
+        if(screenClicked) {
+            selectingHotkey=false;releaseHotkey=0;input.Clear();
+            if(network.isHost() || network.clientReady()) screenShare.toggle();
+            else network.showNotice("Connect or host before sharing a screen.",true);
+        }
         if (micClicked && !settings.voiceEnabled()) settings.toggleVoiceEnabled();
         if (hotkeyClicked)
         {
@@ -220,7 +237,8 @@ void RunChatClient(HWND hWnd)
         if (!selectingHotkey && !releaseHotkey) chatBox.update(network);
         input.ConsumeMouseWheel();
         const bool talkDown = !selectingHotkey && !releaseHotkey &&
-            input.pressed(settings.talkKey) && !chatBox.active();
+            (screenShare.focused() ? (GetAsyncKeyState(settings.talkKey)&0x8000)!=0 :
+             input.pressed(settings.talkKey) && !chatBox.active());
         if (talkDown && !settings.voiceEnabled()) settings.toggleVoiceEnabled();
         voiceChat.update(network, talkDown, settings, micClicked);
 
@@ -240,6 +258,7 @@ void RunChatClient(HWND hWnd)
             DrawChatButton(voiceChat.micEnabled() ? "MIC ON" : "MIC OFF",
                                         micButton, voiceChat.micEnabled(), voiceChat.transmitting(network));
             DrawChatButton(selectingHotkey ? "PRESS KEY" : settings.talkKeyLabel().c_str(), hotkeyButton, selectingHotkey);
+            DrawChatButton(screenShare.sharing() ? "STOP SHARE" : "SCREEN",screenButton,screenShare.sharing());
             SwapBuffers(dc);
         }
 
@@ -248,6 +267,8 @@ void RunChatClient(HWND hWnd)
         Sleep(static_cast<DWORD>((std::max)(1.0, (std::min)(10.0, std::ceil(waitMS)))));
     }
 
+    screenShare.close();
+    network.openScreen={};
     DragAcceptFiles(hWnd,FALSE);
     ReleaseDC(hWnd, dc);
 }

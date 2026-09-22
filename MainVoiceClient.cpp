@@ -26,7 +26,16 @@ LRESULT CALLBACK ChatWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
         if (LOWORD(wParam) == WA_INACTIVE)
         {
             input.Clear();
+            if (GetCapture() == hwnd) ReleaseCapture();
         }
+        return DefWindowProcA(hwnd, message, wParam, lParam);
+    case WM_KILLFOCUS:
+    case WM_CANCELMODE:
+        input.Clear();
+        if (GetCapture() == hwnd) ReleaseCapture();
+        return DefWindowProcA(hwnd, message, wParam, lParam);
+    case WM_CAPTURECHANGED:
+        input.KeyUp(VK_LBUTTON);
         return 0;
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
@@ -51,7 +60,7 @@ LRESULT CALLBACK ChatWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
         input.mouse.y = (short)HIWORD(lParam);
         return 0;
     case WM_LBUTTONUP:
-        ReleaseCapture();
+        if (GetCapture() == hwnd) ReleaseCapture();
         input.KeyUp(VK_LBUTTON);
         return 0;
     case WM_MOUSEMOVE:

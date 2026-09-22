@@ -60,7 +60,7 @@
     </ClCompile>
     <Link>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>ole32.lib;comdlg32.lib;ws2_32.lib;winmm.lib;user32.lib;shell32.lib;opengl32.lib;gdi32.lib;$(ProjectDir)third_party\opus\lib\x64\Release\opus.lib;$(ProjectDir)third_party\libsodium\lib\x64\Release\libsodium.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ole32.lib;oleaut32.lib;shlwapi.lib;version.lib;comdlg32.lib;$(ProjectDir)third_party\webview2\lib\x64\WebView2LoaderStatic.lib;ws2_32.lib;winmm.lib;user32.lib;shell32.lib;opengl32.lib;gdi32.lib;$(ProjectDir)third_party\opus\lib\x64\Release\opus.lib;$(ProjectDir)third_party\libsodium\lib\x64\Release\libsodium.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)oi.exe</OutputFile>
       <ProgramDatabaseFile>$(IntDir)$(ProjectName).pdb</ProgramDatabaseFile>
       <ImportLibrary>$(IntDir)$(ProjectName).lib</ImportLibrary>
@@ -73,6 +73,8 @@
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="CopyVoiceProcessingLicense" AfterTargets="Build">
+    <Copy SourceFiles="$(ProjectDir)third_party\webview2\LICENSE.txt" DestinationFiles="$(OutDir)webview2-LICENSE.txt" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)third_party\webview2\NOTICE.txt" DestinationFiles="$(OutDir)webview2-NOTICE.txt" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(ProjectDir)third_party\speexdsp\COPYING" DestinationFiles="$(OutDir)speexdsp-LICENSE.txt" SkipUnchangedFiles="true" />
   </Target>
   <ImportGroup Label="ExtensionTargets">
@@ -99,6 +101,7 @@
       <AdditionalIncludeDirectories>$(ProjectDir)third_party\speexdsp\win32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <ClCompile Include="MainVoiceClient.cpp" />
+    <ClCompile Include="ScreenShare.cpp" />
     <ClCompile Include="RunChatClient.cpp" />
     <ClCompile Include="sysdef.cpp" />
     <ClCompile Include="Network\bitmask.cpp" />

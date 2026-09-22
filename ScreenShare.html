@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; media-src blob:; connect-src 'none'; img-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Screen share</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#080d0b;color:#d5ece2;font:15px Segoe UI,sans-serif}header{padding:16px;background:#101b16;border-bottom:1px solid #315044}button{font:inherit;padding:8px 15px;border:1px solid #56ba88;background:#173a2b;color:#e5ffef;cursor:pointer}button:disabled{opacity:.5;cursor:default}#status{margin:10px 0 0;color:#97b4a6}#privacy{font-size:13px;color:#a8b9b0;margin:8px 0}main{display:flex;flex-wrap:wrap;gap:16px;padding:16px}section{flex:1;min-width:260px}h2{font-size:14px;font-weight:400;color:#83d7ac}video{width:100%;max-height:75vh;background:#000;object-fit:contain}#localSection,#remoteSection,#stop{display:none}
+</style>
+<header><button id="choose">Choose screen or window</button> <button id="stop">Stop sharing</button>
+<p id="privacy">Direct connection: sharer and viewers can see each other's IP address. Video is encrypted and is not relayed through the chat server.</p><p id="status">Choose what to share. Audio stays in voice chat.</p></header>
+<main><section id="localSection"><h2>Your screen</h2><video id="local" autoplay muted playsinline></video></section>
+<section id="remoteSection"><h2>Watching screen</h2><video id="remote" autoplay muted playsinline controls controlslist="nodownload noplaybackrate" disablepictureinpicture></video></section></main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id), peers=new Map();
+let stream=null, share='', picking=false, incoming=0, outgoing=0;
+const tell=(type,peer=-1,id='',connection='',payload='')=>chrome.webview.postMessage([type,peer,id,connection,payload].join('\n'));
+const status=text=>{$('status').textContent=text};
+const fail=text=>{status(text);tell('error',-1,'','',text)};
+const id=()=>crypto.randomUUID().replaceAll('-','');
+const codecs=role=>{
+ const caps=(role==='send'?RTCRtpSender:RTCRtpReceiver).getCapabilities('video');
+ const av1=caps?.codecs.filter(c=>c.mimeType.toLowerCase()==='video/av1')||[];
+ if(!av1.length) throw Error('AV1 is unavailable in this WebView2 runtime. Update Microsoft Edge WebView2.');
+ return [...av1,...caps.codecs.filter(c=>c.mimeType.toLowerCase()==='video/rtx')];
+};
+function drop(connection,notify=true){
+ const p=peers.get(connection);if(!p)return;
+ peers.delete(connection);clearTimeout(p.timeout);p.pc.close();
+ if(p.role==='receive'){$('remote').srcObject=null;$('remoteSection').style.display='none';}
+ if(notify)tell('close',p.peer,p.share,connection);
+}
+function stop(){
+ if(stream){for(const track of stream.getTracks())track.stop();stream=null;}
+ const old=share;share='';for(const [connection,p] of peers)if(p.role==='send')drop(connection);
+ $('local').srcObject=null;$('localSection').style.display='none';$('stop').style.display='none';$('choose').disabled=false;
+ if(old)tell('stop',-1,old);status('Screen sharing stopped.');
+}
+function connection(peer,shared,key,role){
+ if(peers.has(key))return peers.get(key);
+ if(peers.size>=25)throw Error('Too many screen connections.');
+ const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}],bundlePolicy:'max-bundle',rtcpMuxPolicy:'require'});
+ const p={pc,peer,share:shared,role,pending:[],lastIn:0,lastOut:0};peers.set(key,p);
+ pc.onicecandidate=e=>{if(e.candidate&&peers.has(key))tell('signal',peer,shared,key,JSON.stringify({candidate:e.candidate.toJSON()}));};
+ pc.onconnectionstatechange=()=>{
+  if(pc.connectionState==='connected'){clearTimeout(p.timeout);status('');}
+  if(pc.connectionState==='failed'){drop(key);fail('Direct screen connection failed. A NAT or firewall may prevent this connection.');}
+ };
+ pc.ontrack=e=>{if(role!=='receive'||e.track.kind!=='video'){e.track.stop();return;}
+  $('remote').srcObject=new MediaStream([e.track]);$('remoteSection').style.display='block';};
+ p.timeout=setTimeout(()=>{if(peers.has(key)&&pc.connectionState!=='connected'){drop(key);fail('Direct screen connection timed out.');}},30000);
+ return p;
+}
+async function requestWatch(peer,shared){
+ codecs('receive');for(const [key,p] of peers)if(p.role==='receive')drop(key);
+ const key=id(),p=connection(peer,shared,key,'receive');
+ p.pc.addTransceiver('video',{direction:'recvonly'}).setCodecPreferences(codecs('receive'));
+ tell('watch',peer,shared,key);status('Connecting directly to the shared screen...');
+}
+async function startPeer(peer,shared,key){
+ if(!stream||share!==shared){tell('close',peer,shared,key);return;}
+ const p=connection(peer,shared,key,'send');
+ const sender=p.pc.addTrack(stream.getVideoTracks()[0],stream);
+ p.pc.getTransceivers()[0].setCodecPreferences(codecs('send'));
+ await p.pc.setLocalDescription(await p.pc.createOffer());
+ const params=sender.getParameters();if(params.encodings?.length){params.encodings[0].maxBitrate=2000000;params.encodings[0].maxFramerate=60;await sender.setParameters(params);}
+ if(peers.has(key))tell('signal',peer,shared,key,JSON.stringify({description:p.pc.localDescription.toJSON()}));
+}
+async function signal(peer,shared,key,body){
+ const p=peers.get(key);if(!p||p.peer!==peer||p.share!==shared)return;
+ const data=JSON.parse(body);
+ if(data.description){
+  if(data.description.type!==(p.role==='receive'?'offer':'answer'))throw Error('Invalid screen negotiation.');
+  // Limit media to the one negotiated video transceiver; no audio or data channels.
+  const sdp=data.description.sdp;
+  if(typeof sdp!=='string'||(sdp.match(/^m=/gm)||[]).length!==1||!/^m=video /m.test(sdp)||!/^a=rtpmap:\d+ AV1\/90000\r?$/m.test(sdp))throw Error('Screen peer did not offer AV1 video.');
+  await p.pc.setRemoteDescription(data.description);
+  for(const candidate of p.pending)await p.pc.addIceCandidate(candidate);p.pending=[];
+  if(p.role==='receive'){await p.pc.setLocalDescription(await p.pc.createAnswer());tell('signal',peer,shared,key,JSON.stringify({description:p.pc.localDescription.toJSON()}));}
+ }else if(data.candidate){
+  if(p.pc.remoteDescription)await p.pc.addIceCandidate(data.candidate);
+  else if(p.pending.length<64)p.pending.push(data.candidate);
+ }
+}
+$('choose').onclick=async()=>{
+ if(picking||stream)return;picking=true;$('choose').disabled=true;
+ try{
+  codecs('send');stream=await navigator.mediaDevices.getDisplayMedia({video:{width:{max:1920},height:{max:1080},frameRate:{ideal:60,max:60}},audio:false});
+  share=id();const track=stream.getVideoTracks()[0];track.contentHint='detail';track.onended=stop;
+  $('local').srcObject=stream;$('localSection').style.display='block';$('stop').style.display='inline-block';
+  tell('start',-1,share);status('Sharing offered in chat. Waiting for viewers.');
+ }catch(e){if(e.name==='NotAllowedError')status('Screen selection cancelled.');else fail(e.message);$('choose').disabled=false;}
+ finally{picking=false;}
+};
+$('stop').onclick=stop;
+let chain=Promise.resolve();
+chrome.webview.addEventListener('message',event=>{
+ const parts=event.data.split('\n'),type=parts.shift(),peer=Number(parts.shift()),shared=parts.shift(),key=parts.shift(),body=parts.join('\n');
+ chain=chain.then(async()=>{
+  if(type==='choose'){ $('choose').focus();return; }
+  if(type==='stop-local'){stop();return;}
+  if(type==='view'){await requestWatch(peer,shared);return;}
+  if(type==='watch'){await startPeer(peer,shared,key);return;}
+  if(type==='signal'){await signal(peer,shared,key,body);return;}
+  if(type==='close'){drop(key,false);if(body)fail(body);return;}
+  if(type==='stop'){if(share===shared)stop();for(const [connection,p]of peers)if(p.share===shared)drop(connection,false);if(body)fail(body);else status('Screen share ended.');}
+ }).catch(e=>{if(key&&!peers.has(key)&&e.name==='InvalidStateError')return;if(key)drop(key);fail(e.message||'Screen connection failed.');});
+});
+const videoRates=['local','remote'].map(name=>{
+ const video=$(name),rate={video,frames:0};
+ const frame=()=>{++rate.frames;video.requestVideoFrameCallback(frame);};
+ video.requestVideoFrameCallback(frame);return rate;
+});
+let videoTime=performance.now();
+setInterval(()=>{
+ const now=performance.now(),elapsed=(now-videoTime)/1000;videoTime=now;
+ const values=videoRates.flatMap(rate=>{
+  const active=rate.video.srcObject!==null;
+  const values=active?[rate.video.videoWidth,rate.video.videoHeight,Math.round(rate.frames/elapsed)]:[0,0,0];
+  rate.frames=0;return values;
+ });
+ tell('video',-1,'','',values.join(','));
+},1000);
+setInterval(async()=>{
+ for(const [key,p]of peers){
+  try{const stats=await p.pc.getStats();let bytesIn=0,bytesOut=0;
+   for(const s of stats.values()){
+    if((s.type==='inbound-rtp'||s.type==='outbound-rtp')&&s.kind==='video'){
+     const codec=stats.get(s.codecId);if(codec&&!/video\/(AV1|rtx)$/i.test(codec.mimeType)){drop(key);fail('Screen connection negotiated an unexpected codec.');break;}
+    }
+    if(s.type==='transport'){bytesIn+=s.bytesReceived||0;bytesOut+=s.bytesSent||0;}
+   }
+   incoming+=Math.max(0,bytesIn-p.lastIn);outgoing+=Math.max(0,bytesOut-p.lastOut);p.lastIn=bytesIn;p.lastOut=bytesOut;
+  }catch(e){if(peers.has(key)){drop(key);fail('Screen statistics failed.');}}
+ }
+ tell('stats',-1,'','',`${incoming},${outgoing}`);
+},1000);
+tell('ready');
+</script></html>

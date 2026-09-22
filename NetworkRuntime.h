@@ -3,9 +3,11 @@
 #include "ChatCommands.h"
 #include "FileTransfers.h"
 #include "FileSaveDialog.h"
+#include "ScreenSignaling.h"
 
 class cNetworkRuntime
 {
+    ScreenSignaling _screens;
     FileTransfers _files;
     ULONGLONG _voiceActiveUntil = 0;
     FileSaveDialog _fileDialog;
@@ -458,6 +460,7 @@ class cNetworkRuntime
         }
 
         if (messageSize < sizeof(NetAppMessageHeader)) return;
+        if (reinterpret_cast<const NetAppMessageHeader*>(message)->type == NAMTScreen) { NetworkMessageRaw raw(message+sizeof(NetAppMessageHeader),messageSize-sizeof(NetAppMessageHeader)); _screens.receive(0,raw); return; }
         if (reinterpret_cast<const NetAppMessageHeader*>(message)->type == NAMTFile) { handleFileMessage(0,message,messageSize,false); return; }
         if (reinterpret_cast<const NetAppMessageHeader*>(message)->type == NAMTPresence)
         {
@@ -478,7 +481,7 @@ class cNetworkRuntime
             _playerIdentities.swap(roster);
             _participantsDirty = true;
             for (auto it = _privateChatKeys.begin(); it != _privateChatKeys.end();)
-                if (!_playerIdentities.count(it->first)) { _files.peerLeft(it->first); _fileBudgets.erase(it->first); _privateChatNames.erase(it->first); it = _privateChatKeys.erase(it); }
+                if (!_playerIdentities.count(it->first)) { _screens.peerLeft(it->first); _files.peerLeft(it->first); _fileBudgets.erase(it->first); _privateChatNames.erase(it->first); it = _privateChatKeys.erase(it); }
                 else ++it;
             return;
         }
@@ -586,6 +589,7 @@ class cNetworkRuntime
             return;
         }
 
+        if (messageHeader->type == NAMTScreen) { NetworkMessageRaw raw(message+sizeof(NetAppMessageHeader),messageSize-sizeof(NetAppMessageHeader)); _screens.receive(from,raw); return; }
         if (messageHeader->type == NAMTFile) { handleFileMessage(from,message,messageSize,true); return; }
 
         NetworkVoicePacket voicePacket;
@@ -708,6 +712,7 @@ class cNetworkRuntime
         sendRawStringFromServerToAll(NAMTDisconnect, string("system: ") + leaveMessage, CHAT_MAX_LINE_CHARS);
 
         _playerIdentities.erase(player);
+        _screens.peerLeft(player);
         _files.peerLeft(player);
         _fileBudgets.erase(player);
         _privateChatKeys.erase(player);
@@ -727,6 +732,7 @@ class cNetworkRuntime
         sendPayloadFromServer(player, BuildAppPacket(NAMTPlayerAssign, assignPacket), NMFGuaranteed | NMFHighPriority);
 
         sendKnownChatKeysTo(player);
+        _screens.sync(player);
         broadcastPresence();
 
         std::ostringstream status;
@@ -1157,7 +1163,18 @@ class cNetworkRuntime
 
 public:
     cNetworkRuntime(HWND hWnd, PackedClientSettings* settings = NULL)
-        : _files([this](int to, const vector<unsigned char>& bytes) { return sendFilePayload(to,bytes); },
+        : _screens([this] { return isHost(); }, [this] { return localPlayerId(); },
+            [this] { return _players; },
+            [this](int to,const NetworkMessageRaw& raw) {
+                if(isHost()) { if(_playerIdentities.count(to)) sendRawFromServer(to,NAMTScreen,raw,NMFGuaranteed); }
+                else if(clientReady()) sendRawFromClient(NAMTScreen,raw,NMFGuaranteed);
+            },
+            [this](int owner,const string& id) {
+                NetworkChatLine line; line.kind=CLKScreen; line.fileSender=owner; line.fileId=id;
+                _chatLines.push_back(line);
+                if(_chatLines.size()>CHAT_MAX_HISTORY_LINES) _chatLines.erase(_chatLines.begin());
+            }),
+          _files([this](int to, const vector<unsigned char>& bytes) { return sendFilePayload(to,bytes); },
                  [this](const string& text, bool error) { showNotice(text,error); },
                  [this](int from, const string& id) { announceFile(from,id); }),
           _hWnd(hWnd),
@@ -1440,6 +1457,16 @@ public:
             if (person.first != localPlayerId() && _privateChatKeys.count(person.first)) peers.push_back(person.first);
         _files.offer(path,peers);
     }
+    std::function<void(int,const string&)> openScreen;
+    void sendScreenEvent(const ScreenSignaling::Event& event) { if(isHost() || clientReady()) _screens.send(event); }
+    bool popScreenEvent(ScreenSignaling::Event& event) { return _screens.pop(event); }
+    string screenLabel(int owner,const string& id) const {
+        return playerDisplayName(owner) + " screen [" + (_screens.available(owner,id) ? "watch" : "ended") + "]";
+    }
+    void clickScreen(int owner,const string& id) {
+        if(_screens.available(owner,id) && openScreen) openScreen(owner,id);
+        else showNotice("This screen share has ended.",true);
+    }
     string fileLabel(int from, const string& id) const { return _files.label({from,id}); }
     void clickFile(int from, const string& id) {
         if (from == -1) { _files.withdraw(id); return; }
@@ -1555,6 +1582,7 @@ public:
     bool disconnect()
     {
         if (!_client && !_server) return false;
+        _screens.clear();
         _files.clear(); _fileBudgets.clear(); _voiceActiveUntil = 0;
         const bool hosting = _server != NULL;
         _transportConnecting = false;

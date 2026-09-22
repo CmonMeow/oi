@@ -272,6 +272,12 @@ class cChatBox
             const float lineY = textTop - (float)(i - first) * LINE_HEIGHT;
             if (mouseY >= lineY - 2.f && mouseY <= lineY + LINE_HEIGHT - 2.f && mouseX >= BOX_X + 8.f)
             {
+                if (lines[i].kind == CLKScreen)
+                {
+                    const string label=FitChatText(network.screenLabel(lines[i].fileSender,lines[i].fileId),(int)boxWidth()-24);
+                    if(mouseX < BOX_X+8.f+ChatTextWidth(label)) { network.clickScreen(lines[i].fileSender,lines[i].fileId); return true; }
+                    continue;
+                }
                 if (lines[i].kind == CLKFile)
                 {
                     const string label = FitChatText(network.fileLabel(lines[i].fileSender,lines[i].fileId),(int)boxWidth()-24);
@@ -626,6 +632,12 @@ public:
                 r = .82f;
                 g = .70f;
                 b = 1.0f;
+            }
+            if (lines[i].kind == CLKScreen)
+            {
+                const string label=FitChatText(network.screenLabel(lines[i].fileSender,lines[i].fileId),(int)width-24);
+                QueueChatText(label.c_str(),x+8.f,textY-(float)(i-first)*lineHeight,.25f,1.f,.42f);
+                continue;
             }
             if (lines[i].kind == CLKFile)
             {

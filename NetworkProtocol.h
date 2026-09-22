@@ -12,9 +12,9 @@
 using std::string;
 using std::vector;
 
-const char* DEFAULT_NETWORK_ADDRESS = "nigger.observer";
+const char* const DEFAULT_NETWORK_ADDRESS = "nigger.observer";
 const unsigned short DEFAULT_NETWORK_PORT = 777;
-const __int32 APP_PROTOCOL_VERSION = 26;
+const __int32 APP_PROTOCOL_VERSION = 27;
 const char* const BAN_LIST_FILENAME = "banlist.txt";
 const size_t CHAT_MAX_MESSAGE_CHARS = 140;
 const size_t CHAT_MAX_LINE_CHARS = 192;
@@ -38,7 +38,8 @@ enum ChatLineKind
     CLKSystem,
     CLKPrivate,
     CLKError,
-    CLKFile
+    CLKFile,
+    CLKScreen
 };
 
 struct NetworkChatLine
@@ -431,7 +432,7 @@ inline bool ValidAppMessageType(NetAppMessageType type)
     switch (type) {
     case NAMTConnect: case NAMTDisconnect: case NAMTChat: case NAMTHeartbeat:
     case NAMTSessionEnd: case NAMTPlayerAssign: case NAMTVoice: case NAMTKeyHello: case NAMTKeyAccept:
-    case NAMTFile: case NAMTSystemNotice: case NAMTCommandError: case NAMTPresence: case NAMTChatKey: case NAMTPrivateChat: case NAMTEncrypted: return true;
+    case NAMTScreen: case NAMTFile: case NAMTSystemNotice: case NAMTCommandError: case NAMTPresence: case NAMTChatKey: case NAMTPrivateChat: case NAMTEncrypted: return true;
     default: return false;
     }
 }
