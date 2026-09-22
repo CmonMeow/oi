@@ -5,6 +5,7 @@
 enum ClientSettingBits
 {
     CSVoiceEnabled = 1 << 0,
+    CSDedicated = 1 << 1,
 };
 
 struct PackedClientSettings
@@ -53,6 +54,14 @@ struct PackedClientSettings
     {
         if (address.empty() || address.size() > 255 || address.find_first_of("\r\n") != std::string::npos || address == serverAddress) return;
         serverAddress = address;
+        save();
+    }
+
+    bool dedicated() const { return (bits & CSDedicated) != 0; }
+
+    void setDedicated(bool enabled)
+    {
+        if (enabled) bits |= CSDedicated; else bits &= ~CSDedicated;
         save();
     }
 

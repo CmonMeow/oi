@@ -19,15 +19,16 @@ class cVoiceChat
 
     struct PlaybackBuffer
     {
-        WAVEHDR header;
-        vector<__int16> samples;
+        WAVEHDR header = {};
+        __int16 samples[VOICE_SAMPLES_PER_PACKET] = {};
+        bool queued = false;
     };
 
     HWAVEIN _waveIn;
     HWAVEOUT _waveOut;
     CaptureBuffer _captureBuffers[4];
+    PlaybackBuffer _playbackStorage[3];
     std::deque<PlaybackBuffer*> _playbackBuffers;
-    CRITICAL_SECTION _queueLock;
     std::deque<NetworkVoicePacket> _captureQueue;
     cOpusCodec _opus;
     cVoiceProcessing _processing;
@@ -208,9 +209,7 @@ class cVoiceChat
         }
         _waveIn = NULL;
         _captureReady = false;
-        EnterCriticalSection(&_queueLock);
         _captureQueue.clear();
-        LeaveCriticalSection(&_queueLock);
     }
 
     void startRecording()
@@ -249,14 +248,12 @@ class cVoiceChat
     bool popCapturedPacket(NetworkVoicePacket& packet)
     {
         bool result = false;
-        EnterCriticalSection(&_queueLock);
         if (!_captureQueue.empty())
         {
             packet = _captureQueue.front();
             _captureQueue.pop_front();
             result = true;
         }
-        LeaveCriticalSection(&_queueLock);
         return result;
     }
 
@@ -289,24 +286,24 @@ class cVoiceChat
 
     bool submitPlayback(const AudioFrame& frame)
     {
-        PlaybackBuffer* buffer = new PlaybackBuffer;
-        ZeroMemory(&buffer->header, sizeof(buffer->header));
-        buffer->samples.assign(frame.begin(), frame.end());
+        PlaybackBuffer* buffer = nullptr;
+        for (auto& slot : _playbackStorage) if (!slot.queued) { buffer = &slot; break; }
+        if (!buffer) return false;
+        std::copy(frame.begin(), frame.end(), buffer->samples);
         buffer->header.lpData = reinterpret_cast<LPSTR>(&buffer->samples[0]);
-        buffer->header.dwBufferLength = (__int32)(buffer->samples.size() * sizeof(__int16));
+        buffer->header.dwBufferLength = sizeof(buffer->samples);
         buffer->header.dwUser = reinterpret_cast<DWORD_PTR>(buffer);
 
-        if (waveOutPrepareHeader(_waveOut, &buffer->header, sizeof(WAVEHDR)) != MMSYSERR_NOERROR)
+        if (!(buffer->header.dwFlags & WHDR_PREPARED) &&
+            waveOutPrepareHeader(_waveOut, &buffer->header, sizeof(WAVEHDR)) != MMSYSERR_NOERROR)
         {
-            delete buffer;
             return false;
         }
         if (waveOutWrite(_waveOut, &buffer->header, sizeof(WAVEHDR)) != MMSYSERR_NOERROR)
         {
-            waveOutUnprepareHeader(_waveOut, &buffer->header, sizeof(WAVEHDR));
-            delete buffer;
             return false;
         }
+        buffer->queued = true;
         _playbackBuffers.push_back(buffer);
         _playbackHistory.push_back({ _playbackSubmitted, frame });
         _playbackSubmitted += VOICE_SAMPLES_PER_PACKET;
@@ -331,9 +328,8 @@ class cVoiceChat
             {
                 break;
             }
-            if (waveOutUnprepareHeader(_waveOut, &buffer->header, sizeof(WAVEHDR)) != MMSYSERR_NOERROR) return;
+            buffer->queued = false;
             _playbackBuffers.pop_front();
-            delete buffer;
         }
     }
 
@@ -349,7 +345,6 @@ public:
     {
         static_assert(VOICE_SAMPLE_RATE == cVoiceProcessing::SampleRate &&
             VOICE_SAMPLES_PER_PACKET == cVoiceProcessing::FrameSamples, "Voice DSP format mismatch");
-        InitializeCriticalSection(&_queueLock);
         openDevices();
     }
 
@@ -360,9 +355,11 @@ public:
         {
             waveOutReset(_waveOut);
             cleanupPlaybackBuffers(true);
+            for (auto& buffer : _playbackStorage)
+                if (buffer.header.dwFlags & WHDR_PREPARED)
+                    waveOutUnprepareHeader(_waveOut, &buffer.header, sizeof(WAVEHDR));
             waveOutClose(_waveOut);
         }
-        DeleteCriticalSection(&_queueLock);
     }
 
     bool transmitting(const cNetworkRuntime& network) const

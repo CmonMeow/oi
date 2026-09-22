@@ -4,6 +4,7 @@
 #include <map>
 #include <deque>
 #include <algorithm>
+#include <cmath>
 #include <sstream>
 #include <conio.h>
 #include "NetworkRuntime.h"
@@ -107,12 +108,15 @@ void RunChatClient(HWND hWnd)
     HDC dc = GetDC(hWnd);
     PackedClientSettings settings;
     cNetworkRuntime network(hWnd, &settings);
+    if (settings.dedicated()) network.hostOnPort();
     cChatBox chatBox;
     cVoiceChat voiceChat;
     unsigned __int64 lastTitleUpdate = 0;
     unsigned __int64 previousIncoming = 0, previousOutgoing = 0;
     bool hadTrafficSample = false;
     string previousTitle;
+    double nextDraw = 0;
+    constexpr double frameIntervalMS = 1000.0 / 60.0;
     bool selectingHotkey = false;
     unsigned char releaseHotkey = 0;
 
@@ -204,20 +208,28 @@ void RunChatClient(HWND hWnd)
         if (talkDown && !settings.voiceEnabled()) settings.toggleVoiceEnabled();
         voiceChat.update(network, talkDown, settings, micClicked);
 
-        glViewport(0, 0, App.size.x, App.size.y);
-        glClearColor(0.f, 0.f, 0.f, 1.f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glDisable(GL_DEPTH_TEST);
-        glMatrixMode(GL_PROJECTION); glLoadIdentity(); glOrtho(0, App.size.x, 0, App.size.y, -1, 1);
-        glMatrixMode(GL_MODELVIEW); glLoadIdentity();
-        chatBox.draw(network, GetForegroundWindow() == hWnd);
-        DrawChatStatus(MakeChatStatus(network, voiceChat), chatBox.historyOffset());
-        DrawChatButton(voiceChat.micEnabled() ? "MIC ON" : "MIC OFF",
-                                    micButton, voiceChat.micEnabled(), voiceChat.transmitting(network));
-        DrawChatButton(selectingHotkey ? "PRESS KEY" : settings.talkKeyLabel().c_str(), hotkeyButton, selectingHotkey);
-        SwapBuffers(dc);
+        // Audio and network run at least every 10 ms; drawing targets 60 Hz.
+        if (!IsIconic(hWnd) && now >= nextDraw)
+        {
+            nextDraw += frameIntervalMS;
+            if (nextDraw <= now) nextDraw = now + frameIntervalMS;
+            glViewport(0, 0, App.size.x, App.size.y);
+            glClearColor(0.f, 0.f, 0.f, 1.f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            glDisable(GL_DEPTH_TEST);
+            glMatrixMode(GL_PROJECTION); glLoadIdentity(); glOrtho(0, App.size.x, 0, App.size.y, -1, 1);
+            glMatrixMode(GL_MODELVIEW); glLoadIdentity();
+            chatBox.draw(network, GetForegroundWindow() == hWnd);
+            DrawChatStatus(MakeChatStatus(network, voiceChat), chatBox.historyOffset());
+            DrawChatButton(voiceChat.micEnabled() ? "MIC ON" : "MIC OFF",
+                                        micButton, voiceChat.micEnabled(), voiceChat.transmitting(network));
+            DrawChatButton(selectingHotkey ? "PRESS KEY" : settings.talkKeyLabel().c_str(), hotkeyButton, selectingHotkey);
+            SwapBuffers(dc);
+        }
 
-        Sleep(10);
+        // Wake for the next frame instead of rounding every frame up to 20 ms.
+        const double waitMS = IsIconic(hWnd) ? 10.0 : nextDraw - GetTickCount64();
+        Sleep(static_cast<DWORD>((std::max)(1.0, (std::min)(10.0, std::ceil(waitMS)))));
     }
 
     ReleaseDC(hWnd, dc);

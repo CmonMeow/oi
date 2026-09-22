@@ -19,43 +19,6 @@
 
 #include "netpch.hpp"
 
-struct SessionInfo {
-	SessionInfo()
-		: lastTime(0), actualBuildNo(0), password(false), lock(false),
-		  badActualVersion(false), badRequiredVersion(false), serverState(0),
-		  ping(0), playerCount(0), maxPlayers(0)
-	{
-	}
-
-	std::string address;
-	
-	std::string name;
-	
-	unsigned __int64 lastTime;
-	
-	__int32 actualBuildNo;
-	
-	bool password;
-	
-	bool lock;
-	
-	bool badActualVersion;
-	
-	bool badRequiredVersion;
-	
-	std::string mission;
-	
-	std::string island;
-	
-	__int32 serverState;
-	
-	__int32 ping;
-	
-	__int32 playerCount;
-	
-	__int32 maxPlayers;
-	
-};
 #ifndef DECL_ENUM_CONNECT_RESULT
 #define DECL_ENUM_CONNECT_RESULT
 enum ConnectResult : __int32;
@@ -134,27 +97,6 @@ typedef void UserMessageServerCallback(__int32 from, char* buffer, __int32 buffe
 typedef void SendCompleteCallback(DWORD msgID, bool ok, void* context);
 typedef void CreatePlayerCallback(__int32 player, bool botClient, const char* name, unsigned long inaddr, void* context);
 typedef void DeletePlayerCallback(__int32 player, void* context);
-
-class NetTranspSessionEnum
-{
-public:
-	
-	NetTranspSessionEnum() {}
-	
-	virtual ~NetTranspSessionEnum() {}
-
-	virtual bool Init() = 0;
-
-	virtual bool RunningEnumHosts() = 0;
-	virtual bool StartEnumHosts(std::string ip, unsigned short port) = 0;
-	virtual void StopEnumHosts() = 0;
-	virtual void ClearEnumHosts() = 0;
-
-	virtual __int32 NSessions() = 0;
-	virtual void GetSessions(std::vector<SessionInfo>& sessions) = 0;
-
-	virtual std::string IPToGUID(std::string ip, __int32 port) = 0;
-};
 
 class ParamEntry;
 typedef bool CancelNNCallback();
@@ -253,7 +195,7 @@ public:
 	}
 };
 
-NetTranspSessionEnum* CreateNetSessionEnum();
+
 
 NetTranspClient* CreateNetClient();
 

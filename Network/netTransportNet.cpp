@@ -11,7 +11,7 @@
 #include "netchannel.hpp"
 #include "AsyncResolver.h"
 
-class NetSessionEnum;
+
 class NetClient;
 class NetServer;
 
@@ -65,7 +65,6 @@ static __int32 GenerateServerChallenge(const sockaddr_in& distant)
 #define DPNID_ALL_PLAYERS_GROUP 0
 #endif
 
-#define MAX_SESSIONS 255
 #define LEN_SESSION_NAME 256
 #define LEN_GAMETYPE_NAME 8
 #define LEN_MISSION_NAME 40
@@ -75,9 +74,7 @@ static __int32 GenerateServerChallenge(const sockaddr_in& distant)
 #define LEN_PLAYER_NAME 40
 #define LEN_PASSWORD_NAME 40
 
-#define MAX_ENUM_AGE 10000
 
-#define MIN_ENUM_RETRY 4000
 
 #define ACK_PLAYER_TIMEOUT_MS 8000
 
@@ -92,9 +89,7 @@ static __int32 GenerateServerChallenge(const sockaddr_in& distant)
 
 #define MSG_MAGIC_FLAG 0x0001
 
-#define MAGIC_ENUM_REQUEST 0xeee191ae
 
-#define MAGIC_ENUM_RESPONSE 0xfff1e8ac
 
 #define MAGIC_REQUEST_PLAYER 0xbbba1564
 
@@ -125,16 +120,6 @@ struct SessionPacket : public MagicPacket
 	unsigned __int32 request;
 };
 
-const size_t SESSION_PACKET_SIZE = sizeof(SessionPacket);
-
-struct NetSessionDescription : public SessionPacket
-{
-	char address[32];
-	unsigned __int32 ip;
-	unsigned __int64 lastTime;
-	unsigned __int32 pingTime;
-};
-
 struct ChallengePlayerPacket : public MagicPacket 
 {
 	__int32 challenge;
@@ -162,85 +147,6 @@ struct AckPlayerPacket : public MagicPacket
 
 
 #pragma pack(pop, netPackets)
-
-class NetSessionDescriptions
-{
-
-protected:
-	
-	__int32 _size;
-
-	NetSessionDescription _data[MAX_SESSIONS];
-
-public:
-	
-	NetSessionDescriptions() { Clear(); }
-
-	~NetSessionDescriptions() { Clear(); }
-
-	__int32 Size() { return _size; }
-
-	__int32 Add();
-
-	void Delete(__int32 i);
-
-	void Clear();
-
-	NetSessionDescription& operator[](__int32 i)
-	{
-		return _data[i];
-	}
-
-	const NetSessionDescription& operator[](__int32 i) const
-	{
-		return _data[i];
-	}
-};
-
-class NetSessionEnum : public NetTranspSessionEnum
-{
-
-protected:
-	
-	NetSessionDescriptions _sessions;
-
-	mutable std::recursive_mutex Critical_Section;
-
-	bool _running;
-
-	void sendRequest(NetChannel* br, struct sockaddr_in& addr, unsigned short port);
-
-	bool needsRequest(struct sockaddr_in& addr, unsigned short port);
-
-	friend NetStatus enumReceive(NetMessage* msg, NetStatus event, void* data);
-
-public:
-	
-	NetSessionEnum();
-
-	virtual ~NetSessionEnum();
-
-	virtual bool Init() override;
-
-	virtual void Done();
-
-	virtual std::string IPToGUID(std::string ip, __int32 port) override;
-
-	virtual bool RunningEnumHosts() override
-	{
-		return _running;
-	}
-
-	virtual bool StartEnumHosts(std::string ip, unsigned short port) override;
-
-	virtual void StopEnumHosts() override;
-
-	virtual void ClearEnumHosts() override { Done(); }
-
-	virtual __int32 NSessions() override;
-
-	virtual void GetSessions(std::vector<SessionInfo>& sessions) override;
-};
 
 static NetPeer* getClientPeer();
 
@@ -317,7 +223,7 @@ protected:
 	}
 
 	friend NetStatus clientReceive(NetMessage* msg, NetStatus event, void* data);
-	friend NetStatus enumReceive(NetMessage* msg, NetStatus event, void* data);
+	friend NetStatus challengeReceive(NetMessage* msg, NetStatus event, void* data);
 	friend NetStatus clientSendComplete(NetMessage* msg, NetStatus event, void* data);
 
 	bool SendMagicPacket(const void* data, size_t size);
@@ -505,7 +411,7 @@ protected:
 
 	std::vector<DeletePlayerInfo> _deletePlayers;
 
-	bool m_enumResponse;
+	bool acceptConnections;
 
 	struct PlayerChallengeSent {
 		sockaddr_in addr;
@@ -588,7 +494,7 @@ public:
 	virtual Ref<NetChannel> playerToChannel(__int32 player);
 };
 
-NetStatus enumReceive(NetMessage* msg, NetStatus event, void* data);
+NetStatus challengeReceive(NetMessage* msg, NetStatus event, void* data);
 NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data);
 NetStatus clientReceive(NetMessage* msg, NetStatus event, void* data);
 NetStatus serverReceive(NetMessage* msg, NetStatus event, void* data);
@@ -660,7 +566,7 @@ static NetPeer* getClientPeer()
 		{
 			NetChannel* ctrl = clientPeer->getBroadcastChannel();
 			if (ctrl)
-				ctrl->setProcessRoutine(enumReceive);
+				ctrl->setProcessRoutine(challengeReceive);
 		}
 	}
 	return clientPeer.GetRef();
@@ -682,7 +588,7 @@ static NetPeer* getServerPeer(bool create = true)
 	return serverPeer.GetRef();
 }
 
-static NetSessionEnum* _enum = NULL;
+
 
 static NetClient* _client = NULL;
 
@@ -751,29 +657,8 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 	switch (magic)
 	{
 
-	case MAGIC_ENUM_REQUEST: 
-		if (_server->m_enumResponse &&
-			msg->getLength() == sizeof(MagicPacket))
-		{
-			_server->User_Critical_Section.lock();
-
-			Ref<NetMessage> out = NetMessagePool::pool()->newMessage(SESSION_PACKET_SIZE, msg->getChannel());
-			if (out)
-			{
-				out->setDistant(distant);
-				out->setFlags(MSG_ALL_FLAGS, MSG_TO_BCAST_FLAG | MSG_MAGIC_FLAG);
-				_server->session.magic = MAGIC_ENUM_RESPONSE;
-				_server->session.request = msg->getSerial();
-				_server->session.playerCount = _server->users.card();
-
-				out->setData((unsigned char*)&(_server->session), SESSION_PACKET_SIZE);
-				out->send(true); 
-			}
-			_server->User_Critical_Section.unlock();
-		}
-		break;
 	case MAGIC_REQUEST_PLAYER:
-		if (_server->m_enumResponse && msg->getLength() == sizeof(MAGIC_REQUEST_PLAYER))
+		if (_server->acceptConnections && msg->getLength() == sizeof(MAGIC_REQUEST_PLAYER))
 		{
 			_server->User_Critical_Section.lock(); 
 			
@@ -811,7 +696,7 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 		break;
 
 	case MAGIC_CREATE_W_CHALLENGE:
-		if (_server->m_enumResponse &&
+		if (_server->acceptConnections &&
 			(msg->getLength() == sizeof(CreatePlayerPacket) || msg->getLength() == sizeof(CreatePlayerPacketChallenge)))
 		{
 			CreatePlayerPacket* cpp = (CreatePlayerPacket*)msg->getData();
@@ -955,10 +840,10 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 	return nsNoMoreCallbacks;
 }
 
-NetStatus enumReceive(NetMessage* msg, NetStatus event, void* data)
+NetStatus challengeReceive(NetMessage* msg, NetStatus event, void* data)
 {
 	
-	if ((!_enum || !_enum->_running) && !_client ||
+	if (!_client ||
 		!msg || msg->getLength() < 4 || !(msg->getFlags() & MSG_MAGIC_FLAG))
 		return nsNoMoreCallbacks; 
 
@@ -970,58 +855,6 @@ NetStatus enumReceive(NetMessage* msg, NetStatus event, void* data)
 
 	switch (magic)
 	{
-	case MAGIC_ENUM_RESPONSE: 
-	{
-		if (!_enum || !_enum->_running || msg->getLength() != SESSION_PACKET_SIZE)
-			break;
-
-		SessionPacket* s = (SessionPacket*)msg->getData();
-		{
-			_enum->Critical_Section.lock();
-
-			__int32 iFound = -1;
-			for (__int32 i = 0; i < _enum->_sessions.Size(); i++)
-				if (_enum->_sessions[i].ip == ip && _enum->_sessions[i].port == port)
-				{
-					iFound = i;
-					break;
-				}
-
-			unsigned __int64 reqTime = msg->getChannel()->getMessageTime(s->request);
-			
-			unsigned pingTime = reqTime ? (unsigned)((msg->getTime() - reqTime) / 1000) : 0;
-
-			if (iFound < 0)
-			{ 
-				iFound = _enum->_sessions.Add();
-				if (iFound < 0)
-				{ 
-					_enum->Critical_Section.unlock();
-					return nsNoMoreCallbacks;
-				}
-				NetSessionDescription& ndesc = _enum->_sessions[iFound];
-				ndesc.ip = ip;
-				ndesc.port = port;
-				ndesc.pingTime = pingTime;
-
-				sprintf(ndesc.address, "%s:%u", inet_ntoa(distant.sin_addr), (unsigned)port);
-			}
-
-			NetSessionDescription& desc = _enum->_sessions[iFound];
-			
-			strncpy(desc.name, s->name, LEN_SESSION_NAME);
-			desc.name[LEN_SESSION_NAME - 1] = 0;
-
-			desc.serverState = s->serverState;
-			desc.maxPlayers = s->maxPlayers;
-			desc.playerCount = s->playerCount;
-			desc.password = s->password;
-			desc.lastTime = GetTickCount64();
-			desc.pingTime = (3 * desc.pingTime + pingTime + 2) >> 2;
-			_enum->Critical_Section.unlock();
-		}
-	}
-	break;
 	case MAGIC_CHALLENGE_PLAYER:
 		if (msg->getLength() == sizeof(ChallengePlayerPacket) && _client)
 		{
@@ -1037,41 +870,6 @@ NetStatus enumReceive(NetMessage* msg, NetStatus event, void* data)
 	}
 
 	return nsNoMoreCallbacks;
-}
-
-bool NetSessionEnum::needsRequest(struct sockaddr_in& addr, unsigned short port)
-{
-	bool needs = true;
-	Critical_Section.lock();
-	unsigned __int32 ip = ntohl(addr.sin_addr.s_addr);
-	for (__int32 i = 0; i < _sessions.Size(); i++)
-	{
-		const NetSessionDescription& src = _sessions[i];
-		if (src.ip == ip && src.port == port)
-		{
-			if (GetTickCount64() - src.lastTime < MIN_ENUM_RETRY)
-				needs = false;
-			break;
-		}
-	}
-	Critical_Section.unlock();
-	return needs;
-}
-
-void NetSessionEnum::sendRequest(NetChannel* br, struct sockaddr_in& addr, unsigned short port)
-{
-	MagicPacket request;
-	request.magic = MAGIC_ENUM_REQUEST;
-
-	addr.sin_port = htons(port);
-	Ref<NetMessage> msg = NetMessagePool::pool()->newMessage(sizeof(MagicPacket), br);
-	if (msg)
-	{
-		msg->setDistant(addr);
-		msg->setFlags(MSG_ALL_FLAGS, MSG_TO_BCAST_FLAG | MSG_MAGIC_FLAG);
-		msg->setData((unsigned char*)&request, sizeof(MagicPacket));
-		msg->send();
-	}
 }
 
 bool NetClient::SendMagicPacket(const void* data, size_t size)

@@ -1,5 +1,6 @@
 #pragma once
 #include "ClientSettings.h"
+#include "ChatCommands.h"
 
 class cNetworkRuntime
 {
@@ -7,6 +8,8 @@ class cNetworkRuntime
     unsigned __int32 _rosterRevision = 0;
     HWND _hWnd;
     PackedClientSettings* _settings;
+    mutable std::vector<std::pair<__int32, string>> _participantCache;
+    mutable bool _participantsDirty = true;
     string _connectingAddress;
     bool _transportConnecting = false;
     unsigned __int64 _connectDeadline = 0;
@@ -350,6 +353,7 @@ class cNetworkRuntime
 
     void broadcastPresence()
     {
+        _participantsDirty = true;
         ++_rosterRevision;
         for (const auto& entry : _playerIdentities) sendPresenceTo(entry.first);
     }
@@ -368,6 +372,7 @@ class cNetworkRuntime
         if (ParseAppPacket(message, messageSize, NAMTPlayerAssign, assignPacket))
         {
             _localPlayerId = assignPacket.playerId;
+            _participantsDirty = true;
             if (_localPlayerId >= 0) _connectDeadline = 0;
             if (_settings && _localPlayerId >= 0) _settings->setServerAddress(_connectingAddress);
 
@@ -392,6 +397,7 @@ class cNetworkRuntime
             if (!raw.fullyRead() || static_cast<__int32>(static_cast<unsigned __int32>(revision) - _rosterRevision) < 0) return;
             _rosterRevision = revision;
             _playerIdentities.swap(roster);
+            _participantsDirty = true;
             for (auto it = _privateChatKeys.begin(); it != _privateChatKeys.end();)
                 if (!_playerIdentities.count(it->first)) { _privateChatNames.erase(it->first); it = _privateChatKeys.erase(it); }
                 else ++it;
@@ -641,7 +647,7 @@ class cNetworkRuntime
         }
         NetworkPlayerAssignPacket assignPacket;
         assignPacket.playerId = player;
-        sendPacketFromServer(player, NAMTPlayerAssign, assignPacket);
+        sendPayloadFromServer(player, BuildAppPacket(NAMTPlayerAssign, assignPacket), NMFGuaranteed | NMFHighPriority);
 
         sendKnownChatKeysTo(player);
         broadcastPresence();
@@ -689,80 +695,6 @@ class cNetworkRuntime
         }
     }
 
-    template<class T>
-    void sendPacketFromClient(NetAppMessageType type, const T& packet)
-    {
-        if (!_client)
-        {
-            return;
-        }
-        string payload = BuildAppPacket(type, packet);
-        string encrypted;
-        if (!_clientCrypto.encrypt(payload, encrypted))
-        {
-            return;
-        }
-        payload = encrypted;
-        DWORD msgID = 0;
-        _client->SendMsg((BYTE*)payload.data(), (__int32)payload.size(), msgID, NMFGuaranteed | NMFHighPriority, Ref<NetMessage>());
-    }
-
-    template<class T>
-    void sendPacketFromServer(__int32 player, NetAppMessageType type, const T& packet)
-    {
-        if (!_server)
-        {
-            return;
-        }
-        string payload = BuildAppPacket(type, packet);
-        std::map<__int32, cCryptoSession>::iterator found = _serverCrypto.find(player);
-        string encrypted;
-        if (found == _serverCrypto.end() || !found->second.encrypt(payload, encrypted))
-        {
-            return;
-        }
-        payload = encrypted;
-        DWORD msgID = 0;
-        _server->SendMsg(player, (BYTE*)payload.data(), (__int32)payload.size(), msgID, NMFGuaranteed | NMFHighPriority, Ref<NetMessage>());
-    }
-
-    template<class T>
-    void sendRealtimePacketFromClient(NetAppMessageType type, const T& packet)
-    {
-        if (!_client)
-        {
-            return;
-        }
-        string payload = BuildAppPacket(type, packet);
-        string encrypted;
-        if (!_clientCrypto.encrypt(payload, encrypted))
-        {
-            return;
-        }
-        payload = encrypted;
-        DWORD msgID = 0;
-        _client->SendMsg((BYTE*)payload.data(), (__int32)payload.size(), msgID, NMFNone, Ref<NetMessage>());
-    }
-
-    template<class T>
-    void sendRealtimePacketFromServer(__int32 player, NetAppMessageType type, const T& packet)
-    {
-        if (!_server)
-        {
-            return;
-        }
-        string payload = BuildAppPacket(type, packet);
-        std::map<__int32, cCryptoSession>::iterator found = _serverCrypto.find(player);
-        string encrypted;
-        if (found == _serverCrypto.end() || !found->second.encrypt(payload, encrypted))
-        {
-            return;
-        }
-        payload = encrypted;
-        DWORD msgID = 0;
-        _server->SendMsg(player, (BYTE*)payload.data(), (__int32)payload.size(), msgID, NMFNone, Ref<NetMessage>());
-    }
-
     void sendRawFromClient(NetAppMessageType type, const NetworkMessageRaw& raw, NetMsgFlags flags)
     {
         if (!_client)
@@ -781,11 +713,15 @@ class cNetworkRuntime
 
     void sendRawFromServer(__int32 player, NetAppMessageType type, const NetworkMessageRaw& raw, NetMsgFlags flags)
     {
+        sendPayloadFromServer(player, BuildAppRawMessage(type, raw), flags);
+    }
+
+    void sendPayloadFromServer(__int32 player, const string& payload, NetMsgFlags flags)
+    {
         if (!_server)
         {
             return;
         }
-        string payload = BuildAppRawMessage(type, raw);
         std::map<__int32, cCryptoSession>::iterator found = _serverCrypto.find(player);
         string encrypted;
         if (found == _serverCrypto.end() || !found->second.encrypt(payload, encrypted))
@@ -1068,8 +1004,8 @@ class cNetworkRuntime
         {
             if (from == 0)
             {
-                sendCommandResult(from, "/kick name|netId:name|netId - kick player");
-                sendCommandResult(from, "/ban name|netId:name|netId - ban player");
+                for (const auto& entry : CHAT_COMMANDS)
+                    if (entry.hostOnly) sendCommandResult(from, entry.help);
             }
             return;
         }
@@ -1177,6 +1113,7 @@ public:
 
         _players.clear();
         _playerIdentities.clear();
+        _participantsDirty = true;
         _rosterRevision = 0;
         _privateChatKeys.clear();
         _privateChatNames.clear();
@@ -1327,13 +1264,15 @@ public:
         return true;
     }
 
-    std::vector<std::pair<__int32, string>> participants() const
+    const std::vector<std::pair<__int32, string>>& participants() const
     {
-        std::vector<std::pair<__int32, string>> result;
-        if (_server) result.push_back({0, "system"});
+        if (!_participantsDirty) return _participantCache;
+        _participantCache.clear();
+        if (_server) _participantCache.push_back({0, "system"});
         if (_server || clientReady())
-            for (const auto& entry : _playerIdentities) result.push_back({entry.first, entry.second.name});
-        return result;
+            for (const auto& entry : _playerIdentities) _participantCache.push_back({entry.first, entry.second.name});
+        _participantsDirty = false;
+        return _participantCache;
     }
 
     __int32 localPlayerId() const { return _server ? 0 : _localPlayerId; }
@@ -1367,30 +1306,25 @@ public:
         return _client != NULL;
     }
 
+    void setDedicated(const string& argument)
+    {
+        const string mode = TrimWhitespace(argument);
+        if (mode != "on" && mode != "off" && !mode.empty()) { showNotice("usage: /dedicated [on|off]", true); return; }
+        if (!_settings) return;
+        const bool enable = mode.empty() ? !_settings->dedicated() : mode == "on";
+        if (enable && !isHost())
+        {
+            if (hasConnection()) { showNotice("Use /disconnect before enabling dedicated mode.", true); return; }
+            if (!hostOnPort()) return;
+        }
+        _settings->setDedicated(enable);
+        showNotice(enable ? "Dedicated on: host automatically at startup." : "Dedicated off: automatic hosting disabled.");
+    }
+
     void showHelp()
     {
-        addChatLine("/help - show commands", CLKSystem);
-        addChatLine("/name username - change your name", CLKSystem);
-        addChatLine("/host - host a server on UDP port 777", CLKSystem);
-        addChatLine("/connect [address] - connect", CLKSystem);
-        addChatLine("/disconnect - leave or stop hosting", CLKSystem);
-        addChatLine("/clear - clear chat", CLKSystem);
-        addChatLine("/users - list connected users", CLKSystem);
-        addChatLine("/pm name|netId:name|netId message - private message", CLKSystem);
-        addChatLine("/w name|netId:name|netId message - private message", CLKSystem);
-        addChatLine("/tell name|netId:name|netId message - private message", CLKSystem);
-        addChatLine("/direct name|netId:name|netId message - private message", CLKSystem);
-        if (_server)
-        {
-            runPlayerCommand(0, "/help");
-            if (!_hWnd)
-            {
-                addChatLine("/quit - exit", CLKSystem);
-                addChatLine("/exit - exit", CLKSystem);
-                addChatLine("/voice - toggle voice", CLKSystem);
-            }
-        }
-        else if (_client) sendChat("/help");
+        for (const auto& command : CHAT_COMMANDS)
+            if (!command.hostOnly || isHost()) addChatLine(command.help, CLKSystem);
     }
 
     void changeName(const string& argument)
@@ -1532,6 +1466,7 @@ public:
         _localPlayerId = -1;
         _players.clear();
         _playerIdentities.clear();
+        _participantsDirty = true;
         _rosterRevision = 0;
         _privateChatKeys.clear();
         _privateChatNames.clear();

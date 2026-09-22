@@ -19,18 +19,6 @@ NetPool* getPool()
 	return pool.GetRef();
 }
 
-void setEnum(NetSessionEnum* _en)
-{
-	poolCriticalSection().lock();
-	_enum = _en;
-	if (_en)
-	{
-		getPool();
-		getClientPeer();
-	}
-	poolCriticalSection().unlock();
-}
-
 void setClient(NetClient* _cl)
 {
 	poolCriticalSection().lock();
@@ -60,11 +48,6 @@ SOCKET GetServerSocket()
 {
 	NetPeer* peer = getServerPeer();
 	return peer ? peer->GetSocket() : INVALID_SOCKET;
-}
-
-NetTranspSessionEnum* CreateNetSessionEnum()
-{
-	return new NetSessionEnum;
 }
 
 NetTranspClient* CreateNetClient()
@@ -223,156 +206,6 @@ NetStatus serverReceive(NetMessage* msgPtr, NetStatus event, void* data)
 	_server->Receive_Critical_Section.unlock();
 
 	return nsNoMoreCallbacks;
-}
-
-__int32 NetSessionDescriptions::Add()
-{
-	if (_size >= MAX_SESSIONS)
-		return -1;
-	return _size++;
-}
-
-void NetSessionDescriptions::Delete(__int32 i)
-{
-	_size--;
-	for (__int32 j = i; j < _size; j++)
-		_data[j] = _data[j + 1];
-}
-
-void NetSessionDescriptions::Clear()
-{
-	_size = 0;
-}
-
-NetSessionEnum::NetSessionEnum()
-	: Critical_Section()
-{
-	_running = false;
-	setEnum(this);
-}
-
-NetSessionEnum::~NetSessionEnum()
-{
-	setEnum(NULL);
-	Done();
-	
-}
-
-std::string NetSessionEnum::IPToGUID(std::string ip, __int32 port)
-{
-	char buffer[256];
-	sprintf(buffer, "%s:%d", ip.c_str(), port);
-	return buffer;
-}
-
-bool NetSessionEnum::Init()
-{
-	setEnum(this);
-	return true;
-}
-
-void NetSessionEnum::Done()
-{
-	Critical_Section.lock();
-	StopEnumHosts();
-	_sessions.Clear();
-	Critical_Section.unlock();
-}
-
-bool NetSessionEnum::StartEnumHosts(std::string ip, unsigned short port)
-{ 
-	_running = true;
-	bool anything = false;
-	setEnum(this);
-	NetPeer* peer = getClientPeer();
-
-	if (!peer)
-	{
-		Error("Error: createPeer failed");
-		return false;
-	}
-
-	NetChannel* br = peer->getBroadcastChannel();
-	
-	std::string ipaddr;
-	struct sockaddr_in addr;
-
-	if (!ip.length())
-	{ 
-		getHostAddress(addr, NULL, port);
-		if (needsRequest(addr, port))
-		{
-			sendRequest(br, addr, port); 
-			anything = true;
-		}
-		getLocalAddress(addr, port);
-		if (needsRequest(addr, port))
-		{
-			sendRequest(br, addr, port); 
-			anything = true;
-		}
-	}
-	else
-	{
-		decodeURLAddress(ip, ipaddr, port);
-		if (getHostAddress(addr, ipaddr.c_str(), port) && 
-			needsRequest(addr, port))
-		{
-			sendRequest(br, addr, port);
-			anything = true;
-		}
-	}
-
-	return anything;
-}
-
-void NetSessionEnum::StopEnumHosts()
-{
-	_running = false;
-}
-
-__int32 NetSessionEnum::NSessions()
-{
-	Critical_Section.lock();
-	__int32 n = _sessions.Size();
-	Critical_Section.unlock();
-	return n;
-}
-
-void NetSessionEnum::GetSessions(std::vector<SessionInfo>& sessions)
-{
-	Critical_Section.lock();
-
-	__int32 n = _sessions.Size();
-	for (__int32 i = 0; i < n;)
-	{
-		if (GetTickCount64() - _sessions[i].lastTime > MAX_ENUM_AGE)
-		{
-			if(!StartEnumHosts(_sessions[i].address, _sessions[i].port))
-			_sessions.Delete(i);
-			n--;
-		}
-		else
-			i++;
-	}
-
-	sessions.resize(n);
-	for (__int32 i = 0; i < n; i++)
-	{
-		sessions[i].address = _sessions[i].address;
-		sessions[i].name = _sessions[i].name;
-		sessions[i].lastTime = _sessions[i].lastTime;
-		sessions[i].password = (_sessions[i].password & 2) != 0;
-		sessions[i].lock = (_sessions[i].password & 1) != 0;
-		sessions[i].badActualVersion = false;
-		sessions[i].badRequiredVersion = false;
-		sessions[i].serverState = _sessions[i].serverState;
-		sessions[i].playerCount = _sessions[i].playerCount;
-		sessions[i].maxPlayers = _sessions[i].maxPlayers;
-		sessions[i].ping = _sessions[i].pingTime;
-	}
-
-	Critical_Section.unlock();
 }
 
 NetClient::NetClient()
@@ -839,7 +672,7 @@ NetServer::NetServer()
 	User_Critical_Section.lock();
 	received = NULL;
 	sent = NULL;
-	m_enumResponse = true;
+	acceptConnections = true;
 	session.serverState = 0;
 	session.maxPlayers = 0xff;
 	session.playerCount = 0;

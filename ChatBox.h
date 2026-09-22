@@ -309,50 +309,9 @@ class cChatBox
         return !target.empty() && !message.empty();
     }
 
-    enum class ChatCommand
-    {
-        Help,
-        Name,
-        Connect,
-        Host,
-        Clear,
-        Disconnect,
-        Kick,
-        Ban,
-        Users,
-        Pm,
-        Whisper,
-        Tell,
-        Direct,
-        Unknown
-    };
-
-    struct CommandEntry
-    {
-        const char* name;
-        ChatCommand id;
-    };
-
-    static constexpr CommandEntry COMMANDS[] =
-    {
-        { "/name",       ChatCommand::Name       },
-        { "/help",       ChatCommand::Help       },
-        { "/host",       ChatCommand::Host       },
-        { "/connect",    ChatCommand::Connect    },
-        { "/clear",      ChatCommand::Clear      },
-        { "/disconnect", ChatCommand::Disconnect },
-        { "/kick",       ChatCommand::Kick       },
-        { "/ban",        ChatCommand::Ban        },
-        { "/users",      ChatCommand::Users      },
-        { "/pm",         ChatCommand::Pm         },
-        { "/w",          ChatCommand::Whisper    },
-        { "/tell",       ChatCommand::Tell       },
-        { "/direct",     ChatCommand::Direct     },
-    };
-
     static ChatCommand ResolveCommand(const string& command)
     {
-        for (const auto& entry : COMMANDS)
+        for (const auto& entry : CHAT_COMMANDS)
         {
             if (MatchesCommand(command, entry.name))
                 return entry.id;
@@ -374,6 +333,10 @@ class cChatBox
 
         case ChatCommand::Name:
             network.changeName(command.substr(5));
+            break;
+
+        case ChatCommand::Dedicated:
+            network.setDedicated(command.substr(10));
             break;
 
         case ChatCommand::Host:
@@ -409,17 +372,14 @@ class cChatBox
             network.sendChat(command);
             break;
 
-        case ChatCommand::Pm:
-        case ChatCommand::Whisper:
-        case ChatCommand::Tell:
-        case ChatCommand::Direct:
+        case ChatCommand::Private:
         {
-            const char* prefix = cmd == ChatCommand::Tell ? "/tell" : cmd == ChatCommand::Pm ? "/pm" : cmd == ChatCommand::Direct ? "/direct" : "/w";
+            const string prefix = command.substr(0, command.find_first_of(" \t"));
 
             string target;
             string message;
 
-            if (!ParsePrivateCommand(command, prefix, target, message))
+            if (!ParsePrivateCommand(command, prefix.c_str(), target, message))
             {
                 network.showNotice("usage: /pm name|netId message", true);
             }
