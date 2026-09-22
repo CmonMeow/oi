@@ -7,11 +7,12 @@
 class cNetworkRuntime
 {
     FileTransfers _files;
+    ULONGLONG _voiceActiveUntil = 0;
     FileSaveDialog _fileDialog;
     struct FileBudget { double bytes = 32768; double packets = 32; ULONGLONG time = GetTickCount64(); };
     std::map<int, FileBudget> _fileBudgets;
     FileBudget _relayBudget;
-    bool fileBudget(FileBudget& budget, size_t bytes, double rate, double packetRate = 64) {
+    bool fileBudget(FileBudget& budget, size_t bytes, double rate, double packetRate = 4096) {
         const auto now = GetTickCount64(); const double elapsed = (now-budget.time)/1000.0; budget.time = now;
         budget.bytes = (std::min)(rate, budget.bytes + elapsed*rate);
         budget.packets = (std::min)(packetRate*2, budget.packets + elapsed*packetRate);
@@ -53,9 +54,9 @@ class cNetworkRuntime
         int peer; vector<unsigned char> cipher;
         if (!raw.getInt32(peer) || peer < 0 || !raw.getBytes(cipher,FileTransfers::MaxPacketBytes+40) || !raw.fullyRead() || cipher.size() <= 40) return;
         const int sender = relay ? from : peer;
-        if (!_privateChatKeys.count(sender) || !fileBudget(_fileBudgets[sender],cipher.size(),262144)) return;
+        if (!_privateChatKeys.count(sender) || !fileBudget(_fileBudgets[sender],cipher.size(),16777216)) return;
         if (relay && peer != 0) {
-            if (peer == from || !_playerIdentities.count(peer) || !fileQueueAvailable(peer) || !fileBudget(_relayBudget,cipher.size(),1048576,1024)) return;
+            if (peer == from || !_playerIdentities.count(peer) || !fileQueueAvailable(peer) || !fileBudget(_relayBudget,cipher.size(),67108864,16384)) return;
             NetworkMessageRaw forwarded; forwarded.putInt32(from); forwarded.putBytes(cipher,FileTransfers::MaxPacketBytes+40);
             sendRawFromServer(peer,NAMTFile,forwarded,NMFGuaranteed);
         } else receiveFilePayload(sender,cipher);
@@ -472,6 +473,7 @@ class cNetworkRuntime
         {
             if (saneVoicePacket(voicePacket))
             {
+                _voiceActiveUntil = GetTickCount64() + 2000;
                 _voicePackets.push_back(voicePacket);
                 while (_voicePackets.size() > 32)
                 {
@@ -580,6 +582,7 @@ class cNetworkRuntime
         {
             if (saneVoicePacket(voicePacket))
             {
+                _voiceActiveUntil = GetTickCount64() + 2000;
                 voicePacket.playerId = from;
                 _voicePackets.push_back(voicePacket);
                 while (_voicePackets.size() > 32)
@@ -1246,7 +1249,6 @@ public:
     {
         int filePeer; string fileId; std::wstring destination;
         if (_fileDialog.poll(filePeer,fileId,destination) && !destination.empty()) _files.accept({filePeer,fileId},destination);
-        _files.update();
         if (_client && _connectDeadline && GetTickCount64() >= _connectDeadline)
         {
             addChatLine("connection timed out", CLKError);
@@ -1326,6 +1328,7 @@ public:
             _latencyMS = counted ? totalLatency / counted : 0;
             _throughputBPS = counted ? totalThroughput / counted : 0;
         }
+        _files.update(GetTickCount64() < _voiceActiveUntil);
     }
 
     bool trafficTotals(unsigned __int64& incoming, unsigned __int64& outgoing) const
@@ -1511,6 +1514,7 @@ public:
 
     void sendVoice(NetworkVoicePacket packet)
     {
+        if (clientReady() || isHost()) _voiceActiveUntil = GetTickCount64() + 2000;
         if (_client)
         {
             packet.playerId = _localPlayerId;
@@ -1542,7 +1546,7 @@ public:
     bool disconnect()
     {
         if (!_client && !_server) return false;
-        _files.clear(); _fileBudgets.clear();
+        _files.clear(); _fileBudgets.clear(); _voiceActiveUntil = 0;
         const bool hosting = _server != NULL;
         _transportConnecting = false;
         _connectDeadline = 0;

@@ -51,7 +51,7 @@ private:
     std::map<string, std::shared_ptr<Source>> sources;
     std::map<Key, Download> downloads;
     std::map<Key, Upload> uploads;
-    ULONGLONG nextChunk = 0;
+    ULONGLONG lastChunk = 0;
     Key lastServed;
     Send send;
     Notice notice;
@@ -117,7 +117,7 @@ public:
         if (source->file->handle == INVALID_HANDLE_VALUE || GetFileType(source->file->handle) != FILE_TYPE_DISK ||
             !GetFileInformationByHandle(source->file->handle, &info) || (info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) ||
             !GetFileSizeEx(source->file->handle, &size) || size.QuadPart < 0 || size.QuadPart > MaxFileBytes) {
-            notice("Cannot offer file: inaccessible, in use, or larger than 4 GiB.", true); return false;
+            notice("Cannot offer file: inaccessible, in use, or exceeds 4,294,967,296 bytes.", true); return false;
         }
         source->size = (unsigned __int64)size.QuadPart; source->expires = GetTickCount64() + 600000;
         const string id = randomId();
@@ -151,9 +151,10 @@ public:
         }
         name = displayName(name); if (name.size() > 25) name = name.substr(0,12) + "..." + name.substr(name.size()-10);
         char size[32];
-        if (bytes >= 1073741824ULL) snprintf(size,sizeof(size),"%.1f GiB",bytes/1073741824.0);
-        else if (bytes >= 1048576) snprintf(size,sizeof(size),"%.1f MiB",bytes/1048576.0);
-        else if (bytes >= 1024) snprintf(size,sizeof(size),"%.1f KiB",bytes/1024.0);
+        // Windows labels binary file-size units KB/MB/GB and truncates the displayed fraction.
+        if (bytes >= 1073741824ULL) snprintf(size,sizeof(size),"%.2f GB",(bytes*100/1073741824ULL)/100.0);
+        else if (bytes >= 1048576) snprintf(size,sizeof(size),"%.2f MB",(bytes*100/1048576)/100.0);
+        else if (bytes >= 1024) snprintf(size,sizeof(size),"%.2f KB",(bytes*100/1024)/100.0);
         else snprintf(size,sizeof(size),"%llu B",bytes);
         return name + " (" + size + ") [" + state + "]";
     }
@@ -248,7 +249,7 @@ public:
             notice("Saved " + displayName(d.name) + ".",false);
         }
     }
-    void update() {
+    void update(bool voiceActive = true) {
         const auto now = GetTickCount64();
         for (auto it = downloads.begin(); it != downloads.end();) {
             if (it->second.file && now - it->second.touched > 30000) failDownload(it->first,it->second,"timed out");
@@ -261,7 +262,7 @@ public:
         for (auto it = sources.begin(); it != sources.end();) {
             if (now >= it->second->expires || it->second->peers.empty()) it = sources.erase(it); else ++it;
         }
-        if (uploads.empty() || now < nextChunk) return;
+        if (uploads.empty() || (voiceActive && now - lastChunk < 64)) return;
         auto it = uploads.upper_bound(lastServed); if (it == uploads.end()) it = uploads.begin();
         for (size_t n = 0; n < uploads.size(); ++n) {
             if (!it->second.finishing && it->second.offset == it->second.acknowledged) break;
@@ -281,12 +282,12 @@ public:
         }
         auto raw = header(Chunk,it->first.second,u.token); raw.putUInt64(u.offset); raw.putBytes(bytes,ChunkBytes);
         if (transmit(it->first.first,raw)) { crypto_generichash_update(&u.hash,bytes.data(),bytes.size()); u.offset += count; }
-        nextChunk = now + 64; // 128 KiB/s aggregate, no catch-up bursts.
+        lastChunk = now; // Voice: 128 KiB/s. Idle: ACK/queue-limited, one chunk per service tick.
     }
     void peerLeft(int peer) {
         for (auto it = uploads.begin(); it != uploads.end();) if (it->first.first == peer) it = uploads.erase(it); else ++it;
         for (auto& entry : downloads) if (entry.first.first == peer) { entry.second.file.reset(); entry.second.state = "unavailable"; }
         for (auto& entry : sources) entry.second->peers.erase(peer);
     }
-    void clear() { uploads.clear(); downloads.clear(); sources.clear(); nextChunk = 0; }
+    void clear() { uploads.clear(); downloads.clear(); sources.clear(); lastChunk = 0; }
 };

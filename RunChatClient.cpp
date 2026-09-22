@@ -182,16 +182,16 @@ void RunChatClient(HWND hWnd)
                 const double seconds = (now - lastTitleUpdate) / 1000.0;
                 const bool validSample = hadTrafficSample && seconds > 0 &&
                     incoming >= previousIncoming && outgoing >= previousOutgoing;
-                const double inputRate = validSample ? (incoming - previousIncoming) / seconds / 1024.0 : 0;
-                const double outputRate = validSample ? (outgoing - previousOutgoing) / seconds / 1024.0 : 0;
+                const double inputRate = validSample ? (incoming - previousIncoming) * 8.0 / seconds / 1000000.0 : 0;
+                const double outputRate = validSample ? (outgoing - previousOutgoing) * 8.0 / seconds / 1000000.0 : 0;
                 if (network.isHost())
-                    snprintf(title, sizeof(title), "Hosting | Avg ping: %d ms | In: %.1f KiB/s | Out: %.1f KiB/s",
+                    snprintf(title, sizeof(title), "Hosting | Avg ping: %d ms | In: %.3f Mbps | Out: %.3f Mbps",
                              network.latencyMS(), inputRate, outputRate);
                 else if (network.clientReady())
-                    snprintf(title, sizeof(title), "Ping: %d ms | In: %.1f KiB/s | Out: %.1f KiB/s",
+                    snprintf(title, sizeof(title), "Ping: %d ms | In: %.3f Mbps | Out: %.3f Mbps",
                              network.latencyMS(), inputRate, outputRate);
                 else
-                    snprintf(title, sizeof(title), "Connecting | In: %.1f KiB/s | Out: %.1f KiB/s", inputRate, outputRate);
+                    snprintf(title, sizeof(title), "Connecting | In: %.3f Mbps | Out: %.3f Mbps", inputRate, outputRate);
             }
             else
                 snprintf(title, sizeof(title), "Disconnected");

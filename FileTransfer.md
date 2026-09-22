@@ -2,13 +2,15 @@
 
 Drop up to eight local files into chat. Each file is offered to the people currently in the room, including the host. The sender sees a red offer; recipients see a red filename/size link. Click to choose a new local destination. Click an active download to cancel, or your own offer to withdraw it. Files never open automatically. No image previews or external URL fetching are added.
 
+File sizes use Windows-style KB, MB and GB labels with 1,024-based units and two truncated decimal places; network speeds remain decimal Mbps.
+
 ## Limits and lifetime
 
 - 4 GiB (4,294,967,296 bytes) per file; eight outstanding source files and eight offers per sender (32 incoming offers total).
 - Four active uploads and four active downloads per client.
 - Unaccepted offers expire after ten minutes. Accepted transfers have no total duration limit and continue past offer expiry; they time out only after 30 seconds without progress. Sender must remain connected.
-- 8 KiB chunks, one outstanding chunk per recipient, 128 KiB/s aggregate upload cap. Files use normal-priority reliable packets; voice keeps its existing path.
-- Relay traffic is rate-limited per sender and globally. File traffic stops entering a backed-up transport queue.
+- 8 KiB chunks, one outstanding chunk per recipient, 128 KiB/s aggregate upload cap while voice packets are sent or received. After two seconds without voice traffic, artificial chunk pacing is removed; ACKs, the application service tick and bounded transport queues still control throughput. Files use normal-priority reliable packets; voice keeps its existing path.
+- Relay abuse ceilings are 16 MiB/s per sender and 64 MiB/s globally, separate from voice-sensitive upload pacing. File traffic stops entering a backed-up transport queue.
 - Sources are held read-only, denying concurrent writers. Destinations use random partial filenames, verify length and a BLAKE2b digest, and rename only after completion, without replacing existing files. Cancellation, errors and disconnects remove partial files. Abrupt process termination can leave a `.oi-*.part` file in the selected folder.
 - On filesystems supporting alternate data streams, downloaded files receive Windows Internet-zone provenance. Files are not scanned, decoded, extracted, or executed.
 
