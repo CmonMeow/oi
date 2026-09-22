@@ -60,7 +60,7 @@
     </ClCompile>
     <Link>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;user32.lib;shell32.lib;opengl32.lib;gdi32.lib;$(ProjectDir)third_party\opus\lib\x64\Release\opus.lib;$(ProjectDir)third_party\libsodium\lib\x64\Release\libsodium.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ole32.lib;comdlg32.lib;ws2_32.lib;winmm.lib;user32.lib;shell32.lib;opengl32.lib;gdi32.lib;$(ProjectDir)third_party\opus\lib\x64\Release\opus.lib;$(ProjectDir)third_party\libsodium\lib\x64\Release\libsodium.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)oi.exe</OutputFile>
       <ProgramDatabaseFile>$(IntDir)$(ProjectName).pdb</ProgramDatabaseFile>
       <ImportLibrary>$(IntDir)$(ProjectName).lib</ImportLibrary>
@@ -114,6 +114,8 @@
     <ClInclude Include="sysdef.h" />
     <ClInclude Include="ChatBox.h" />
     <ClInclude Include="ChatCommands.h" />
+    <ClInclude Include="FileTransfers.h" />
+    <ClInclude Include="FileSaveDialog.h" />
     <ClInclude Include="ClientSettings.h" />
     <ClInclude Include="NetworkProtocol.h" />
     <ClInclude Include="NetworkRuntime.h" />

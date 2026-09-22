@@ -106,6 +106,7 @@ static void DrawChatStatus(const ChatStatusView& view, size_t historyOffset = 0)
 void RunChatClient(HWND hWnd)
 {
     HDC dc = GetDC(hWnd);
+    DragAcceptFiles(hWnd,TRUE);
     PackedClientSettings settings;
     cNetworkRuntime network(hWnd, &settings);
     if (settings.dedicated()) network.hostOnPort();
@@ -125,6 +126,21 @@ void RunChatClient(HWND hWnd)
         MSG msg;
         while (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
         {
+            if (msg.hwnd == hWnd && msg.message == WM_DROPFILES)
+            {
+                HDROP drop = reinterpret_cast<HDROP>(msg.wParam);
+                const UINT count = DragQueryFileW(drop,0xffffffff,nullptr,0);
+                for (UINT i = 0; i < count && i < 8; ++i)
+                {
+                    const UINT length = DragQueryFileW(drop,i,nullptr,0);
+                    if (!length || length >= 32768) continue;
+                    std::vector<wchar_t> path(length+1);
+                    if (DragQueryFileW(drop,i,path.data(),length+1)) network.offerFile(path.data());
+                }
+                if (count > 8) network.showNotice("Drop at most eight files at once.",true);
+                DragFinish(drop);
+                continue;
+            }
             if (selectingHotkey && (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN))
             {
                 if (msg.wParam == VK_ESCAPE)
@@ -232,6 +248,7 @@ void RunChatClient(HWND hWnd)
         Sleep(static_cast<DWORD>((std::max)(1.0, (std::min)(10.0, std::ceil(waitMS)))));
     }
 
+    DragAcceptFiles(hWnd,FALSE);
     ReleaseDC(hWnd, dc);
 }
 

@@ -257,7 +257,7 @@ class cChatBox
         }
     }
 
-    bool openLinkUnderMouse(const cNetworkRuntime& network)
+    bool openLinkUnderMouse(cNetworkRuntime& network)
     {
         const vector<NetworkChatLine>& lines = network.chatLines();
         const size_t rows = visibleRows();
@@ -272,6 +272,16 @@ class cChatBox
             const float lineY = textTop - (float)(i - first) * LINE_HEIGHT;
             if (mouseY >= lineY - 2.f && mouseY <= lineY + LINE_HEIGHT - 2.f && mouseX >= BOX_X + 8.f)
             {
+                if (lines[i].kind == CLKFile)
+                {
+                    const string label = FitChatText(network.fileLabel(lines[i].fileSender,lines[i].fileId),(int)boxWidth()-24);
+                    if (mouseX < BOX_X + 8.f + ChatTextWidth(label))
+                    {
+                        network.clickFile(lines[i].fileSender,lines[i].fileId);
+                        return true;
+                    }
+                    continue;
+                }
                 size_t character = 0;
                 float remainingX = mouseX - (BOX_X + 8.f);
                 while (character < lines[i].text.size())
@@ -470,12 +480,13 @@ public:
             }
         }
 
+        if (input.leftClick() && capturesMouse && openLinkUnderMouse(network))
+        {
+            input.KeyUp(VK_LBUTTON);
+            return;
+        }
         if (!_active)
         {
-            if (input.leftClick() && capturesMouse)
-            {
-                if(openLinkUnderMouse(network)) input.KeyUp(VK_LBUTTON);
-            }
             if (input.pressed(VK_RETURN) || input.leftClick() && capturesMouse)
             {
                 _active = true;
@@ -615,6 +626,12 @@ public:
                 r = .82f;
                 g = .70f;
                 b = 1.0f;
+            }
+            if (lines[i].kind == CLKFile)
+            {
+                const string label = FitChatText(network.fileLabel(lines[i].fileSender,lines[i].fileId),(int)width-24);
+                QueueChatText(label.c_str(),x+8.f,textY-(float)(i-first)*lineHeight,1.f,.30f,.26f);
+                continue;
             }
             DrawChatLineWithLinks(lines[i].text, x + 8.f, textY - (float)(i - first) * lineHeight, r, g, b);
         }

@@ -14,7 +14,7 @@ using std::vector;
 
 const char* DEFAULT_NETWORK_ADDRESS = "nigger.observer";
 const unsigned short DEFAULT_NETWORK_PORT = 777;
-const __int32 APP_PROTOCOL_VERSION = 24;
+const __int32 APP_PROTOCOL_VERSION = 26;
 const char* const BAN_LIST_FILENAME = "banlist.txt";
 const size_t CHAT_MAX_MESSAGE_CHARS = 140;
 const size_t CHAT_MAX_LINE_CHARS = 192;
@@ -37,13 +37,16 @@ enum ChatLineKind
     CLKNormal,
     CLKSystem,
     CLKPrivate,
-    CLKError
+    CLKError,
+    CLKFile
 };
 
 struct NetworkChatLine
 {
     string text;
     ChatLineKind kind;
+    int fileSender = -1;
+    string fileId;
 };
 
 inline string SanitiseText(const string& text, size_t maxChars)
@@ -297,6 +300,7 @@ public:
 
     void putUInt8(unsigned char value) { put(&value, sizeof(value)); }
     void putUInt16(unsigned short value) { put(&value, sizeof(value)); }
+    void putUInt64(unsigned __int64 value) { put(&value, sizeof(value)); }
     void putUInt32(unsigned __int32 value) { put(&value, sizeof(value)); }
     void putInt32(__int32 value) { put(&value, sizeof(value)); }
     void putFloat(float value) { put(&value, sizeof(value)); }
@@ -340,6 +344,7 @@ public:
     }
     bool getUInt8(unsigned char& value) { return get(&value, sizeof(value)); }
     bool getUInt16(unsigned short& value) { return get(&value, sizeof(value)); }
+    bool getUInt64(unsigned __int64& value) { return get(&value, sizeof(value)); }
     bool getUInt32(unsigned __int32& value) { return get(&value, sizeof(value)); }
     bool getInt32(__int32& value) { return get(&value, sizeof(value)); }
     bool getFloat(float& value) { return get(&value, sizeof(value)); }
@@ -426,7 +431,7 @@ inline bool ValidAppMessageType(NetAppMessageType type)
     switch (type) {
     case NAMTConnect: case NAMTDisconnect: case NAMTChat: case NAMTHeartbeat:
     case NAMTSessionEnd: case NAMTPlayerAssign: case NAMTVoice: case NAMTKeyHello: case NAMTKeyAccept:
-    case NAMTSystemNotice: case NAMTCommandError: case NAMTPresence: case NAMTChatKey: case NAMTPrivateChat: case NAMTEncrypted: return true;
+    case NAMTFile: case NAMTSystemNotice: case NAMTCommandError: case NAMTPresence: case NAMTChatKey: case NAMTPrivateChat: case NAMTEncrypted: return true;
     default: return false;
     }
 }

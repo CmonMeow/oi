@@ -1,9 +1,71 @@
 #pragma once
 #include "ClientSettings.h"
 #include "ChatCommands.h"
+#include "FileTransfers.h"
+#include "FileSaveDialog.h"
 
 class cNetworkRuntime
 {
+    FileTransfers _files;
+    FileSaveDialog _fileDialog;
+    struct FileBudget { double bytes = 32768; double packets = 32; ULONGLONG time = GetTickCount64(); };
+    std::map<int, FileBudget> _fileBudgets;
+    FileBudget _relayBudget;
+    bool fileBudget(FileBudget& budget, size_t bytes, double rate, double packetRate = 64) {
+        const auto now = GetTickCount64(); const double elapsed = (now-budget.time)/1000.0; budget.time = now;
+        budget.bytes = (std::min)(rate, budget.bytes + elapsed*rate);
+        budget.packets = (std::min)(packetRate*2, budget.packets + elapsed*packetRate);
+        if (budget.bytes < bytes || budget.packets < 1) return false;
+        budget.bytes -= bytes; budget.packets -= 1; return true;
+    }
+    bool fileQueueAvailable(int to) {
+        int messages=0, bytes=0, guaranteedMessages=0, guaranteedBytes=0;
+        if (_server) _server->GetSendQueueInfo(to,messages,bytes,guaranteedMessages,guaranteedBytes);
+        else if (_client) _client->GetSendQueueInfo(messages,bytes,guaranteedMessages,guaranteedBytes);
+        else return false;
+        return bytes >= 0 && guaranteedBytes >= 0 && bytes < 131072 && guaranteedBytes < 131072 &&
+            messages < 128 && guaranteedMessages < 128;
+    }
+    bool sendFilePayload(int to, const vector<unsigned char>& plain) {
+        auto key = _privateChatKeys.find(to);
+        if ((!isHost() && !clientReady()) || to == localPlayerId() || key == _privateChatKeys.end() ||
+            key->second.size() != crypto_box_PUBLICKEYBYTES || !fileQueueAvailable(to) || plain.empty() || plain.size() > FileTransfers::MaxPacketBytes) return false;
+        vector<unsigned char> cipher(crypto_box_NONCEBYTES + crypto_box_MACBYTES + plain.size());
+        randombytes_buf(cipher.data(),crypto_box_NONCEBYTES);
+        if (crypto_box_easy(cipher.data()+crypto_box_NONCEBYTES,plain.data(),plain.size(),cipher.data(),
+            (const unsigned char*)key->second.data(),_privateChatSecretKey) != 0) return false;
+        NetworkMessageRaw raw; raw.putInt32(isHost() ? 0 : to); raw.putBytes(cipher,FileTransfers::MaxPacketBytes+40);
+        if (isHost()) sendRawFromServer(to,NAMTFile,raw,NMFGuaranteed);
+        else sendRawFromClient(NAMTFile,raw,NMFGuaranteed);
+        return true;
+    }
+    void receiveFilePayload(int from, const vector<unsigned char>& cipher) {
+        auto key = _privateChatKeys.find(from);
+        if (from == localPlayerId() || key == _privateChatKeys.end() || key->second.size() != crypto_box_PUBLICKEYBYTES ||
+            cipher.size() <= crypto_box_NONCEBYTES + crypto_box_MACBYTES) return;
+        vector<unsigned char> plain(cipher.size()-crypto_box_NONCEBYTES-crypto_box_MACBYTES);
+        if (crypto_box_open_easy(plain.data(),cipher.data()+crypto_box_NONCEBYTES,cipher.size()-crypto_box_NONCEBYTES,
+            cipher.data(),(const unsigned char*)key->second.data(),_privateChatSecretKey) != 0) return;
+        _files.receive(from,plain);
+    }
+    void handleFileMessage(int from, const char* message, int length, bool relay) {
+        NetworkMessageRaw raw(message+sizeof(NetAppMessageHeader),length-sizeof(NetAppMessageHeader));
+        int peer; vector<unsigned char> cipher;
+        if (!raw.getInt32(peer) || peer < 0 || !raw.getBytes(cipher,FileTransfers::MaxPacketBytes+40) || !raw.fullyRead() || cipher.size() <= 40) return;
+        const int sender = relay ? from : peer;
+        if (!_privateChatKeys.count(sender) || !fileBudget(_fileBudgets[sender],cipher.size(),262144)) return;
+        if (relay && peer != 0) {
+            if (peer == from || !_playerIdentities.count(peer) || !fileQueueAvailable(peer) || !fileBudget(_relayBudget,cipher.size(),1048576,1024)) return;
+            NetworkMessageRaw forwarded; forwarded.putInt32(from); forwarded.putBytes(cipher,FileTransfers::MaxPacketBytes+40);
+            sendRawFromServer(peer,NAMTFile,forwarded,NMFGuaranteed);
+        } else receiveFilePayload(sender,cipher);
+    }
+    void announceFile(int from, const string& id) {
+        addChatLine(from < 0 ? "You offered a file:" : playerDisplayName(from) + " offered a file:",CLKSystem);
+        NetworkChatLine line; line.kind = CLKFile; line.fileSender = from; line.fileId = id;
+        _chatLines.push_back(line);
+        while (_chatLines.size() > CHAT_MAX_HISTORY_LINES) _chatLines.erase(_chatLines.begin());
+    }
     bool _remoteEnded = false;
     unsigned __int32 _rosterRevision = 0;
     HWND _hWnd;
@@ -380,6 +442,7 @@ class cNetworkRuntime
         }
 
         if (messageSize < sizeof(NetAppMessageHeader)) return;
+        if (reinterpret_cast<const NetAppMessageHeader*>(message)->type == NAMTFile) { handleFileMessage(0,message,messageSize,false); return; }
         if (reinterpret_cast<const NetAppMessageHeader*>(message)->type == NAMTPresence)
         {
             NetworkMessageRaw raw(message + sizeof(NetAppMessageHeader), messageSize - sizeof(NetAppMessageHeader));
@@ -399,7 +462,7 @@ class cNetworkRuntime
             _playerIdentities.swap(roster);
             _participantsDirty = true;
             for (auto it = _privateChatKeys.begin(); it != _privateChatKeys.end();)
-                if (!_playerIdentities.count(it->first)) { _privateChatNames.erase(it->first); it = _privateChatKeys.erase(it); }
+                if (!_playerIdentities.count(it->first)) { _files.peerLeft(it->first); _fileBudgets.erase(it->first); _privateChatNames.erase(it->first); it = _privateChatKeys.erase(it); }
                 else ++it;
             return;
         }
@@ -509,6 +572,8 @@ class cNetworkRuntime
         {
             return;
         }
+
+        if (messageHeader->type == NAMTFile) { handleFileMessage(from,message,messageSize,true); return; }
 
         NetworkVoicePacket voicePacket;
         if (ParseVoicePacket(message, messageSize, voicePacket))
@@ -633,6 +698,8 @@ class cNetworkRuntime
         sendRawStringFromServerToAll(NAMTDisconnect, string("system: ") + leaveMessage, CHAT_MAX_LINE_CHARS);
 
         _playerIdentities.erase(player);
+        _files.peerLeft(player);
+        _fileBudgets.erase(player);
         _privateChatKeys.erase(player);
         _privateChatNames.erase(player);
         _serverCrypto.erase(player);
@@ -1080,7 +1147,10 @@ class cNetworkRuntime
 
 public:
     cNetworkRuntime(HWND hWnd, PackedClientSettings* settings = NULL)
-        : _hWnd(hWnd),
+        : _files([this](int to, const vector<unsigned char>& bytes) { return sendFilePayload(to,bytes); },
+                 [this](const string& text, bool error) { showNotice(text,error); },
+                 [this](int from, const string& id) { announceFile(from,id); }),
+          _hWnd(hWnd),
           _settings(settings),
           _server(NULL),
           _client(NULL),
@@ -1174,6 +1244,9 @@ public:
 
     void update()
     {
+        int filePeer; string fileId; std::wstring destination;
+        if (_fileDialog.poll(filePeer,fileId,destination) && !destination.empty()) _files.accept({filePeer,fileId},destination);
+        _files.update();
         if (_client && _connectDeadline && GetTickCount64() >= _connectDeadline)
         {
             addChatLine("connection timed out", CLKError);
@@ -1325,6 +1398,8 @@ public:
     {
         for (const auto& command : CHAT_COMMANDS)
             if (!command.hostOnly || isHost()) addChatLine(command.help, CLKSystem);
+        addChatLine("Drop files into chat; click a red offer to save.",CLKSystem);
+        addChatLine("Click an active transfer to cancel it.",CLKSystem);
     }
 
     void changeName(const string& argument)
@@ -1347,6 +1422,22 @@ public:
         if (!file) { addChatLine("Could not save your name.", CLKError); return; }
         if (_client) sendChat("/name " + name);
         else addChatLine("Name saved: " + name, CLKSystem);
+    }
+
+    void offerFile(const std::wstring& path) {
+        vector<int> peers;
+        if (isHost() || clientReady()) for (const auto& person : participants())
+            if (person.first != localPlayerId() && _privateChatKeys.count(person.first)) peers.push_back(person.first);
+        _files.offer(path,peers);
+    }
+    string fileLabel(int from, const string& id) const { return _files.label({from,id}); }
+    void clickFile(int from, const string& id) {
+        if (from == -1) { _files.withdraw(id); return; }
+        const FileTransfers::Key key(from,id);
+        if (_files.active(key)) { _files.cancel(key); return; }
+        const auto name = _files.suggestedName(key);
+        if (name.empty()) { showNotice("This file offer is no longer available.",true); return; }
+        if (!_fileDialog.start(from,id,name)) showNotice("A save dialog is already open.",true);
     }
 
     bool sendPrivateChatByReference(const string& reference, const string& message)
@@ -1451,6 +1542,7 @@ public:
     bool disconnect()
     {
         if (!_client && !_server) return false;
+        _files.clear(); _fileBudgets.clear();
         const bool hosting = _server != NULL;
         _transportConnecting = false;
         _connectDeadline = 0;
