@@ -10,3 +10,31 @@ IDC_POINTER_RED    CURSOR "cursor_red.cur"
 IDC_POINTER_YELLOW CURSOR "cursor_yellow.cur"
 
 200 RCDATA "ScreenShare.html"
+
+// Increment both numeric and display versions for each distributed release.
+1 VERSIONINFO
+FILEVERSION 0,1,0,0
+PRODUCTVERSION 0,1,0,0
+FILEFLAGSMASK 0x3fL
+FILEFLAGS 0
+FILEOS 0x40004L
+FILETYPE 0x1L
+FILESUBTYPE 0
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "FileDescription", "oi chat, voice and screen sharing\0"
+            VALUE "FileVersion", "0.1.0.0\0"
+            VALUE "InternalName", "oi\0"
+            VALUE "OriginalFilename", "oi.exe\0"
+            VALUE "ProductName", "oi\0"
+            VALUE "ProductVersion", "0.1.0.0\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

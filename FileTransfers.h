@@ -242,7 +242,12 @@ public:
             d.file->close();
             // Preserve Windows' downloaded-file provenance without executing or inspecting the content.
             HANDLE zone = CreateFileW((d.file->temporary + L":Zone.Identifier").c_str(), GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
-            if (zone != INVALID_HANDLE_VALUE) { const char mark[] = "[ZoneTransfer]\r\nZoneId=3\r\n"; DWORD written; WriteFile(zone,mark,sizeof(mark)-1,&written,nullptr); CloseHandle(zone); }
+            if (zone == INVALID_HANDLE_VALUE) { failDownload(key,d,"cannot mark downloaded file; choose a drive supporting Windows security metadata"); return; }
+            const char mark[] = "[ZoneTransfer]\r\nZoneId=3\r\n";
+            DWORD written = 0;
+            const bool marked = WriteFile(zone,mark,sizeof(mark)-1,&written,nullptr) && written == sizeof(mark)-1 && FlushFileBuffers(zone);
+            const bool closed = CloseHandle(zone) != FALSE;
+            if (!marked || !closed) { failDownload(key,d,"cannot write downloaded-file security metadata"); return; }
             // No overwrite flag: never replace an existing user file, even if created during transfer.
             if (!MoveFileExW(d.file->temporary.c_str(),d.destination.c_str(),0)) { failDownload(key,d,"cannot save destination"); return; }
             d.file->temporary.clear(); d.file.reset(); d.state = "saved"; d.touched = now; control(Done,key,token);

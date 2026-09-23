@@ -152,26 +152,35 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
                         if(FAILED(result)||!control){s->error("Could not initialize the screen viewer.",result);PostMessageW(s->window,WM_CLOSE,0,0);return S_OK;}
                         s->controller=control;control->get_CoreWebView2(&s->web);s->resized();
                         if(!s->web){PostMessageW(s->window,WM_CLOSE,0,0);return S_OK;}
-                        ComPtr<ICoreWebView2Settings> settings;s->web->get_Settings(&settings);
-                        if(settings){settings->put_AreDevToolsEnabled(FALSE);settings->put_AreDefaultContextMenusEnabled(FALSE);settings->put_IsStatusBarEnabled(FALSE);}
+                        const auto configured=[&](HRESULT result) {
+                            if(SUCCEEDED(result))return true;
+                            s->error("Could not secure the screen viewer.",result);
+                            PostMessageW(s->window,WM_CLOSE,0,0);return false;
+                        };
+                        ComPtr<ICoreWebView2Settings> settings;
+                        if(!configured(s->web->get_Settings(&settings)))return S_OK;
+                        if(!settings){configured(E_POINTER);return S_OK;}
+                        if(!configured(settings->put_AreDevToolsEnabled(FALSE)) ||
+                           !configured(settings->put_AreDefaultContextMenusEnabled(FALSE)) ||
+                           !configured(settings->put_IsStatusBarEnabled(FALSE)))return S_OK;
                         EventRegistrationToken token;
-                        s->web->add_WebMessageReceived(Callback<ICoreWebView2WebMessageReceivedEventHandler>([weak,current](ICoreWebView2*,ICoreWebView2WebMessageReceivedEventArgs* args)->HRESULT {
+                        if(!configured(s->web->add_WebMessageReceived(Callback<ICoreWebView2WebMessageReceivedEventHandler>([weak,current](ICoreWebView2*,ICoreWebView2WebMessageReceivedEventArgs* args)->HRESULT {
                             auto s=weak.lock();if(!s||s->generation!=current)return S_OK;LPWSTR source=nullptr,text=nullptr;
                             args->get_Source(&source);
                             if(source&&wcscmp(source,ScreenUrl)==0&&SUCCEEDED(args->TryGetWebMessageAsString(&text)))s->message(narrowScreen(text));
                             CoTaskMemFree(source);CoTaskMemFree(text);return S_OK;
-                        }).Get(),&token);
-                        s->web->add_NavigationStarting(Callback<ICoreWebView2NavigationStartingEventHandler>([weak,current](ICoreWebView2*,ICoreWebView2NavigationStartingEventArgs* args)->HRESULT {
+                        }).Get(),&token)))return S_OK;
+                        if(!configured(s->web->add_NavigationStarting(Callback<ICoreWebView2NavigationStartingEventHandler>([weak,current](ICoreWebView2*,ICoreWebView2NavigationStartingEventArgs* args)->HRESULT {
                             auto s=weak.lock();LPWSTR uri=nullptr;args->get_Uri(&uri);
                             // Reloading would discard media without retiring the native share offer.
                             if(!s||s->generation!=current||s->ready||!uri||wcscmp(uri,ScreenUrl)!=0)args->put_Cancel(TRUE);
                             CoTaskMemFree(uri);return S_OK;
-                        }).Get(),&token);
-                        s->web->add_NewWindowRequested(Callback<ICoreWebView2NewWindowRequestedEventHandler>([](ICoreWebView2*,ICoreWebView2NewWindowRequestedEventArgs* args)->HRESULT {args->put_Handled(TRUE);return S_OK;}).Get(),&token);
-                        s->web->add_PermissionRequested(Callback<ICoreWebView2PermissionRequestedEventHandler>([](ICoreWebView2*,ICoreWebView2PermissionRequestedEventArgs* args)->HRESULT {args->put_State(COREWEBVIEW2_PERMISSION_STATE_DENY);return S_OK;}).Get(),&token);
-                        s->web->add_ProcessFailed(Callback<ICoreWebView2ProcessFailedEventHandler>([weak,current](ICoreWebView2*,ICoreWebView2ProcessFailedEventArgs*)->HRESULT {
+                        }).Get(),&token)))return S_OK;
+                        if(!configured(s->web->add_NewWindowRequested(Callback<ICoreWebView2NewWindowRequestedEventHandler>([](ICoreWebView2*,ICoreWebView2NewWindowRequestedEventArgs* args)->HRESULT {args->put_Handled(TRUE);return S_OK;}).Get(),&token)))return S_OK;
+                        if(!configured(s->web->add_PermissionRequested(Callback<ICoreWebView2PermissionRequestedEventHandler>([](ICoreWebView2*,ICoreWebView2PermissionRequestedEventArgs* args)->HRESULT {args->put_State(COREWEBVIEW2_PERMISSION_STATE_DENY);return S_OK;}).Get(),&token)))return S_OK;
+                        if(!configured(s->web->add_ProcessFailed(Callback<ICoreWebView2ProcessFailedEventHandler>([weak,current](ICoreWebView2*,ICoreWebView2ProcessFailedEventArgs*)->HRESULT {
                             auto s=weak.lock();if(s&&s->generation==current){s->error("Screen viewer stopped unexpectedly.");PostMessageW(s->window,WM_CLOSE,0,0);}return S_OK;
-                        }).Get(),&token);
+                        }).Get(),&token)))return S_OK;
                         HRESULT filter=s->web->AddWebResourceRequestedFilter(L"*",COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
                         if(FAILED(filter)){s->error("Could not configure the local screen page.",filter);PostMessageW(s->window,WM_CLOSE,0,0);return S_OK;}
                         HRESULT resourceHandler=s->web->add_WebResourceRequested(Callback<ICoreWebView2WebResourceRequestedEventHandler>([weak,current](ICoreWebView2*,ICoreWebView2WebResourceRequestedEventArgs* args)->HRESULT {
