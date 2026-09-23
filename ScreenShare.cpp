@@ -2,6 +2,7 @@
 #include "sysdef.h"
 #include "NetworkProtocol.h"
 #include "ScreenShare.h"
+#include "ScreenRelay.h"
 #include <wrl.h>
 #include <shlwapi.h>
 #include "third_party/webview2/include/WebView2.h"
@@ -40,11 +41,11 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
     string ownShare;
     ScreenSignaling::Event watching{ScreenSignaling::Close};
     Send send; Notice notice;
+    ScreenRelay relay{[this](const ScreenSignaling::Event& event){send(event);}};
     ComPtr<ICoreWebView2Environment> environment;
     ComPtr<ICoreWebView2Controller> controller;
     ComPtr<ICoreWebView2> web;
     std::deque<string> pending;
-    unsigned __int64 baseIn=0,baseOut=0,sessionIn=0,sessionOut=0;
 
     void error(const char* text) { notice(text,true); }
     void error(const char* text,HRESULT result) {
@@ -63,7 +64,7 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
         if(active)send({ScreenSignaling::Stop,-1,ownShare,{},{}});
         if(watching.peer>=0)send({ScreenSignaling::Close,watching.peer,watching.share,watching.connection,{}});
         active=false;ownShare.clear();watching={ScreenSignaling::Close};
-        baseIn+=sessionIn;baseOut+=sessionOut;sessionIn=sessionOut=0;
+        relay.clear();
         if(controller)controller->Close();
         web.Reset();controller.Reset();environment.Reset();
     }
@@ -106,20 +107,21 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
             if(window)SetWindowTextW(window,wideScreen(title).c_str());
             return;
         }
-        if(kind=="stats") {
-            unsigned long long in=0,out=0;char extra=0;
-            if(sscanf(fields[4].c_str(),"%llu,%llu%c",&in,&out,&extra)==2 && in>=sessionIn && out>=sessionOut){sessionIn=in;sessionOut=out;}
-            return;
-        }
         if(!ScreenSignaling::validId(fields[2]))return;
         ScreenSignaling::Event event{0,(int)peer,fields[2],fields[3],fields[4]};
         if(kind=="start") { if(active)return;active=true;ownShare=event.share;event.kind=ScreenSignaling::Start; }
-        else if(kind=="stop") { if(!active||ownShare!=event.share)return;active=false;ownShare.clear();event.kind=ScreenSignaling::Stop; }
+        else if(kind=="stop") { if(!active||ownShare!=event.share)return;relay.stop(event.share);active=false;ownShare.clear();event.kind=ScreenSignaling::Stop; }
         else {
             if(!ScreenSignaling::validId(event.connection))return;
+            if(kind=="relay-open") {
+                int port=relay.open(event.peer,event.share,event.connection);
+                post(screenMessage("relay-port",event.peer,event.share,event.connection,std::to_string(port)));
+                return;
+            }
+            if(kind=="relay-close"){relay.close(event.connection);return;}
             if(kind=="watch"){event.kind=ScreenSignaling::Watch;watching=event;}
             else if(kind=="signal")event.kind=ScreenSignaling::Signal;
-            else if(kind=="close"){event.kind=ScreenSignaling::Close;if(watching.connection==event.connection)watching={ScreenSignaling::Close};}
+            else if(kind=="close"){relay.close(event.connection);event.kind=ScreenSignaling::Close;if(watching.connection==event.connection)watching={ScreenSignaling::Close};}
             else return;
         }
         send(event);
@@ -204,6 +206,9 @@ bool ScreenShare::focused() const{return state->window && GetForegroundWindow()=
 void ScreenShare::toggle(){if(state->active)state->post(screenMessage("stop-local"));else if(state->open())state->post(screenMessage("choose"));}
 void ScreenShare::watch(int owner,const string& share){if(state->open()&&share!=state->ownShare)state->post(screenMessage("view",owner,share));}
 void ScreenShare::receive(const ScreenSignaling::Event& event){
+    if(event.kind==ScreenSignaling::Media){state->relay.receive(event);return;}
+    if(event.kind==ScreenSignaling::Close)state->relay.close(event.connection);
+    if(event.kind==ScreenSignaling::Stop)state->relay.stop(event.share);
     if(event.kind==ScreenSignaling::Start)return;
     if(!state->window){if(event.kind==ScreenSignaling::Watch)state->send({ScreenSignaling::Close,event.peer,event.share,event.connection,{}});return;}
     const char* kinds[]={"start","stop","watch","signal","close"};
@@ -213,4 +218,4 @@ void ScreenShare::receive(const ScreenSignaling::Event& event){
     if(event.kind==ScreenSignaling::Stop && state->ownShare==event.share){state->active=false;state->ownShare.clear();}
     state->post(screenMessage(kinds[event.kind],event.peer,event.share,event.connection,event.payload));
 }
-void ScreenShare::traffic(unsigned __int64& incoming,unsigned __int64& outgoing)const{incoming=state->baseIn+state->sessionIn;outgoing=state->baseOut+state->sessionOut;}
+void ScreenShare::update(){state->relay.update();}

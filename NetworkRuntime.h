@@ -21,18 +21,20 @@ class cNetworkRuntime
         if (budget.bytes < bytes || budget.packets < 1) return false;
         budget.bytes -= bytes; budget.packets -= 1; return true;
     }
-    bool fileQueueAvailable(int to) {
+    bool fileQueueAvailable(int to, bool control = false) {
         int messages=0, bytes=0, guaranteedMessages=0, guaranteedBytes=0;
         if (_server) _server->GetSendQueueInfo(to,messages,bytes,guaranteedMessages,guaranteedBytes);
         else if (_client) _client->GetSendQueueInfo(messages,bytes,guaranteedMessages,guaranteedBytes);
         else return false;
-        return bytes >= 0 && guaranteedBytes >= 0 && bytes < 131072 && guaranteedBytes < 131072 &&
-            messages < 128 && guaranteedMessages < 128;
+        // Keep bounded headroom for offers/accepts/acks during screen negotiation bursts.
+        const int maxBytes=control?1048576:131072, maxMessages=control?1024:128;
+        return bytes >= 0 && guaranteedBytes >= 0 && bytes < maxBytes && guaranteedBytes < maxBytes &&
+            messages < maxMessages && guaranteedMessages < maxMessages;
     }
     bool sendFilePayload(int to, const vector<unsigned char>& plain) {
         auto key = _privateChatKeys.find(to);
         if ((!isHost() && !clientReady()) || to == localPlayerId() || key == _privateChatKeys.end() ||
-            key->second.size() != crypto_box_PUBLICKEYBYTES || !fileQueueAvailable(to) || plain.empty() || plain.size() > FileTransfers::MaxPacketBytes) return false;
+            key->second.size() != crypto_box_PUBLICKEYBYTES || !fileQueueAvailable(to,plain.size()<=512) || plain.empty() || plain.size() > FileTransfers::MaxPacketBytes) return false;
         vector<unsigned char> cipher(crypto_box_NONCEBYTES + crypto_box_MACBYTES + plain.size());
         randombytes_buf(cipher.data(),crypto_box_NONCEBYTES);
         if (crypto_box_easy(cipher.data()+crypto_box_NONCEBYTES,plain.data(),plain.size(),cipher.data(),
@@ -58,7 +60,7 @@ class cNetworkRuntime
         const int sender = relay ? from : peer;
         if (!_privateChatKeys.count(sender) || !fileBudget(_fileBudgets[sender],cipher.size(),16777216)) return;
         if (relay && peer != 0) {
-            if (peer == from || !_playerIdentities.count(peer) || !fileQueueAvailable(peer) || !fileBudget(_relayBudget,cipher.size(),67108864,16384)) return;
+            if (peer == from || !_playerIdentities.count(peer) || !fileQueueAvailable(peer,cipher.size()<=552) || !fileBudget(_relayBudget,cipher.size(),67108864,16384)) return;
             NetworkMessageRaw forwarded; forwarded.putInt32(from); forwarded.putBytes(cipher,FileTransfers::MaxPacketBytes+40);
             sendRawFromServer(peer,NAMTFile,forwarded,NMFGuaranteed);
         } else receiveFilePayload(sender,cipher);
@@ -1166,8 +1168,17 @@ public:
         : _screens([this] { return isHost(); }, [this] { return localPlayerId(); },
             [this] { return _players; },
             [this](int to,const NetworkMessageRaw& raw) {
-                if(isHost()) { if(_playerIdentities.count(to)) sendRawFromServer(to,NAMTScreen,raw,NMFGuaranteed); }
-                else if(clientReady()) sendRawFromClient(NAMTScreen,raw,NMFGuaranteed);
+                NetworkMessageRaw header(raw.data(),raw.size());int kind=0;if(!header.getInt32(kind))return;
+                if(kind==ScreenSignaling::Media) {
+                    int messages=0,bytes=0,guaranteedMessages=0,guaranteedBytes=0;
+                    if(isHost()) _server->GetSendQueueInfo(to,messages,bytes,guaranteedMessages,guaranteedBytes);
+                    else if(_client) _client->GetSendQueueInfo(messages,bytes,guaranteedMessages,guaranteedBytes);
+                    // Drop stale video before it consumes the room needed by reliable controls/files.
+                    if(messages>=64 || bytes>=65536 || guaranteedMessages>=64 || guaranteedBytes>=65536)return;
+                }
+                auto flags=kind==ScreenSignaling::Media?NMFNone:NMFGuaranteed;
+                if(isHost()) { if(_playerIdentities.count(to)) sendRawFromServer(to,NAMTScreen,raw,flags); }
+                else if(clientReady()) sendRawFromClient(NAMTScreen,raw,flags);
             },
             [this](int owner,const string& id) {
                 NetworkChatLine line; line.kind=CLKScreen; line.fileSender=owner; line.fileId=id;

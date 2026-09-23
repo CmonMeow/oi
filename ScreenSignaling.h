@@ -3,15 +3,25 @@
 #include <map>
 #include <deque>
 
-// The room carries bounded connection setup only. Video never enters this protocol.
+// The room routes setup and opaque WebRTC datagrams only between consenting peers.
 class ScreenSignaling
 {
 public:
-    enum Kind { Start, Stop, Watch, Signal, Close };
+    enum Kind { Start, Stop, Watch, Signal, Close, Media };
     struct Event { int kind = 0, peer = -1; string share, connection, payload; };
     using Wire = std::function<void(int,const NetworkMessageRaw&)>;
 private:
-    struct Connection { int owner, viewer; string share; };
+    struct MediaBudget {
+        ULONGLONG time=0;unsigned bytes=524288,packets=1024;
+        bool allow(size_t size) {
+            auto now=GetTickCount64(),elapsed=(std::min)(now-time,1000ULL);time=now;
+            bytes=(std::min)(524288u,bytes+(unsigned)(elapsed*524));
+            packets=(std::min)(1024u,packets+(unsigned)elapsed);
+            if(size>bytes||!packets)return false;
+            bytes-=(unsigned)size;--packets;return true;
+        }
+    };
+    struct Connection { int owner, viewer; string share; MediaBudget ownerTraffic,viewerTraffic; };
     struct Budget { ULONGLONG start = 0, controlStart = 0; unsigned messages = 0, bytes = 0, controls = 0; };
     std::function<bool()> host;
     std::function<int()> local;
@@ -22,8 +32,10 @@ private:
     std::map<string,Connection> connections;
     std::map<int,Budget> budgets;
     std::deque<Event> events;
+    std::deque<Event> media;
 
     void queue(const Event& e) {
+        if(e.kind==Media){if(media.size()>=1024)media.pop_front();media.push_back(e);return;}
         if(events.size()>=256) events.pop_front();
         events.push_back(e);
     }
@@ -67,6 +79,7 @@ private:
             auto found=connections.find(e.connection);
             if (found==connections.end() || found->second.share!=e.share ||
                 (found->second.owner!=e.peer && found->second.viewer!=e.peer)) return;
+            if(e.kind==Media && !host() && !(e.peer==found->second.owner?found->second.ownerTraffic:found->second.viewerTraffic).allow(e.payload.size()))return;
             if (e.kind==Close) connections.erase(found);
             queue(e);
         }
@@ -106,7 +119,8 @@ private:
                 !((c->second.owner==from && c->second.viewer==e.peer) ||
                   (c->second.viewer==from && c->second.owner==e.peer))) return;
             if(e.kind==Close) { closeConnection(e.connection); return; }
-            if(e.kind!=Signal || e.payload.empty()) return;
+            if((e.kind!=Signal&&e.kind!=Media) || e.payload.empty()) return;
+            if(e.kind==Media && !(from==c->second.owner?c->second.ownerTraffic:c->second.viewerTraffic).allow(e.payload.size()))return;
             int target=e.peer; e.peer=from; deliver(target,e);
         }
     }
@@ -129,7 +143,7 @@ public:
         auto found=offers.find(owner); return found!=offers.end() && found->second==id;
     }
     void send(Event e) {
-        if(!validId(e.share) || e.payload.size()>24000 || e.kind<Start || e.kind>Close ||
+        if(!validId(e.share) || e.payload.size()>(e.kind==Media?2048u:24000u) || e.kind<Start || e.kind>Media ||
             (e.kind>=Watch && !validId(e.connection))) return;
         if(e.kind==Watch) {
             if(e.peer==local() || !available(e.peer,e.share)) return;
@@ -148,9 +162,10 @@ public:
         Event e; vector<unsigned char> bytes;
         if(!raw.getInt32(e.kind) || !raw.getInt32(e.peer) || !raw.getString(e.share,32) ||
             !raw.getString(e.connection,32) || !raw.getBytes(bytes,24000) || !raw.fullyRead() ||
-            e.kind<Start || e.kind>Close || !validId(e.share) ||
+            e.kind<Start || e.kind>Media || !validId(e.share) ||
             (e.kind>=Watch && !validId(e.connection))) return;
         e.payload.assign(bytes.begin(),bytes.end());
+        if(e.kind==Media){if(bytes.empty()||bytes.size()>2048)return;if(host())route(from,e);else accept(e);return;}
         auto& b=budgets[from]; auto now=GetTickCount64();
         if(now-b.start>=1000) { b.start=now;b.messages=b.bytes=0; }
         unsigned messageLimit=1024,byteLimit=1048576;
@@ -186,6 +201,9 @@ public:
         }
         budgets.erase(peer);
     }
-    bool pop(Event& event) { if(events.empty()) return false; event=std::move(events.front()); events.pop_front(); return true; }
-    void clear() { offers.clear(); connections.clear(); budgets.clear(); events.clear(); }
+    bool pop(Event& event) {
+        auto& queue=events.empty()?media:events;if(queue.empty())return false;
+        event=std::move(queue.front());queue.pop_front();return true;
+    }
+    void clear() { offers.clear(); connections.clear(); budgets.clear(); events.clear(); media.clear(); }
 };

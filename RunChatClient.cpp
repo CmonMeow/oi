@@ -179,13 +179,12 @@ void RunChatClient(HWND hWnd)
         if(!network.isHost() && !network.clientReady()) screenShare.close();
         ScreenSignaling::Event screenEvent;
         while(network.popScreenEvent(screenEvent)) screenShare.receive(screenEvent);
+        screenShare.update();
         const unsigned __int64 now = GetTickCount64();
         if (now - lastTitleUpdate >= 1000 || previousTitle.empty())
         {
             unsigned __int64 incoming = 0, outgoing = 0;
             const bool connected = network.trafficTotals(incoming, outgoing);
-            unsigned __int64 screenIn=0,screenOut=0;screenShare.traffic(screenIn,screenOut);
-            incoming+=screenIn;outgoing+=screenOut;
             char title[192];
             if (connected)
             {

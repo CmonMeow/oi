@@ -15,8 +15,8 @@ public:
     void toggle();
     void watch(int owner,const string& share);
     void receive(const ScreenSignaling::Event& event);
+    void update();
     void close();
     bool sharing() const;
     bool focused() const;
-    void traffic(unsigned __int64& incoming,unsigned __int64& outgoing) const;
 };

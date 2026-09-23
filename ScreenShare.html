@@ -4,30 +4,41 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Screen share</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#080d0b;color:#d5ece2;font:15px Segoe UI,sans-serif}header{padding:16px;background:#101b16;border-bottom:1px solid #315044}button{font:inherit;padding:8px 15px;border:1px solid #56ba88;background:#173a2b;color:#e5ffef;cursor:pointer}button:disabled{opacity:.5;cursor:default}#status{margin:10px 0 0;color:#97b4a6}#privacy{font-size:13px;color:#a8b9b0;margin:8px 0}main{display:flex;flex-wrap:wrap;gap:16px;padding:16px}section{flex:1;min-width:260px}h2{font-size:14px;font-weight:400;color:#83d7ac}video{width:100%;max-height:75vh;background:#000;object-fit:contain}#localSection,#remoteSection,#stop{display:none}
+*{box-sizing:border-box}body{margin:0;background:#080d0b;color:#d5ece2;font:15px Segoe UI,sans-serif}header{padding:16px;background:#101b16;border-bottom:1px solid #315044}button{font:inherit;padding:8px 15px;border:1px solid #56ba88;background:#173a2b;color:#e5ffef;cursor:pointer}button:disabled{opacity:.5;cursor:default}#status{margin:10px 0 0;color:#97b4a6}#status:empty{display:none}main{display:flex;flex-wrap:wrap;gap:16px;padding:16px}section{flex:1;min-width:260px}h2{font-size:14px;font-weight:400;color:#83d7ac}video{width:100%;max-height:75vh;background:#000;object-fit:contain}#localSection,#remoteSection,#stop{display:none}
 </style>
 <header><button id="choose">Choose screen or window</button> <button id="stop">Stop sharing</button>
-<p id="privacy">Direct connection: sharer and viewers can see each other's IP address. Video is encrypted and is not relayed through the chat server.</p><p id="status">Choose what to share. Audio stays in voice chat.</p></header>
+<p id="status"></p></header>
 <main><section id="localSection"><h2>Your screen</h2><video id="local" autoplay muted playsinline></video></section>
 <section id="remoteSection"><h2>Watching screen</h2><video id="remote" autoplay muted playsinline controls controlslist="nodownload noplaybackrate" disablepictureinpicture></video></section></main>
 <script>
 'use strict';
 const $=id=>document.getElementById(id), peers=new Map(), pendingJobs=new Set();
-let stream=null, share='', picking=false, incoming=0, outgoing=0;
+let stream=null, share='', picking=false;
 const tell=(type,peer=-1,id='',connection='',payload='')=>chrome.webview.postMessage([type,peer,id,connection,payload].join('\n'));
 const status=text=>{$('status').textContent=text};
 const fail=text=>{status(text);tell('error',-1,'','',text)};
 const id=()=>crypto.randomUUID().replaceAll('-','');
+// Never exchange real ICE endpoints, including candidates embedded in SDP.
+function relayDescription(description){
+ const sdp=description.sdp.split(/\r?\n/).filter(line=>!/^a=(candidate:|remote-candidates:|end-of-candidates)/.test(line)).map(line=>{
+  if(line.startsWith('o='))return 'o=- 0 0 IN IP4 127.0.0.1';
+  if(line.startsWith('c='))return 'c=IN IP4 0.0.0.0';
+  if(line.startsWith('a=rtcp:'))return 'a=rtcp:9 IN IP4 0.0.0.0';
+  return line.replace(/^m=video \S+ /,'m=video 9 ');
+ }).join('\r\n');
+ return {type:description.type,sdp};
+}
 const codecs=role=>{
  const caps=(role==='send'?RTCRtpSender:RTCRtpReceiver).getCapabilities('video');
- const av1=caps?.codecs.filter(c=>c.mimeType.toLowerCase()==='video/av1')||[];
- if(!av1.length) throw Error('AV1 is unavailable in this WebView2 runtime. Update Microsoft Edge WebView2.');
- return [...av1,...caps.codecs.filter(c=>c.mimeType.toLowerCase()==='video/rtx')];
+ const h264=caps?.codecs.filter(c=>c.mimeType.toLowerCase()==='video/h264')||[];
+ if(!h264.length) throw Error('H264 is unavailable in this WebView2 runtime. Update Microsoft Edge WebView2.');
+ return [...h264,...caps.codecs.filter(c=>c.mimeType.toLowerCase()==='video/rtx')];
 };
 function drop(connection,notify=true){
  for(const job of pendingJobs)if(job.key===connection)job.cancelled=true;
  const p=peers.get(connection);if(!p)return;
  peers.delete(connection);clearTimeout(p.timeout);p.pc.close();
+ p.resolvePort(0);tell('relay-close',p.peer,p.share,connection);
  if(p.role==='receive'){$('remote').srcObject=null;$('remoteSection').style.display='none';}
  if(notify)tell('close',p.peer,p.share,connection);
 }
@@ -36,29 +47,30 @@ function stop(){
  const old=share;share='';for(const [connection,p] of peers)if(p.role==='send')drop(connection);
  for(const job of pendingJobs)if(job.type==='watch'&&job.shared===old)job.cancelled=true;
  $('local').srcObject=null;$('localSection').style.display='none';$('stop').style.display='none';$('choose').disabled=false;
- if(old)tell('stop',-1,old);status('Screen sharing stopped.');
+ if(old)tell('stop',-1,old);status('');
 }
 function connection(peer,shared,key,role){
  if(peers.has(key))return peers.get(key);
  if(peers.size>=25)throw Error('Too many screen connections.');
- const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}],bundlePolicy:'max-bundle',rtcpMuxPolicy:'require'});
- const p={pc,peer,share:shared,role,pending:[],lastIn:0,lastOut:0};peers.set(key,p);
- pc.onicecandidate=e=>{if(e.candidate&&peers.has(key))tell('signal',peer,shared,key,JSON.stringify({candidate:e.candidate.toJSON()}));};
+ const pc=new RTCPeerConnection({iceServers:[],bundlePolicy:'max-bundle',rtcpMuxPolicy:'require'});
+ const p={pc,peer,share:shared,role};peers.set(key,p);
+ p.port=new Promise(resolve=>{p.resolvePort=resolve;});
+ tell('relay-open',peer,shared,key);
  pc.onconnectionstatechange=()=>{
   if(peers.get(key)!==p)return;
   if(pc.connectionState==='connected'){clearTimeout(p.timeout);status('');}
-  if(pc.connectionState==='failed'){drop(key);fail('Direct screen connection failed. A NAT or firewall may prevent this connection.');}
+  if(pc.connectionState==='failed'){drop(key);fail('Screen relay connection failed.');}
  };
  pc.ontrack=e=>{if(peers.get(key)!==p||role!=='receive'||e.track.kind!=='video'){e.track.stop();return;}
   $('remote').srcObject=new MediaStream([e.track]);$('remoteSection').style.display='block';};
- p.timeout=setTimeout(()=>{if(peers.has(key)&&pc.connectionState!=='connected'){drop(key);fail('Direct screen connection timed out.');}},30000);
+ p.timeout=setTimeout(()=>{if(peers.has(key)&&pc.connectionState!=='connected'){drop(key);fail('Screen relay connection timed out.');}},30000);
  return p;
 }
 async function requestWatch(peer,shared){
  codecs('receive');for(const [key,p] of peers)if(p.role==='receive')drop(key);
  const key=id(),p=connection(peer,shared,key,'receive');
  p.pc.addTransceiver('video',{direction:'recvonly'}).setCodecPreferences(codecs('receive'));
- tell('watch',peer,shared,key);status('Connecting directly to the shared screen...');
+ tell('watch',peer,shared,key);status('Connecting...');
 }
 async function startPeer(peer,shared,key){
  if(!stream||share!==shared){tell('close',peer,shared,key);return;}
@@ -67,7 +79,7 @@ async function startPeer(peer,shared,key){
  p.pc.getTransceivers()[0].setCodecPreferences(codecs('send'));
  await p.pc.setLocalDescription(await p.pc.createOffer());
  const params=sender.getParameters();if(params.encodings?.length){params.encodings[0].maxBitrate=2000000;params.encodings[0].maxFramerate=60;await sender.setParameters(params);}
- if(peers.has(key))tell('signal',peer,shared,key,JSON.stringify({description:p.pc.localDescription.toJSON()}));
+ if(peers.has(key))tell('signal',peer,shared,key,JSON.stringify({description:relayDescription(p.pc.localDescription)}));
 }
 async function signal(peer,shared,key,body){
  const p=peers.get(key);if(!p||p.peer!==peer||p.share!==shared)return;
@@ -78,14 +90,12 @@ async function signal(peer,shared,key,body){
   if(data.description.type!==(p.role==='receive'?'offer':'answer'))throw Error('Invalid screen negotiation.');
   // Limit media to the one negotiated video transceiver; no audio or data channels.
   const sdp=data.description.sdp;
-  if(typeof sdp!=='string'||(sdp.match(/^m=/gm)||[]).length!==1||!/^m=video /m.test(sdp)||!/^a=rtpmap:\d+ AV1\/90000\r?$/m.test(sdp))throw Error('Screen peer did not offer AV1 video.');
-  await p.pc.setRemoteDescription(data.description);
-  for(const candidate of p.pending)await p.pc.addIceCandidate(candidate);p.pending=[];
-  if(p.role==='receive'){await p.pc.setLocalDescription(await p.pc.createAnswer());tell('signal',peer,shared,key,JSON.stringify({description:p.pc.localDescription.toJSON()}));}
- }else if(data.candidate){
-  if(p.pc.remoteDescription)await p.pc.addIceCandidate(data.candidate);
-  else if(p.pending.length<64)p.pending.push(data.candidate);
- }
+  if(typeof sdp!=='string'||(sdp.match(/^m=/gm)||[]).length!==1||!/^m=video /m.test(sdp)||!/^a=rtpmap:\d+ H264\/90000\r?$/m.test(sdp))throw Error('Screen peer did not offer H264 video.');
+  await p.pc.setRemoteDescription(relayDescription(data.description));
+  const port=await p.port;if(!port||peers.get(key)!==p)return;
+  await p.pc.addIceCandidate({candidate:`candidate:1 1 udp 2122260223 127.0.0.1 ${port} typ host`,sdpMLineIndex:0});
+  if(p.role==='receive'){await p.pc.setLocalDescription(await p.pc.createAnswer());if(peers.get(key)===p)tell('signal',peer,shared,key,JSON.stringify({description:relayDescription(p.pc.localDescription)}));}
+ }else throw Error('Direct screen connection information is not accepted.');
 }
 $('choose').onclick=async()=>{
  if(picking||stream)return;picking=true;$('choose').disabled=true;
@@ -93,7 +103,7 @@ $('choose').onclick=async()=>{
   codecs('send');stream=await navigator.mediaDevices.getDisplayMedia({video:{width:{max:1920},height:{max:1080},frameRate:{ideal:60,max:60}},audio:false});
   share=id();const captured=stream,track=captured.getVideoTracks()[0];track.contentHint='detail';track.onended=()=>{if(stream===captured)stop();};
   $('local').srcObject=stream;$('localSection').style.display='block';$('stop').style.display='inline-block';
-  tell('start',-1,share);status('Sharing offered in chat. Waiting for viewers.');
+  tell('start',-1,share);status('Waiting for viewers.');
  }catch(e){if(stream)stop();if(e.name==='NotAllowedError')status('Screen selection cancelled.');else fail(e.message);$('choose').disabled=false;}
  finally{picking=false;}
 };
@@ -101,6 +111,11 @@ $('stop').onclick=stop;
 let chain=Promise.resolve();
 chrome.webview.addEventListener('message',event=>{
  const parts=event.data.split('\n'),type=parts.shift(),peer=Number(parts.shift()),shared=parts.shift(),key=parts.shift(),body=parts.join('\n');
+ if(type==='relay-port'){
+  const p=peers.get(key);if(!p||p.peer!==peer||p.share!==shared)return;
+  const port=Number(body);if(!Number.isInteger(port)||port<1||port>65535){drop(key);fail('Could not open the local screen relay.');return;}
+  p.resolvePort(port);return;
+ }
  // Closing media must not wait behind asynchronous negotiation work.
  if(type==='stop-local'){stop();return;}
  if(type==='close'){for(const job of pendingJobs)if(job.key===key)job.cancelled=true;drop(key,false);if(body)fail(body);return;}
@@ -134,17 +149,15 @@ let sampling=false;
 setInterval(async()=>{
  if(sampling)return;sampling=true;
  for(const [key,p]of peers){
-  try{const stats=await p.pc.getStats();let bytesIn=0,bytesOut=0;
+  try{const stats=await p.pc.getStats();
    for(const s of stats.values()){
     if((s.type==='inbound-rtp'||s.type==='outbound-rtp')&&s.kind==='video'){
-     const codec=stats.get(s.codecId);if(codec&&!/video\/(AV1|rtx)$/i.test(codec.mimeType)){drop(key);fail('Screen connection negotiated an unexpected codec.');break;}
+     const codec=stats.get(s.codecId);if(codec&&!/video\/(H264|rtx)$/i.test(codec.mimeType)){drop(key);fail('Screen connection negotiated an unexpected codec.');break;}
     }
-    if(s.type==='transport'){bytesIn+=s.bytesReceived||0;bytesOut+=s.bytesSent||0;}
+    if(s.type==='transport'&&s.selectedCandidatePairId){const pair=stats.get(s.selectedCandidatePairId),remote=pair&&stats.get(pair.remoteCandidateId);if(remote?.address&&remote.address!=='127.0.0.1'){drop(key);fail('Non-relayed screen connection rejected.');break;}}
    }
-   incoming+=Math.max(0,bytesIn-p.lastIn);outgoing+=Math.max(0,bytesOut-p.lastOut);p.lastIn=bytesIn;p.lastOut=bytesOut;
   }catch(e){if(peers.has(key)){drop(key);fail('Screen statistics failed.');}}
  }
- tell('stats',-1,'','',`${incoming},${outgoing}`);
  sampling=false;
 },1000);
 tell('ready');

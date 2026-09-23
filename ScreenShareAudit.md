@@ -1,6 +1,68 @@
 # Screen-sharing audit — September 22, 2026
 
+## H.264 relay update
+
+Screen codec selection, SDP validation, and negotiated-codec checks now require
+H.264 instead of AV1. The server relay and loopback-only browser endpoints remain.
+Release x64 built successfully. A separate host, sharing client, and two viewers
+passed three close/reopen cycles with decoded H.264, connected DTLS, and remote
+candidate 127.0.0.1. Generated test video was 640 x 360 at 15 fps; this is not a
+1080p/60 performance measurement. Browser lifecycle/address-removal regressions
+also passed. Results: `build/screenshare/repeat-affaad82e68e4e0ba64ba6982ec08f55`.
+Earlier AV1 results below are historical. Sharers and viewers need this H.264 build.
+
+
+The direct-media results below describe the earlier protocol-27 implementation.
+Protocol 28 now relays video through the room; see the relay validation section.
+
 Scope: native WebView lifetime and input integration, embedded page, screen-signaling routing and limits, and regression testing with the current voice/file transport.
+
+## Protocol 28: server-relayed video
+
+The room now carries opaque ICE/DTLS/SRTP packets. Each WebRTC peer talks only to
+its native 127.0.0.1 UDP proxy. No real candidates are exchanged; outgoing and
+incoming SDP strips candidate and address fields. There is no STUN or direct
+fallback. The existing room connection carries the packets, so no additional
+forwarded port or external relay service is required.
+
+The host verifies the existing share/viewer connection for every datagram, limits
+packets to 2,048 bytes, and applies per-direction connection rate limits. Native
+proxy counts, pending datagrams, and application event queues are bounded. Video
+uses unreliable delivery and bounded queue admission. File control messages get
+bounded reserved queue space: stress testing exposed stalled transfers when their
+accept/ack messages were rejected at the bulk-data queue threshold.
+
+AV1/DTLS-SRTP remains between browsers. A passive host cannot read video, but the
+host remains trusted to relay SDP fingerprints honestly. This is not independent
+authentication against an actively malicious host. The host also necessarily sees
+its connected clients' IP addresses. Other clients receive only loopback endpoints.
+
+Validation so far:
+- Separate host, sharing client, and two viewing clients: generated AV1 decoded,
+  DTLS connected, remote candidate 127.0.0.1, three close/reopen cycles passed.
+- Host as viewer plus another viewing client: the same checks passed for three
+  additional cycles. Generated test video is 640 x 360 at 15 fps; production capture
+  still targets up to 1080p/60 and 2 Mbps per viewer.
+- Browser regression tests passed SDP address removal, immediate stop, cancelled
+  work, stale track rejection, duplicate negotiation rejection, and bounded queues.
+- Signaling tests passed binary media forwarding, consent checks, unrelated-sender
+  rejection, oversized media rejection, stop/restart, host roles, and malformed input.
+- Final 60-second loopback run: 25 clients plus host, synthetic media during all
+  four voice/file phases, zero disconnects, 465,000/465,000 voice deliveries,
+  50/50 byte-verified 64-KB files, and 75/75 offer/answer pairs. Peak phase-average
+  host upload was 47.82 Mbps; worst client p99 scheduled voice delay was 101 ms.
+  Host CPU peaked at 30.7% of one core averaged over a phase; sampled memory
+  peaked at 65.9 MB. This is a transport workload, not 25 simultaneous AV1 encoders.
+  Synthetic media attempted 175,270 datagrams; 139,062 arrived (minimum 4,693
+  per viewer). The fixed-rate generator does not adapt to queue admission drops
+  like WebRTC does. This result confirms voice/file isolation under video pressure,
+  not lossless video delivery or a measured 20/25-viewer quality guarantee.
+  Results: `build/x64/load25/screen-run-c6b99a8392354dd3ab98c8cb2039e383/summary.json`.
+- The protocol-28 host and clients must be updated together. The screen window's
+  explanation paragraphs were removed; controls and brief status/errors remain.
+
+The tests below this section are historical protocol-27 results and do not validate
+the new relay path.
 
 ## Corrections
 
