@@ -572,6 +572,8 @@ class cNetworkRuntime
 
     void onServerMessage(__int32 from, char* buffer, __int32 bufferSize)
     {
+        // Host authority is local-only, never supplied by a remote identity.
+        if (!_server || from <= 0) return;
         string decrypted;
         const char* message = NULL;
         __int32 messageSize = 0;

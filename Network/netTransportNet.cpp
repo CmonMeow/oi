@@ -405,7 +405,6 @@ protected:
 
 	cNetUserMap users;
 
-	__int32 botId;
 
 	std::vector<CreatePlayerInfo> _createPlayers;
 
@@ -802,8 +801,8 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 						msg->getDistant(inaddr);
 						info.inaddr = inaddr.sin_addr.s_addr; 
 
-						if ((info.botClient = ((cpp->botClient & 1) != 0)))
-							_server->botId = player;
+						// Remote peers cannot claim privileged transport roles.
+						info.botClient = false;
 						strncpy(info.name, cpp->name, sizeof(info.name));
 						info.name[sizeof(info.name) - 1] = (char)0;
 						if (strcmp(cpp->name, info.name))

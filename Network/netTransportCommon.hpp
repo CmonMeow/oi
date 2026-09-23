@@ -680,7 +680,6 @@ NetServer::NetServer()
 	session.password = false;
 	session.port = 0;
 	session.name[0] = (char)0;
-	botId = 0;
 
 	setServer(this);
 	poolCriticalSection().lock();
@@ -749,7 +748,7 @@ bool NetServer::GetConnectionInfo(__int32 to, __int32& latencyMS, __int32& throu
 	latencyMS = (__int32)channel->getLatency();
 	throughputBPS = (__int32)channel->getOutputBandWidth();
 
-	bool dropped = (to != botId) && channel->dropped();
+	bool dropped = channel->dropped();
 	if (dropped)
 		finishDestroyPlayer(to);
 	User_Critical_Section.unlock();
@@ -1076,7 +1075,7 @@ void NetServer::ProcessUserMessages(UserMessageServerCallback* callback, void* c
 		__int32 player = channelToPlayer(msg->getChannel());
 		User_Critical_Section.unlock();
 		Receive_Critical_Section.unlock();
-		if (player == -1)
+		if (player < RESERVED_IDS)
 			Error("No player found for channel %p - message ignored", (void*)msg->getChannel());
 		else
 			(*callback)(player, (char*)msg->getData(), msg->getLength(), context);
