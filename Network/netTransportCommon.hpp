@@ -217,7 +217,7 @@ NetClient::NetClient()
 	
 	channel = NULL;
 	
-	received = NULL;
+	received.clear();
 	split = lastSplit = NULL;
 	splitUrgent = lastSplitUrgent = NULL;
 	sent = NULL;
@@ -585,62 +585,46 @@ void NetClient::ProcessUserMessages(UserMessageClientCallback* callback, void* c
 {
 	if (!callback)
 		return;
+	LARGE_INTEGER started, frequency;
+	QueryPerformanceFrequency(&frequency); QueryPerformanceCounter(&started);
 	Ref<NetMessage> msg;
 	Receive_Critical_Section.lock();
-
-	while (received)
+	auto overloaded = received.takeOverloaded();
+	Receive_Critical_Section.unlock();
+	if (!overloaded.empty())
 	{
-		msg = received;
-		received = msg->next;
-		msg->next = NULL;
+		std::lock_guard<std::recursive_mutex> lock(Send_Critical_Section);
+		sessionTerminated = true;
+		whySessionTerminated = NTROther;
+		strcpy_s(whySessionTerminatedStr, "receive queue exceeded");
+		RemoveUserMessages();
+		return;
+	}
+	Receive_Critical_Section.lock();
+
+	for (unsigned count = 0; count < 256 && !received.empty(); ++count)
+	{
+		msg = received.pop();
+		if (!(msg->getFlags() & MSG_VIM_FLAG) && GetTickCount64() - msg->getTime() > SEND_TIMEOUT) continue;
 		Receive_Critical_Section.unlock();
 
 		(*callback)((char*)msg->getData(), msg->getLength(), context);
 		Receive_Critical_Section.lock();
+		LARGE_INTEGER now; QueryPerformanceCounter(&now);
+		if ((now.QuadPart - started.QuadPart) * 1000 >= frequency.QuadPart * 8) break;
 	}
 	Receive_Critical_Section.unlock();
 }
 
 void NetClient::insertReceived(NetMessage* msg)
-
 {
-	if (!msg)
-		return;
-	if (received)
-	{
-		unsigned __int32 s = msg->getSerial();
-		if (s < received->getSerial())
-		{
-			msg->next = received;
-			received = msg;
-		}
-		else
-		{
-			NetMessage* ptr = received.GetRef();
-			while (ptr->next && ptr->next->getSerial() < s)
-				ptr = ptr->next.GetRef();
-			msg->next = ptr->next;
-			ptr->next = msg;
-		}
-	}
-	else
-	{
-		msg->next = NULL;
-		received = msg;
-	}
+	received.push(msg, false);
 }
 
 void NetClient::RemoveUserMessages()
 {
-	Receive_Critical_Section.lock();
-	Ref<NetMessage> tmp;
-	while (received)
-	{
-		tmp = received->next;
-		received->next = NULL; 
-		received = tmp;
-	}
-	Receive_Critical_Section.unlock();
+	std::lock_guard<std::recursive_mutex> lock(Receive_Critical_Section);
+	received.clear();
 }
 
 void NetClient::RemoveSendComplete()
@@ -671,7 +655,7 @@ NetServer::NetServer()
 {
 	
 	User_Critical_Section.lock();
-	received = NULL;
+	received.clear();
 	sent = NULL;
 	acceptConnections = true;
 	session.serverState = 0;
@@ -786,7 +770,7 @@ void NetServer::finishDestroyPlayer(__int32 player)
 	users.removeKey(player);
 	struct sockaddr_in daddr;
 	ch->getDistantAddress(daddr);
-	m_support.erase(sockaddrKey(daddr));
+	{ std::lock_guard<std::recursive_mutex> lock(Receive_Critical_Section); m_support.erase(sockaddrKey(daddr)); }
 	getPool()->deleteChannel(ch.GetRef());
 	for (std::vector<CreatePlayerInfo>::iterator it = _createPlayers.begin(); it != _createPlayers.end(); ++it)
 		if (it->player == player)
@@ -1062,72 +1046,48 @@ void NetServer::ProcessUserMessages(UserMessageServerCallback* callback, void* c
 {
 	if (!callback)
 		return;
+	LARGE_INTEGER started, frequency;
+	QueryPerformanceFrequency(&frequency); QueryPerformanceCounter(&started);
 	Ref<NetMessage> msg;
 	Receive_Critical_Section.lock();
-
-	while (received)
+	auto overloaded = received.takeOverloaded();
+	Receive_Critical_Section.unlock();
+	for (const auto& channel : overloaded)
 	{
-		msg = received;
-		received = msg->next;
-		msg->next = NULL;
+		const int player = channelToPlayer(channel.GetRef());
+		if (player >= RESERVED_IDS)
+		{
+			Error("Player %d exceeded the receive queue limit", player);
+			finishDestroyPlayer(player);
+		}
+	}
+	Receive_Critical_Section.lock();
+
+	for (unsigned count = 0; count < 256 && !received.empty(); ++count)
+	{
+		msg = received.pop();
+		if (!(msg->getFlags() & MSG_VIM_FLAG) && GetTickCount64() - msg->getTime() > SEND_TIMEOUT) continue;
 		
-		User_Critical_Section.lock();
-		__int32 player = channelToPlayer(msg->getChannel());
-		User_Critical_Section.unlock();
 		Receive_Critical_Section.unlock();
-		if (player < RESERVED_IDS)
-			Error("No player found for channel %p - message ignored", (void*)msg->getChannel());
-		else
+		__int32 player = channelToPlayer(msg->getChannel());
+		if (player >= RESERVED_IDS)
 			(*callback)(player, (char*)msg->getData(), msg->getLength(), context);
 		Receive_Critical_Section.lock();
+		LARGE_INTEGER now; QueryPerformanceCounter(&now);
+		if ((now.QuadPart - started.QuadPart) * 1000 >= frequency.QuadPart * 8) break;
 	}
 	Receive_Critical_Section.unlock();
 }
 
 void NetServer::insertReceived(NetMessage* msg)
-
 {
-	if (!msg)
-	{
-		received = NULL;
-		return;
-	}
-
-	if (received)
-	{
-		unsigned __int32 s = msg->getSerial();
-		if (s < received->getSerial())
-		{
-			msg->next = received;
-			received = msg;
-		}
-		else
-		{
-			NetMessage* ptr = received.GetRef();
-			while (ptr->next && ptr->next->getSerial() < s)
-				ptr = ptr->next.GetRef();
-			msg->next = ptr->next;
-			ptr->next = msg;
-		}
-	}
-	else
-	{
-		msg->next = NULL;
-		received = msg;
-	}
+	received.push(msg, true);
 }
 
 void NetServer::RemoveUserMessages()
 {
-	Receive_Critical_Section.lock();
-	Ref<NetMessage> tmp;
-	while (received)
-	{
-		tmp = received->next;
-		received->next = NULL; 
-		received = tmp;
-	}
-	Receive_Critical_Section.unlock();
+	std::lock_guard<std::recursive_mutex> lock(Receive_Critical_Section);
+	received.clear();
 }
 
 void NetServer::RemoveSendComplete()

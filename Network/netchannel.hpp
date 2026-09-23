@@ -44,6 +44,10 @@ extern unsigned __int32 netMessageDepend(const Ref<NetMessage>& msg);
 
 #define GOOD_CHANNEL_BIT_MASK 4096 
 
+// BitMask uses signed indices. End a very long session before its indices
+// overflow rather than allowing sequence-number wrap to corrupt memory.
+constexpr unsigned MAX_CHANNEL_SERIAL = 0x7fffffc0u;
+
 #define ACK_QUEUE_GRANUL 100
 
 #define URGENT_MSG_THRESHOLD 65 
@@ -197,6 +201,17 @@ public:
 	virtual void processData(MsgHeader* hdr, const struct sockaddr_in& distant)
 	{
 		Critical_Section.lock();
+		// These fields are not authenticated by the application. Bound the work
+		// they can request before allocating a message or touching the bit masks.
+		if (!control && !(hdr->flags & MSG_FROM_BCAST_FLAG) &&
+			(hdr->serial == 0 || hdr->serial >= MAX_CHANNEL_SERIAL ||
+			 (hdr->serial > inputMax && hdr->serial - inputMax > networkParams.maxChannelBitMask) ||
+			 ((hdr->flags & (MSG_VIM_FLAG | MSG_ORDERED_FLAG)) == (MSG_VIM_FLAG | MSG_ORDERED_FLAG) &&
+			  (unsigned)hdr->c.control2 >= hdr->serial)))
+		{
+			Critical_Section.unlock();
+			return;
+		}
 		Ref<NetMessage> msg = NetMessagePool::pool()->newMessage(hdr->length - sizeof(MsgHeader), this);
 		if (!msg)
 		{
@@ -233,7 +248,16 @@ public:
 
 		if (!control && !(flags & MSG_FROM_BCAST_FLAG))
 		{ 
-			
+			const unsigned pred = hdr->c.control2;
+			if ((flags & (MSG_VIM_FLAG | MSG_ORDERED_FLAG)) == (MSG_VIM_FLAG | MSG_ORDERED_FLAG) &&
+				pred >= receivedSerialWindowStart && !processedSerials.get(pred) &&
+				(deferredMessages >= 1024 || deferredBytes + msg->getLength() > 1024 * 1024))
+			{
+				// Do not acknowledge data we cannot retain. A legitimate sender
+				// can retry after the missing predecessor arrives.
+				Critical_Section.unlock();
+				return;
+			}
 			inputStatistics(msg.GetRef());
 			
 			if (flags & MSG_INSTANT_FLAG)
@@ -258,6 +282,8 @@ public:
 						if (it != deferred.end())
 							old = it->second;
 						deferred[pred] = msg;
+						++deferredMessages;
+						deferredBytes += msg->getLength();
 
 						msg->next = old; 
 						Critical_Section.unlock();
@@ -372,7 +398,8 @@ public:
 	{
 		Critical_Section.lock();
 		unsigned __int64 now = GetTickCount64();
-		bool drop = now > lastPingArrival + (MAX_PING_GAP << 1) && now > lastMsgArrival + 15000;
+		bool drop = serial >= MAX_CHANNEL_SERIAL ||
+			(now > lastPingArrival + (MAX_PING_GAP << 1) && now > lastMsgArrival + 15000);
 		Critical_Section.unlock();
 
 		return drop;
@@ -397,6 +424,8 @@ public:
 		subsets.clear();
 		processRoutine = NULL;
 		deferred.clear();
+		deferredMessages = 0;
+		deferredBytes = 0;
 		revisited.clear();
 
 		Critical_Section.unlock();
@@ -469,6 +498,8 @@ protected:
 	bool getCommonMessage();
 
 	std::unordered_map<unsigned __int32, Ref<NetMessage>> deferred;
+	unsigned deferredMessages = 0;
+	size_t deferredBytes = 0;
 
 	void inputStatistics(NetMessage* msg);
 
@@ -503,35 +534,34 @@ protected:
 
 	void processVIM(NetMessage* msg)
 	{
-		unsigned __int32 ser = msg->getSerial(); 
-
-		if (ser >= receivedSerialWindowStart)
-		{ 
-			if (msg->msgProcessRoutine)
-			{
-				Critical_Section.unlock();
-				msg->nextEvent = (*msg->msgProcessRoutine)(msg, nsInputReceived, msg->dta);
-				Critical_Section.lock();
-			}
-			processedSerials.on(ser);
-		}
-		
-		Ref<NetMessage> def;
-		auto it = deferred.find(ser);
-		if (it != deferred.end())
+		// A reordered reliable chain can be thousands of messages long.
+		// Drain it iteratively instead of recursing on the receive thread stack.
+		std::vector<Ref<NetMessage>> ready;
+		ready.emplace_back(msg);
+		while (!ready.empty())
 		{
-			def = it->second; 
-			deferred.erase(it);
-		}
-
-		while (def)
-		{ 
-
-			Ref<NetMessage> next = def->next;
-			def->next = NULL;
-			processVIM(def.GetRef());
-			def = next;
-			Critical_Section.lock();
+			Ref<NetMessage> current = ready.back(); ready.pop_back();
+			const unsigned ser = current->getSerial();
+			if (ser >= receivedSerialWindowStart)
+			{
+				if (current->msgProcessRoutine)
+				{
+					Critical_Section.unlock();
+					current->nextEvent = (*current->msgProcessRoutine)(current.GetRef(), nsInputReceived, current->dta);
+					Critical_Section.lock();
+				}
+				processedSerials.on(ser);
+			}
+			auto it = deferred.find(ser);
+			if (it == deferred.end()) continue;
+			Ref<NetMessage> next = it->second; deferred.erase(it);
+			while (next)
+			{
+				Ref<NetMessage> item = next; next = item->next; item->next = NULL;
+				--deferredMessages;
+				deferredBytes -= item->getLength();
+				ready.push_back(item);
+			}
 		}
 		Critical_Section.unlock();
 	}

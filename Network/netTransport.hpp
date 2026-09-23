@@ -201,6 +201,9 @@ NetTranspClient* CreateNetClient();
 
 NetTranspServer* CreateNetServer();
 
+void stopUdpListenSend();
+void destroyPool();
+
 void enterNN();
 void leaveNN();
 

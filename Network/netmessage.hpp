@@ -5,6 +5,8 @@
 #ifndef _NETMESSAGE_H
 #define _NETMESSAGE_H
 
+#include <deque>
+
 #include <unordered_map>
 #include <sysdef.h>
 
@@ -261,7 +263,10 @@ protected:
 	virtual ~NetMessagePool();
 
 	std::unordered_map<unsigned, Ref<NetMessage>> recycled;
+	size_t recycledBytes = 0;
 	std::unordered_map<size_t, Ref<NetMessage>> used;
+	std::deque<std::pair<size_t, unsigned>> garbageQueue;
+	void garbageCollectStep();
 
 	__int32 garbageCounter;
 

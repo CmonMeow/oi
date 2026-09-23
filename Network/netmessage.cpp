@@ -8,7 +8,7 @@ void NetMessage::recycle()
 	NetMessagePool::pool()->recycleMessage(this);
 }
 
-const __int32 NET_MESSAGE_POOL_GARBAGE = 1000; 
+const __int32 NET_MESSAGE_POOL_GARBAGE = 64;
 
 const unsigned MAX_RECYCLED_MESSAGE_SIZE = 512;
 
@@ -45,7 +45,7 @@ Ref<NetMessage> NetMessagePool::newMessage(unsigned minLen, NetChannel* ch)
 	{
 
 		garbageCounter = NET_MESSAGE_POOL_GARBAGE;
-		garbageCollect();
+		garbageCollectStep();
 	}
 	Ref<NetMessage> result;
 	unsigned taken = minLen;
@@ -73,6 +73,7 @@ Ref<NetMessage> NetMessagePool::newMessage(unsigned minLen, NetChannel* ch)
 		result = new NetMessage(minLen + sizeof(MsgHeader));
 	else
 	{
+		recycledBytes -= result->totalLen + sizeof(NetMessage);
 		NetMessage* next = result->next.GetRef();
 		unsigned key = netMessageToUnsigned(result);
 		if (!next)
@@ -84,6 +85,7 @@ Ref<NetMessage> NetMessagePool::newMessage(unsigned minLen, NetChannel* ch)
 	used[netMessageAddressToUnsigned(result)] = result;
 
 	result->id = NetMessage::nextId++;
+	garbageQueue.emplace_back(netMessageAddressToUnsigned(result), result->id);
 	Critical_Section.unlock();
 	result->setChannel(ch);
 	return result.GetRef();
@@ -98,8 +100,11 @@ void NetMessagePool::recycleMessage(NetMessage* msg)
 	{
 
 		msg->init();
-		if (msg->totalLen - sizeof(MsgHeader) < MAX_RECYCLED_MESSAGE_SIZE)
+		const size_t allocation = msg->totalLen + sizeof(NetMessage);
+		if (msg->totalLen - sizeof(MsgHeader) < MAX_RECYCLED_MESSAGE_SIZE &&
+			recycledBytes + allocation <= 8 * 1024 * 1024)
 		{
+			recycledBytes += allocation;
 			Ref<NetMessage> old;
 			unsigned key = netMessageToUnsigned(msg);
 			auto it = recycled.find(key);
@@ -116,6 +121,26 @@ void NetMessagePool::recycleMessage(NetMessage* msg)
 		msg->Release();
 	}
 	Critical_Section.unlock();
+}
+
+void NetMessagePool::garbageCollectStep()
+{
+	// Full scans on allocation become quadratic under broadcast traffic.
+	// Rotate a bounded number of candidates; generation IDs reject stale
+	// entries when an explicitly recycled message has already been reused.
+	const size_t count = (std::min)(size_t(256), garbageQueue.size());
+	for (size_t i = 0; i < count; ++i)
+	{
+		const auto entry = garbageQueue.front(); garbageQueue.pop_front();
+		auto it = used.find(entry.first);
+		if (it == used.end() || it->second->id != entry.second) continue;
+		if (it->second->RefCounter() == 1)
+		{
+			Ref<NetMessage> msg = it->second;
+			recycleMessage(msg.GetRef());
+		}
+		else garbageQueue.push_back(entry);
+	}
 }
 
 void NetMessagePool::garbageCollect()
@@ -176,6 +201,7 @@ unsigned NetMessagePool::freeOneItem()
 		{
 			Ref<NetMessage> msg = oldestIt->second;
 			size += msg->totalLen + sizeof(NetMessage);
+			recycledBytes -= msg->totalLen + sizeof(NetMessage);
 			oldestIt->second = msg->next;
 			msg->next = NULL;
 		}
@@ -187,10 +213,10 @@ unsigned NetMessagePool::freeOneItem()
 
 unsigned NetMessagePool::freeMemory()
 {
+	Critical_Section.lock();
 	garbageCounter = NET_MESSAGE_POOL_GARBAGE;
 	garbageCollect();
 	unsigned size = 0;
-	Critical_Section.lock();
 	for (auto it = recycled.begin(); it != recycled.end();)
 	{
 		while (it->second)
@@ -202,6 +228,10 @@ unsigned NetMessagePool::freeMemory()
 		}
 		it = recycled.erase(it);
 	}
+	recycledBytes = 0;
+	garbageQueue.clear();
+	for (const auto& entry : used)
+		garbageQueue.emplace_back(entry.first, entry.second->id);
 	Critical_Section.unlock();
 	return size;
 }

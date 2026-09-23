@@ -13,6 +13,8 @@ class cNetworkRuntime
     FileSaveDialog _fileDialog;
     struct FileBudget { double bytes = 32768; double packets = 32; ULONGLONG time = GetTickCount64(); };
     std::map<int, FileBudget> _fileBudgets;
+    struct PeerBudget { FileBudget voice, control; };
+    std::map<int, PeerBudget> _peerBudgets;
     FileBudget _relayBudget;
     bool fileBudget(FileBudget& budget, size_t bytes, double rate, double packetRate = 4096) {
         const auto now = GetTickCount64(); const double elapsed = (now-budget.time)/1000.0; budget.time = now;
@@ -596,6 +598,15 @@ class cNetworkRuntime
         if (messageHeader->type == NAMTScreen) { NetworkMessageRaw raw(message+sizeof(NetAppMessageHeader),messageSize-sizeof(NetAppMessageHeader)); _screens.receive(from,raw); return; }
         if (messageHeader->type == NAMTFile) { handleFileMessage(from,message,messageSize,true); return; }
 
+        // A remote client must not turn one fast input stream into unlimited
+        // broadcasts to the whole room. Voice normally sends 50 packets/s.
+        auto& budget = _peerBudgets[from];
+        if (messageHeader->type == NAMTVoice)
+        {
+            if (!fileBudget(budget.voice, messageSize, 65536, 60)) return;
+        }
+        else if (!fileBudget(budget.control, messageSize, 65536, 10)) return;
+
         NetworkVoicePacket voicePacket;
         if (ParseVoicePacket(message, messageSize, voicePacket))
         {
@@ -719,6 +730,7 @@ class cNetworkRuntime
         _screens.peerLeft(player);
         _files.peerLeft(player);
         _fileBudgets.erase(player);
+        _peerBudgets.erase(player);
         _privateChatKeys.erase(player);
         _privateChatNames.erase(player);
         _serverCrypto.erase(player);
@@ -1209,8 +1221,6 @@ public:
     ~cNetworkRuntime()
     {
         if (_client || _server) disconnect();
-        delete _client;
-        delete _server;
     }
 
     bool hostOnPort(unsigned short port = DEFAULT_NETWORK_PORT)
@@ -1239,8 +1249,10 @@ public:
         {
             addChatLine("host failed", CLKError);
             Error("Network host failed on port %u", port);
+            stopUdpListenSend();
             delete _server;
             _server = NULL;
+            destroyPool();
             return false;
         }
 
@@ -1269,8 +1281,10 @@ public:
         if (result != CROK && result != CRNone)
         {
             addChatLine(string("Failed to join. Error: ") + ConnectResultName(result), CLKError);
+            stopUdpListenSend();
             delete _client;
             _client = NULL;
+            destroyPool();
             return false;
         }
 
@@ -1596,7 +1610,7 @@ public:
     {
         if (!_client && !_server) return false;
         _screens.clear();
-        _files.clear(); _fileBudgets.clear(); _voiceActiveUntil = 0;
+        _files.clear(); _fileBudgets.clear(); _peerBudgets.clear(); _voiceActiveUntil = 0;
         const bool hosting = _server != NULL;
         _transportConnecting = false;
         _connectDeadline = 0;
@@ -1604,10 +1618,14 @@ public:
         if (_server)
             sendRawStringFromServerToAll(NAMTSessionEnd, "system: Host stopped the server.", CHAT_MAX_LINE_CHARS);
         flushOutgoing();
+        // Receive callbacks use the transport objects. Join their workers
+        // before clearing pointers or freeing either object.
+        stopUdpListenSend();
         delete _client;
         delete _server;
         _client = NULL;
         _server = NULL;
+        destroyPool();
         _remoteEnded = false;
         _localPlayerId = -1;
         _players.clear();

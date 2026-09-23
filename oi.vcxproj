@@ -132,6 +132,7 @@
     <ClInclude Include="Network\bitmask.hpp" />
     <ClInclude Include="Network\netTransport.hpp" />
     <ClInclude Include="Network\netTransportCommon.hpp" />
+    <ClInclude Include="Network\netReceiveQueue.hpp" />
     <ClInclude Include="Network\pointers.h" />
     <ClInclude Include="Network\netapi.hpp" />
     <ClInclude Include="Network\netchannel.hpp" />

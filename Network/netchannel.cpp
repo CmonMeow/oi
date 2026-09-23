@@ -30,12 +30,19 @@ void NetChannelBasic::inputStatistics(NetMessage* msg)
 		recentVIMs++;
 	if (ser > inputMax)
 	{
-		do
+		const unsigned gap = ser - inputMax;
+		if (gap >= MAX_ACK_ARRAY)
 		{
-			if (++ackPtr >= MAX_ACK_ARRAY)
-				ackPtr = 0;
-			ack[ackPtr] = NOT_RECEIVED;
-		} while (++inputMax < ser);
+			memset(ack, NOT_RECEIVED, sizeof(ack));
+			ackPtr = (ackPtr + gap % MAX_ACK_ARRAY) % MAX_ACK_ARRAY;
+		}
+		else
+			for (unsigned i = 0; i < gap; ++i)
+			{
+				ackPtr = (ackPtr + 1) % MAX_ACK_ARRAY;
+				ack[ackPtr] = NOT_RECEIVED;
+			}
+		inputMax = ser;
 		if (inputMax - inputMin >= MAX_ACK_ARRAY)
 			inputMin = inputMax - MAX_ACK_ARRAY + 1;
 	}
@@ -167,7 +174,7 @@ void NetChannelBasic::inputStatistics(NetMessage* msg)
 	if (wasNegative)
 	{
 		s = recentPendingAckSerials.getFirst();
-		while (s <= highest)
+		while (s != BitMask::END && s <= highest)
 		{
 			recentPendingAckSerials.off(s);
 			if (s >= ackMin)
@@ -293,6 +300,11 @@ bool NetChannelBasic::getPreparedMessage()
 	if (!opened)
 		return false;
 	Critical_Section.lock();
+	if (serial >= MAX_CHANNEL_SERIAL)
+	{
+		Critical_Section.unlock();
+		return false;
+	}
 	bool result = false;
 	
 		result = getUrgentMessage();

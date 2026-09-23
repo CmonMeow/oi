@@ -9,6 +9,7 @@
 #include "netpch.hpp"
 #include "netpeer.hpp"
 #include "netchannel.hpp"
+#include "netReceiveQueue.hpp"
 #include "AsyncResolver.h"
 
 
@@ -85,7 +86,8 @@ static __int32 GenerateServerChallenge(const sockaddr_in& distant)
 
 #define DESTROY_WAIT 100
 
-#define SEND_TIMEOUT 800000
+// Unreliable voice/video must not accumulate seconds of stale playback.
+constexpr unsigned SEND_TIMEOUT = 200;
 
 #define MSG_MAGIC_FLAG 0x0001
 
@@ -187,7 +189,7 @@ protected:
 
 	char whySessionTerminatedStr[512] = {};
 
-	Ref<NetMessage> received;
+	NetReceiveQueue received;
 
 	void insertReceived(NetMessage* msg);
 
@@ -391,7 +393,7 @@ protected:
 
 	std::string sessionName;
 
-	Ref<NetMessage> received;
+	NetReceiveQueue received;
 
 	void insertReceived(NetMessage* msg);
 
@@ -420,6 +422,8 @@ protected:
 
 	typedef std::vector<PlayerChallengeSent> PlayerChallengeSentList;
 	PlayerChallengeSentList _challengesSent;
+	double challengeTokens = 128;
+	unsigned __int64 challengeTime = GetTickCount64();
 
 	static void Expire(PlayerChallengeSentList& list, unsigned __int64 timeout);
 	static __int32 FindChallenge(const PlayerChallengeSentList& list, const sockaddr_in& addr);
@@ -604,14 +608,15 @@ void leaveNN() { NatCriticalSection().unlock(); }
 
 void stopUdpListenSend()
 {
-	poolCriticalSection().lock();
-	if (clientPeer)
-		clientPeer->stopThreads();
-	if (serverPeer)
-		serverPeer->stopThreads();
-	clientPeer = NULL;
-	serverPeer = NULL;
-	poolCriticalSection().unlock();
+	Ref<NetPeer> client, server;
+	{
+		std::lock_guard<std::recursive_mutex> lock(poolCriticalSection());
+		client = clientPeer;
+		server = serverPeer;
+	}
+	// Callbacks may acquire the pool mutex while finishing their last packet.
+	if (client) client->stopThreads();
+	if (server) server->stopThreads();
 }
 
 void NetServer::Expire(PlayerChallengeSentList& list, unsigned __int64 timeout)
@@ -660,10 +665,24 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 		if (_server->acceptConnections && msg->getLength() == sizeof(MAGIC_REQUEST_PLAYER))
 		{
 			_server->User_Critical_Section.lock(); 
-			
+			const auto now = GetTickCount64();
+			_server->challengeTokens = (std::min)(128.0, _server->challengeTokens + (now - _server->challengeTime) * 0.128);
+			_server->challengeTime = now;
+			if (_server->challengeTokens < 1)
+			{
+				_server->User_Critical_Section.unlock();
+				break;
+			}
+			_server->challengeTokens -= 1;
+			_server->Expire(_server->_challengesSent, ACK_PLAYER_TIMEOUT_MS);
 			__int32 wasSent = NetServer::FindChallenge(_server->_challengesSent, distant);
 			if (wasSent < 0)
 			{
+				if (_server->_challengesSent.size() >= 1024)
+				{
+					_server->User_Critical_Section.unlock();
+					break;
+				}
 				NetServer::PlayerChallengeSent sent;
 				sent.addr = distant;
 				sent.challenge = GenerateServerChallenge(distant);
@@ -671,7 +690,6 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 				wasSent = (__int32)_server->_challengesSent.size() - 1;
 			}
 
-			unsigned __int64 now = GetTickCount64();
 			ChallengePlayerPacket chp;
 			chp.magic = MAGIC_CHALLENGE_PLAYER;
 			chp.challenge = _server->_challengesSent[wasSent].challenge;
@@ -792,7 +810,7 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 						_server->users.put(player, ch);
 						ChannelSupport sup;
 						sup.m_id = player;
-						_server->m_support[sockaddrKey(distant)] = sup;
+						{ std::lock_guard<std::recursive_mutex> lock(_server->Receive_Critical_Section); _server->m_support[sockaddrKey(distant)] = sup; }
 						_server->_createPlayers.push_back(CreatePlayerInfo());
 						CreatePlayerInfo& info = _server->_createPlayers.back();
 						info.player = player;
@@ -805,7 +823,7 @@ NetStatus ctrlReceive(NetMessage* msg, NetStatus event, void* data)
 						info.botClient = false;
 						strncpy(info.name, cpp->name, sizeof(info.name));
 						info.name[sizeof(info.name) - 1] = (char)0;
-						if (strcmp(cpp->name, info.name))
+						if (memcmp(cpp->name, info.name, sizeof(info.name)))
 							Error("NetServer: name of a new player is too long => truncating to '%s'", info.name);
 						ch->setProcessRoutine(serverReceive);
 					}
@@ -859,7 +877,8 @@ NetStatus challengeReceive(NetMessage* msg, NetStatus event, void* data)
 		{
 			ChallengePlayerPacket* chp = (ChallengePlayerPacket*)msg->getData();
 			_client->Send_Critical_Section.lock();
-			if (_client->challengePlayer == 0) 
+			if (_client->challengePlayer == 0 &&
+				sockaddrKey(distant) == sockaddrKey(_client->connectingAddress))
 			{
 				_client->challengePlayer = chp->challenge;
 			}
