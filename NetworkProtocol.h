@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Network/netTransport.hpp"
+#include "Network/SessionTransport.hpp"
 #include "sodium.h"
 #include <algorithm>
 #include <fstream>
@@ -14,7 +14,7 @@ using std::vector;
 
 const char* const DEFAULT_NETWORK_ADDRESS = "nigger.observer";
 const unsigned short DEFAULT_NETWORK_PORT = 777;
-const __int32 APP_PROTOCOL_VERSION = 28;
+const __int32 APP_PROTOCOL_VERSION = 29;
 const char* const BAN_LIST_FILENAME = "banlist.txt";
 const size_t CHAT_MAX_MESSAGE_CHARS = 140;
 const size_t CHAT_MAX_LINE_CHARS = 192;
@@ -217,18 +217,18 @@ inline void SaveIdentityList(const char* filename, const vector<string>& list)
     }
 }
 
-inline void LoadBanList(vector<string>& list)
+inline void ReadBlockedSerials(vector<string>& list)
 {
     LoadIdentityList(BAN_LIST_FILENAME, list);
 
 }
 
-inline void SaveBanList(const vector<string>& list)
+inline void WriteBlockedSerials(const vector<string>& list)
 {
     SaveIdentityList(BAN_LIST_FILENAME, list);
 }
 
-class NetworkMessageRaw
+class NetPacket
 {
     vector<char> _buffer;
     const char* _externalBuffer;
@@ -236,13 +236,13 @@ class NetworkMessageRaw
     __int32 _pos;
 
 public:
-    NetworkMessageRaw()
+    NetPacket()
         : _externalBuffer(NULL), _externalBufferSize(0), _pos(0)
     {
         _buffer.reserve(512);
     }
 
-    NetworkMessageRaw(const char* buffer, __int32 size)
+    NetPacket(const char* buffer, __int32 size)
         : _externalBuffer(buffer), _externalBufferSize(size), _pos(0)
     {
     }
@@ -405,7 +405,7 @@ inline string LocalExecutableName()
     return slash ? string(slash + 1) : string(path);
 }
 
-inline void EncodeLocalIdentityRaw(NetworkMessageRaw& raw)
+inline void EncodeLocalIdentityRaw(NetPacket& raw)
 {
     raw.putInt32(APP_PROTOCOL_VERSION);
     raw.putString(LocalDriveSerial(), 10);
@@ -413,11 +413,11 @@ inline void EncodeLocalIdentityRaw(NetworkMessageRaw& raw)
     raw.putUInt8(_stricmp(LocalExecutableName().c_str(), "oi.exe") == 0 ? 1 : 0);
 }
 
-inline string BuildAppRawMessage(NetAppMessageType type, const NetworkMessageRaw& raw)
+inline string BuildAppRawMessage(ChatPacketKind type, const NetPacket& raw)
 {
     string payload;
-    payload.resize(sizeof(NetAppMessageHeader) + raw.size());
-    NetAppMessageHeader header;
+    payload.resize(sizeof(ChatPacketPrefix) + raw.size());
+    ChatPacketPrefix header;
     header.type = type;
     memcpy(&payload[0], &header, sizeof(header));
     if (raw.size() > 0)
@@ -427,7 +427,7 @@ inline string BuildAppRawMessage(NetAppMessageType type, const NetworkMessageRaw
     return payload;
 }
 
-inline bool ValidAppMessageType(NetAppMessageType type)
+inline bool ValidAppMessageType(ChatPacketKind type)
 {
     switch (type) {
     case NAMTConnect: case NAMTDisconnect: case NAMTChat: case NAMTHeartbeat:
@@ -437,102 +437,102 @@ inline bool ValidAppMessageType(NetAppMessageType type)
     }
 }
 
-inline const char* ConnectResultName(ConnectResult result)
+inline const char* ConnectResultName(JoinResult result)
 {
     switch (result)
     {
-    case CROK: return "Sucess";
-    case CRPassword: return "Invalid Password";
-    case CRVersion: return "Incompatible Version";
-    case CRError: return "Error";
-    case CRName: return "Bad Name";
-    case CRSessionFull: return "Session Full";
-    case CRNone: return "Connecting";
-    case CRTimeout: return "Timeout";
+    case JoinOK: return "Sucess";
+    case JoinPassword: return "Invalid Password";
+    case JoinVersion: return "Incompatible Version";
+    case JoinError: return "Error";
+    case JoinName: return "Bad Name";
+    case JoinSessionFull: return "Session Full";
+    case JoinNone: return "Connecting";
+    case JoinTimeout: return "Timeout";
     default: return "Unknown";
     }
 }
 
-inline bool ParseAppRawString(const char* buffer, __int32 bufferSize, NetAppMessageType expectedType, string& text, size_t maxLength)
+inline bool ParseAppRawString(const char* buffer, __int32 bufferSize, ChatPacketKind expectedType, string& text, size_t maxLength)
 {
     text.clear();
-    if (!buffer || bufferSize < (__int32)sizeof(NetAppMessageHeader))
+    if (!buffer || bufferSize < (__int32)sizeof(ChatPacketPrefix))
     {
         return false;
     }
 
-    const NetAppMessageHeader* header = reinterpret_cast<const NetAppMessageHeader*>(buffer);
+    const ChatPacketPrefix* header = reinterpret_cast<const ChatPacketPrefix*>(buffer);
     if (header->type != expectedType || !ValidAppMessageType(header->type))
     {
         return false;
     }
 
-    const __int32 payloadSize = bufferSize - (__int32)sizeof(NetAppMessageHeader);
+    const __int32 payloadSize = bufferSize - (__int32)sizeof(ChatPacketPrefix);
     if (payloadSize < 0 || (size_t)payloadSize > NET_MAX_TEXT_BYTES)
     {
         return false;
     }
 
-    NetworkMessageRaw raw(buffer + sizeof(NetAppMessageHeader), payloadSize);
+    NetPacket raw(buffer + sizeof(ChatPacketPrefix), payloadSize);
     return raw.getString(text, maxLength) && raw.fullyRead();
 }
 
-inline bool ParseAppRawBytes(const char* buffer, __int32 bufferSize, NetAppMessageType expectedType, string& bytes, size_t expectedBytes)
+inline bool ParseAppRawBytes(const char* buffer, __int32 bufferSize, ChatPacketKind expectedType, string& bytes, size_t expectedBytes)
 {
     bytes.clear();
-    if (!buffer || bufferSize < (__int32)sizeof(NetAppMessageHeader))
+    if (!buffer || bufferSize < (__int32)sizeof(ChatPacketPrefix))
     {
         return false;
     }
 
-    const NetAppMessageHeader* header = reinterpret_cast<const NetAppMessageHeader*>(buffer);
+    const ChatPacketPrefix* header = reinterpret_cast<const ChatPacketPrefix*>(buffer);
     if (header->type != expectedType || !ValidAppMessageType(header->type))
     {
         return false;
     }
 
-    const __int32 payloadSize = bufferSize - (__int32)sizeof(NetAppMessageHeader);
+    const __int32 payloadSize = bufferSize - (__int32)sizeof(ChatPacketPrefix);
     if (payloadSize < 0 || (size_t)payloadSize != expectedBytes || expectedBytes > NET_MAX_ENCRYPTED_BYTES)
     {
         return false;
     }
 
-    bytes.assign(buffer + sizeof(NetAppMessageHeader), buffer + bufferSize);
+    bytes.assign(buffer + sizeof(ChatPacketPrefix), buffer + bufferSize);
     return true;
 }
 
-inline bool ParseAppRawControl(const char* buffer, __int32 bufferSize, NetAppMessageType expectedType)
+inline bool ParseAppRawControl(const char* buffer, __int32 bufferSize, ChatPacketKind expectedType)
 {
-    if (!buffer || bufferSize != (__int32)sizeof(NetAppMessageHeader))
+    if (!buffer || bufferSize != (__int32)sizeof(ChatPacketPrefix))
     {
         return false;
     }
 
-    const NetAppMessageHeader* header = reinterpret_cast<const NetAppMessageHeader*>(buffer);
+    const ChatPacketPrefix* header = reinterpret_cast<const ChatPacketPrefix*>(buffer);
     return header->type == expectedType && ValidAppMessageType(header->type);
 }
 
 inline bool ParseIdentityRaw(const char* buffer, __int32 bufferSize, NetworkIdentity& identity)
 {
     identity = NetworkIdentity();
-    if (!buffer || bufferSize < (__int32)sizeof(NetAppMessageHeader))
+    if (!buffer || bufferSize < (__int32)sizeof(ChatPacketPrefix))
     {
         return false;
     }
 
-    const NetAppMessageHeader* header = reinterpret_cast<const NetAppMessageHeader*>(buffer);
+    const ChatPacketPrefix* header = reinterpret_cast<const ChatPacketPrefix*>(buffer);
     if (header->type != NAMTConnect || !ValidAppMessageType(header->type))
     {
         return false;
     }
 
-    const __int32 payloadSize = bufferSize - (__int32)sizeof(NetAppMessageHeader);
+    const __int32 payloadSize = bufferSize - (__int32)sizeof(ChatPacketPrefix);
     if (payloadSize < 0 || (size_t)payloadSize > NET_MAX_TEXT_BYTES)
     {
         return false;
     }
 
-    NetworkMessageRaw raw(buffer + sizeof(NetAppMessageHeader), payloadSize);
+    NetPacket raw(buffer + sizeof(ChatPacketPrefix), payloadSize);
     __int32 version = 0;
     string driveSerial;
     string name;
@@ -587,42 +587,42 @@ struct NetworkVoicePacket
     vector<unsigned char> data;
 };
 
-inline void EncodeAppPacketRaw(NetworkMessageRaw& raw, const NetworkPlayerAssignPacket& packet)
+inline void EncodeAppPacketRaw(NetPacket& raw, const NetworkPlayerAssignPacket& packet)
 {
     raw.putInt32(packet.playerId);
 }
 
-inline bool DecodeAppPacketRaw(NetworkMessageRaw& raw, NetworkPlayerAssignPacket& packet)
+inline bool DecodeAppPacketRaw(NetPacket& raw, NetworkPlayerAssignPacket& packet)
 {
     return raw.getInt32(packet.playerId) && raw.fullyRead();
 }
 
 template<class T>
-inline string BuildAppPacket(NetAppMessageType type, const T& packet)
+inline string BuildAppPacket(ChatPacketKind type, const T& packet)
 {
-    NetworkMessageRaw raw;
+    NetPacket raw;
     EncodeAppPacketRaw(raw, packet);
     return BuildAppRawMessage(type, raw);
 }
 
 template<class T>
-inline bool ParseAppPacket(const char* buffer, __int32 bufferSize, NetAppMessageType expectedType, T& packet)
+inline bool ParseAppPacket(const char* buffer, __int32 bufferSize, ChatPacketKind expectedType, T& packet)
 {
-    if (!buffer || bufferSize < (__int32)sizeof(NetAppMessageHeader))
+    if (!buffer || bufferSize < (__int32)sizeof(ChatPacketPrefix))
     {
         return false;
     }
-    const NetAppMessageHeader* header = reinterpret_cast<const NetAppMessageHeader*>(buffer);
+    const ChatPacketPrefix* header = reinterpret_cast<const ChatPacketPrefix*>(buffer);
     if (header->type != expectedType || !ValidAppMessageType(header->type))
     {
         return false;
     }
-    const __int32 payloadSize = bufferSize - (__int32)sizeof(NetAppMessageHeader);
+    const __int32 payloadSize = bufferSize - (__int32)sizeof(ChatPacketPrefix);
     if (payloadSize < 0 || (size_t)payloadSize > NET_MAX_ENCRYPTED_BYTES)
     {
         return false;
     }
-    NetworkMessageRaw raw(buffer + sizeof(NetAppMessageHeader), payloadSize);
+    NetPacket raw(buffer + sizeof(ChatPacketPrefix), payloadSize);
     return DecodeAppPacketRaw(raw, packet);
 }
 
@@ -717,8 +717,8 @@ public:
         unsigned char nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES];
         randombytes_buf(nonce, sizeof(nonce));
 
-        payload.resize(sizeof(NetAppMessageHeader) + sizeof(nonce) + plain.size() + crypto_aead_xchacha20poly1305_ietf_ABYTES);
-        NetAppMessageHeader header;
+        payload.resize(sizeof(ChatPacketPrefix) + sizeof(nonce) + plain.size() + crypto_aead_xchacha20poly1305_ietf_ABYTES);
+        ChatPacketPrefix header;
         header.type = NAMTEncrypted;
         memcpy(&payload[0], &header, sizeof(header));
         memcpy(&payload[sizeof(header)], nonce, sizeof(nonce));
@@ -739,19 +739,19 @@ public:
     bool decrypt(const char* buffer, __int32 bufferSize, string& plain)
     {
         if (!_ready ||
-            bufferSize < (__int32)(sizeof(NetAppMessageHeader) + crypto_aead_xchacha20poly1305_ietf_NPUBBYTES + crypto_aead_xchacha20poly1305_ietf_ABYTES) ||
+            bufferSize < (__int32)(sizeof(ChatPacketPrefix) + crypto_aead_xchacha20poly1305_ietf_NPUBBYTES + crypto_aead_xchacha20poly1305_ietf_ABYTES) ||
             (size_t)bufferSize > NET_MAX_ENCRYPTED_BYTES)
         {
             return false;
         }
-        const NetAppMessageHeader* header = reinterpret_cast<const NetAppMessageHeader*>(buffer);
+        const ChatPacketPrefix* header = reinterpret_cast<const ChatPacketPrefix*>(buffer);
         if (header->type != NAMTEncrypted)
         {
             return false;
         }
-        const unsigned char* nonce = reinterpret_cast<const unsigned char*>(buffer + sizeof(NetAppMessageHeader));
-        const unsigned char* cipher = reinterpret_cast<const unsigned char*>(buffer + sizeof(NetAppMessageHeader) + crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
-        const __int32 cipherSize = bufferSize - (__int32)(sizeof(NetAppMessageHeader) + crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
+        const unsigned char* nonce = reinterpret_cast<const unsigned char*>(buffer + sizeof(ChatPacketPrefix));
+        const unsigned char* cipher = reinterpret_cast<const unsigned char*>(buffer + sizeof(ChatPacketPrefix) + crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
+        const __int32 cipherSize = bufferSize - (__int32)(sizeof(ChatPacketPrefix) + crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
         plain.resize(cipherSize);
 
         unsigned long long plainBytes = 0;
@@ -769,7 +769,7 @@ public:
 
 inline string BuildVoicePayload(const NetworkVoicePacket& packet)
 {
-    NetworkMessageRaw raw;
+    NetPacket raw;
     raw.putInt32(packet.playerId);
     raw.putUInt32(packet.sequence);
     raw.putUInt8(packet.codec);
@@ -782,23 +782,23 @@ inline string BuildVoicePayload(const NetworkVoicePacket& packet)
 inline bool ParseVoicePacket(const char* buffer, __int32 bufferSize, NetworkVoicePacket& packet)
 {
     packet = NetworkVoicePacket();
-    if (!buffer || bufferSize < (__int32)sizeof(NetAppMessageHeader))
+    if (!buffer || bufferSize < (__int32)sizeof(ChatPacketPrefix))
     {
         return false;
     }
-    const NetAppMessageHeader* header = reinterpret_cast<const NetAppMessageHeader*>(buffer);
+    const ChatPacketPrefix* header = reinterpret_cast<const ChatPacketPrefix*>(buffer);
     if (header->type != NAMTVoice)
     {
         return false;
     }
 
-    const __int32 payloadSize = bufferSize - (__int32)sizeof(NetAppMessageHeader);
+    const __int32 payloadSize = bufferSize - (__int32)sizeof(ChatPacketPrefix);
     if (payloadSize < 0 || (size_t)payloadSize > NET_MAX_ENCRYPTED_BYTES)
     {
         return false;
     }
 
-    NetworkMessageRaw raw(buffer + sizeof(NetAppMessageHeader), payloadSize);
+    NetPacket raw(buffer + sizeof(ChatPacketPrefix), payloadSize);
     return raw.getInt32(packet.playerId) &&
            raw.getUInt32(packet.sequence) &&
            raw.getUInt8(packet.codec) &&

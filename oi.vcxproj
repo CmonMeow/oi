@@ -107,12 +107,12 @@
     <ClCompile Include="ScreenShare.cpp" />
     <ClCompile Include="RunChatClient.cpp" />
     <ClCompile Include="sysdef.cpp" />
-    <ClCompile Include="Network\bitmask.cpp" />
-    <ClCompile Include="Network\netTransportNet.cpp" />
-    <ClCompile Include="Network\netapi.cpp" />
-    <ClCompile Include="Network\netchannel.cpp" />
-    <ClCompile Include="Network\netmessage.cpp" />
-    <ClCompile Include="Network\netpeer.cpp" />
+    <ClCompile Include="Network\SequenceBitmap.cpp" />
+    <ClCompile Include="Network\SessionTransport.cpp" />
+    <ClCompile Include="Network\TransportCore.cpp" />
+    <ClCompile Include="Network\ReliableChannel.cpp" />
+    <ClCompile Include="Network\PacketBuffer.cpp" />
+    <ClCompile Include="Network\UdpEndpoint.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="font.h" />
@@ -129,17 +129,17 @@
     <ClInclude Include="VoiceCodec.h" />
     <ClInclude Include="VoiceMixer.h" />
     <ClInclude Include="VoiceProcessing.h" />
-    <ClInclude Include="Network\bitmask.hpp" />
-    <ClInclude Include="Network\netTransport.hpp" />
-    <ClInclude Include="Network\netTransportCommon.hpp" />
-    <ClInclude Include="Network\netReceiveQueue.hpp" />
-    <ClInclude Include="Network\pointers.h" />
-    <ClInclude Include="Network\netapi.hpp" />
-    <ClInclude Include="Network\netchannel.hpp" />
-    <ClInclude Include="Network\netglobal.hpp" />
-    <ClInclude Include="Network\netmessage.hpp" />
-    <ClInclude Include="Network\netpch.hpp" />
-    <ClInclude Include="Network\netpeer.hpp" />
+    <ClInclude Include="Network\SequenceBitmap.hpp" />
+    <ClInclude Include="Network\SessionTransport.hpp" />
+    <ClInclude Include="Network\SessionOperations.hpp" />
+    <ClInclude Include="Network\InboundQueue.hpp" />
+    <ClInclude Include="Network\IntrusivePtr.h" />
+    <ClInclude Include="Network\TransportCore.hpp" />
+    <ClInclude Include="Network\ReliableChannel.hpp" />
+    <ClInclude Include="Network\DatagramFormat.hpp" />
+    <ClInclude Include="Network\PacketBuffer.hpp" />
+    <ClInclude Include="Network\TransportIncludes.hpp" />
+    <ClInclude Include="Network\UdpEndpoint.hpp" />
     <ClInclude Include="Network\AsyncResolver.h" />
     <ClInclude Include="RunClient.h" />
   </ItemGroup>

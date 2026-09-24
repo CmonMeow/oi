@@ -9,7 +9,7 @@ class ScreenSignaling
 public:
     enum Kind { Start, Stop, Watch, Signal, Close, Media };
     struct Event { int kind = 0, peer = -1; string share, connection, payload; };
-    using Wire = std::function<void(int,const NetworkMessageRaw&)>;
+    using Wire = std::function<void(int,const NetPacket&)>;
 private:
     struct MediaBudget {
         ULONGLONG time=0;unsigned bytes=524288,packets=1024;
@@ -40,8 +40,8 @@ private:
         events.push_back(e);
     }
 
-    static NetworkMessageRaw encode(const Event& e) {
-        NetworkMessageRaw raw; raw.putInt32(e.kind); raw.putInt32(e.peer);
+    static NetPacket encode(const Event& e) {
+        NetPacket raw; raw.putInt32(e.kind); raw.putInt32(e.peer);
         raw.putString(e.share,32); raw.putString(e.connection,32);
         raw.putBytes(vector<unsigned char>(e.payload.begin(),e.payload.end()),24000); return raw;
     }
@@ -158,7 +158,7 @@ public:
             route(local(),e);
         } else wire(-1,encode(e));
     }
-    void receive(int from,NetworkMessageRaw& raw) {
+    void receive(int from,NetPacket& raw) {
         Event e; vector<unsigned char> bytes;
         if(!raw.getInt32(e.kind) || !raw.getInt32(e.peer) || !raw.getString(e.share,32) ||
             !raw.getString(e.connection,32) || !raw.getBytes(bytes,24000) || !raw.fullyRead() ||

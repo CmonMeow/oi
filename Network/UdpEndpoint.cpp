@@ -1,16 +1,16 @@
 
-#include "netpch.hpp"
-#include "netpeer.hpp"
+#include "TransportIncludes.hpp"
+#include "UdpEndpoint.hpp"
 
-#include "netchannel.hpp"
+#include "ReliableChannel.hpp"
 
-const unsigned TIMEOUT_MS = 5;
+const unsigned UdpWorkerPollIntervalMs = 5;
 
-const unsigned CHECK_COUNTER = 2000 / TIMEOUT_MS;
+const unsigned EndpointCheckIterations = 2000 / UdpWorkerPollIntervalMs;
 
-const unsigned TICK_COUNTER = (unsigned)((4 * NetChannelBasic::RUN_INTERVAL) / TIMEOUT_MS);
+const unsigned ChannelServiceIterations = (unsigned)((4 * ReliableChannel::RetransmitScanIntervalMs) / UdpWorkerPollIntervalMs);
 
-const unsigned PACKET_BATCH = 3;
+const unsigned PacketsPerSendBatch = 3;
 
 static unsigned __int32 crc_table[256] = {
 	0x00000000L, 0x77073096L, 0xee0e612cL, 0x990951baL, 0x076dc419L,
@@ -92,26 +92,26 @@ unsigned __int32 crc32(unsigned __int32 crc, const unsigned char* buf, __int64 l
 	return (crc ^ 0xffffffffL);
 }
 
-DWORD WINAPI udpListenSend(void* param)
+DWORD WINAPI runUdpWorker(void* param)
 {
 	
 	union
 	{
-		MsgHeader header;
-		char data[MAX_IN_DATA]; 
+		DatagramHeader header;
+		char data[DatagramReceiveBufferBytes]; 
 	};
-	NetPeerUDP* peer = (NetPeerUDP*)param;
+	UdpEndpoint* peer = (UdpEndpoint*)param;
 	fd_set set;				 
 	struct timeval timeout;	 
 	struct sockaddr_in from; 
 	__int32 fromLen;
-	__int32 checkCounter = CHECK_COUNTER; 
+	__int32 checkCounter = EndpointCheckIterations; 
 
 	bool hasOrigin = false;				  
 	unsigned __int64 originKey = 0;		  
-	Ref<NetChannel> channel;			  
+	IntrusivePtr<ChannelInterface> channel;			  
 	unsigned __int64 bunchStart = 0;	  
-	__int32 tickCounter = TICK_COUNTER;	  
+	__int32 tickCounter = ChannelServiceIterations;	  
 	unsigned waitTime = 1;				  
 
 	bool previousBatch = true; 
@@ -121,20 +121,20 @@ DWORD WINAPI udpListenSend(void* param)
 	while (peer->listen)
 	{ 
 
-		for (batchIt = 0; batchIt++ < PACKET_BATCH;)
+		for (batchIt = 0; batchIt++ < PacketsPerSendBatch;)
 		{
 
 			FD_ZERO(&set);
 			FD_SET(peer->sock, &set);
 			timeout.tv_sec = 0;
-			timeout.tv_usec = previousBatch ? 0 : TIMEOUT_MS * 1000;
+			timeout.tv_usec = previousBatch ? 0 : UdpWorkerPollIntervalMs * 1000;
 
 			__int32 error = select(FD_SETSIZE, &set, NULL, NULL, &timeout);
 
 			if (error != 1)
 			{ 
 				if (!previousBatch)
-					waitTime += TIMEOUT_MS;
+					waitTime += UdpWorkerPollIntervalMs;
 				else
 				{
 					waitTime = 0;
@@ -145,10 +145,10 @@ DWORD WINAPI udpListenSend(void* param)
 
 			fromLen = sizeof(from);
 			memset(&from, 0, sizeof(from)); 
-			error = recvfrom(peer->sock, data, MAX_IN_DATA - 1, 0, (struct sockaddr*)&from, &fromLen);
+			error = recvfrom(peer->sock, data, DatagramReceiveBufferBytes - 1, 0, (struct sockaddr*)&from, &fromLen);
             if (error > 0) peer->incomingBytes.fetch_add(error, std::memory_order_relaxed);
-			if (error != SOCKET_ERROR && error >= (__int32)sizeof(MsgHeader) && error <= MAX_IN_DATA &&
-				error == (__int32)header.length && header.length <= MAX_IN_DATA)
+			if (error != SOCKET_ERROR && error >= (__int32)sizeof(DatagramHeader) && error <= DatagramReceiveBufferBytes &&
+				error == (__int32)header.length && header.length <= DatagramReceiveBufferBytes)
 			{
 				unsigned __int32 crc = header.crc;
 				header.crc = 0;
@@ -156,18 +156,18 @@ DWORD WINAPI udpListenSend(void* param)
 				if (crc32(0, (const unsigned char*)&header, header.length) == crc)
 				{
 					header.crc = crc;
-					peer->Critical_Section.lock();
-					peer->processData(&header, from); 
-					Ref<NetChannel> ch;
-					auto chIt = peer->chMap.find(sockaddrKey(from));
+					peer->stateMutex.lock();
+					peer->handleDatagram(&header, from); 
+					IntrusivePtr<ChannelInterface> ch;
+					auto chIt = peer->chMap.find(udpEndpointKey(from));
 					if (chIt != peer->chMap.end())
 						ch = chIt->second;
 
-					if ((header.flags & MSG_TO_BCAST_FLAG) || !ch)
-						ch = peer->getBroadcastChannel();
-					peer->Critical_Section.unlock();
+					if ((header.flags & PACKET_TO_CONTROL_CHANNEL) || !ch)
+						ch = peer->handshakeChannel();
+					peer->stateMutex.unlock();
 					if (ch)
-						ch->processData(&header, from); 
+						ch->handleDatagram(&header, from); 
 				}
 			}
 			else
@@ -179,18 +179,18 @@ DWORD WINAPI udpListenSend(void* param)
 				WSASetLastError(0); 
 
 				if (werror == WSAECONNRESET)
-					peer->reconnect();
+					peer->reopenEndpoint();
 			}
 
 			waitTime = 0;
 			previousBatch = true;
 		} 
 
-		peer->Critical_Section.lock();
-		for (batchIt = 0; batchIt++ < PACKET_BATCH;)
+		peer->stateMutex.lock();
+		for (batchIt = 0; batchIt++ < PacketsPerSendBatch;)
 		{
-			channel = peer->getBroadcastChannel(); 
-			if (!channel || !channel->getPreparedMessage())
+			channel = peer->handshakeChannel(); 
+			if (!channel || !channel->prepareNextPacket())
 			{
 				channel = NULL;
 				if (!peer->chMap.empty())
@@ -215,7 +215,7 @@ DWORD WINAPI udpListenSend(void* param)
 						channel = it->second;
 						originKey = it->first;
 						hasOrigin = true;
-						if (channel && channel->getPreparedMessage())
+						if (channel && channel->prepareNextPacket())
 							break;
 						channel = NULL;
 						++it;
@@ -230,25 +230,25 @@ DWORD WINAPI udpListenSend(void* param)
 			}
 
 			struct sockaddr_in dist;
-			if (channel->isControl()) 
-				channel->prepared->getDistant(dist);
+			if (channel->isHandshakeChannel()) 
+				channel->prepared->packetDestination(dist);
 			else 
-				channel->getDistantAddress(dist);
+				channel->remoteEndpointAddress(dist);
 
 			if (waitTime) 
-				now = bunchStart = channel->preSend(0);
+				now = bunchStart = channel->beginSendBatch(0);
 			else
-				now = channel->preSend(bunchStart);
+				now = channel->beginSendBatch(bunchStart);
 
 			waitTime = 0;
 
-			if (peer->sendData(channel->prepared->header, dist) != nsError)
+			if (peer->transmitDatagram(channel->prepared->header, dist) != PacketError)
 				channel->prepared->status = 
-					(channel->prepared->status == nsOutputPending) ? nsOutputSent : nsOutputTimeout;
+					(channel->prepared->status == PacketOutputPending) ? PacketOutputSent : PacketOutputTimeout;
 			else 
-				channel->prepared->status = nsError;
+				channel->prepared->status = PacketError;
 
-			channel->postSend(); 
+			channel->finishSendBatch(); 
 
 			previousBatch = true;
 		} 
@@ -258,12 +258,12 @@ DWORD WINAPI udpListenSend(void* param)
             const auto channels = peer->chMap;
             for (const auto& it : channels)
 				if (it.second)
-					it.second->tick();
+					it.second->serviceChannel();
 
-			channel = peer->getBroadcastChannel();
+			channel = peer->handshakeChannel();
 			if (channel)
-				channel->tick();
-			tickCounter = TICK_COUNTER;
+				channel->serviceChannel();
+			tickCounter = ChannelServiceIterations;
 		}
 
 		if (checkCounter-- <= 0)
@@ -272,28 +272,28 @@ DWORD WINAPI udpListenSend(void* param)
             const auto channels = peer->chMap;
             for (const auto& it : channels)
 				if (it.second)
-					it.second->checkConnectivity(now);
+					it.second->updateLiveness(now);
 
-			checkCounter = CHECK_COUNTER;
+			checkCounter = EndpointCheckIterations;
 		}
-		peer->Critical_Section.unlock();
+		peer->stateMutex.unlock();
 
 	} 
 
 	return (DWORD)0;
 }
 
-NetChannel* NetPeerUDP::findChannel(const struct sockaddr_in& distant)
+ChannelInterface* UdpEndpoint::lookupChannel(const struct sockaddr_in& distant)
 {
-	auto it = chMap.find(sockaddrKey(distant));
+	auto it = chMap.find(udpEndpointKey(distant));
 	if (it == chMap.end())
 		return NULL;
 	return it->second.GetRef();
 }
 
-void NetPeerUDP::close()
+void UdpEndpoint::closeTransport()
 {
-	Critical_Section.lock();
+	stateMutex.lock();
 	bool wasListen = listen;
 	listen = false;
 	
@@ -301,36 +301,36 @@ void NetPeerUDP::close()
     auto closingChannels = std::move(chMap);
     chMap.clear();
     for (auto& entry : closingChannels)
-        if (entry.second) entry.second->close();
+        if (entry.second) entry.second->closeTransport();
 
-	if (broadcastCh)
+	if (handshakeLink)
 	{
-		broadcastCh->close();
-		broadcastCh = NULL;
+		handshakeLink->closeTransport();
+		handshakeLink = NULL;
 	}
-	Critical_Section.unlock();
+	stateMutex.unlock();
 	if (wasListen)
 	{
 		if (listener)
 			WaitForSingleObject(listener, INFINITE);
 		CloseHandle(listener);
 	}
-	Critical_Section.lock();
+	stateMutex.lock();
 	
 	if (sock != INVALID_SOCKET)
 	{
 		closesocket(sock);
 		sock = INVALID_SOCKET;
 	}
-	Critical_Section.unlock();
+	stateMutex.unlock();
 }
 
-void NetPeerUDP::reconnect()
+void UdpEndpoint::reopenEndpoint()
 {
-	Critical_Section.lock();
+	stateMutex.lock();
 	if (sock == INVALID_SOCKET)
 	{
-		Critical_Section.unlock();
+		stateMutex.unlock();
 		return;
 	}
 	reconnecting = true;
@@ -339,7 +339,7 @@ void NetPeerUDP::reconnect()
 	if (sock == INVALID_SOCKET)
 	{
 		reconnecting = false;
-		Critical_Section.unlock();
+		stateMutex.unlock();
 		return;
 	}
 	__int32 tmp = 1;
@@ -348,10 +348,10 @@ void NetPeerUDP::reconnect()
 		closesocket(sock);
 		sock = INVALID_SOCKET;
 		reconnecting = false;
-		Critical_Section.unlock();
+		stateMutex.unlock();
 		return;
 	}
-	tmp = RCVBUFSize;
+	tmp = SocketReceiveBufferBytes;
 	setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char*)&tmp, sizeof(tmp));
 	BOOL share = TRUE;
 	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&share, sizeof(share));
@@ -365,7 +365,7 @@ void NetPeerUDP::reconnect()
 		sock = INVALID_SOCKET;
 	}
 	reconnecting = false;
-	Critical_Section.unlock();
+	stateMutex.unlock();
 }
 
 unsigned long bindIPAddress = INADDR_ANY;

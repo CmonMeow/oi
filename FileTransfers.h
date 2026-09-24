@@ -66,10 +66,10 @@ private:
         for (char c : id) if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
         return true;
     }
-    static NetworkMessageRaw header(unsigned char type, const string& id, const string& token = "") {
-        NetworkMessageRaw raw; raw.putUInt8(type); raw.putString(id, 32); raw.putString(token, 32); return raw;
+    static NetPacket header(unsigned char type, const string& id, const string& token = "") {
+        NetPacket raw; raw.putUInt8(type); raw.putString(id, 32); raw.putString(token, 32); return raw;
     }
-    bool transmit(int peer, const NetworkMessageRaw& raw) {
+    bool transmit(int peer, const NetPacket& raw) {
         return send(peer, vector<unsigned char>(raw.data(), raw.data() + raw.size()));
     }
     void control(unsigned char type, const Key& key, const string& token, unsigned __int64 offset = 0) {
@@ -183,7 +183,7 @@ public:
     }
     void receive(int peer, const vector<unsigned char>& bytes) {
         if (bytes.empty() || bytes.size() > MaxPacketBytes) return;
-        NetworkMessageRaw raw((const char*)bytes.data(), (int)bytes.size());
+        NetPacket raw((const char*)bytes.data(), (int)bytes.size());
         unsigned char type; string id, token;
         if (!raw.getUInt8(type) || !raw.getString(id,32) || !validId(id) || !raw.getString(token,32)) return;
         const Key key(peer,id); const auto now = GetTickCount64();

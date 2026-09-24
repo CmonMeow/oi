@@ -2,22 +2,22 @@
 
 #include <intrin0.inl.h>
 
-class RefCountSafe
+class AtomicRefCount
 {
 private:
 	mutable volatile long _count;
 
 public:
-	RefCountSafe() : _count(0) {}
-	RefCountSafe(const RefCountSafe&) : _count(0) {}
+	AtomicRefCount() : _count(0) {}
+	AtomicRefCount(const AtomicRefCount&) : _count(0) {}
 
-	RefCountSafe& operator=(const RefCountSafe&)
+	AtomicRefCount& operator=(const AtomicRefCount&)
 	{
 		_count = 0;
 		return *this;
 	}
 
-	virtual ~RefCountSafe() {}
+	virtual ~AtomicRefCount() {}
 
 	__int32 AddRef() const { return _InterlockedIncrement(&_count); }
 
@@ -25,31 +25,31 @@ public:
 	{
 		const __int32 ret = _InterlockedDecrement(&_count);
 		if (ret == 0)
-			delete const_cast<RefCountSafe*>(this);
+			delete const_cast<AtomicRefCount*>(this);
 		return ret;
 	}
 
-	__int32 RefCounter() const { return _count; }
+	__int32 referenceCount() const { return _count; }
 };
 
 template <class Type>
-class Ref
+class IntrusivePtr
 {
 private:
 	Type* _ref = nullptr;
 
 public:
-	Ref() = default;
+	IntrusivePtr() = default;
 
-	Ref(Type* source) : _ref(source)
+	IntrusivePtr(Type* source) : _ref(source)
 	{
 		if (_ref)
 			_ref->AddRef();
 	}
 
-	Ref(const Ref& sRef) : Ref(sRef._ref) {}
+	IntrusivePtr(const IntrusivePtr& sRef) : IntrusivePtr(sRef._ref) {}
 
-	Ref& operator=(Type* source)
+	IntrusivePtr& operator=(Type* source)
 	{
 		Type* old = _ref;
 		if (source)
@@ -60,12 +60,12 @@ public:
 		return *this;
 	}
 
-	Ref& operator=(const Ref& sRef)
+	IntrusivePtr& operator=(const IntrusivePtr& sRef)
 	{
 		return operator=(sRef._ref);
 	}
 
-	__forceinline ~Ref()
+	__forceinline ~IntrusivePtr()
 	{
 		if (_ref)
 			_ref->Release();

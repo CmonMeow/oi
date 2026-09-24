@@ -1,17 +1,17 @@
 
 
-#include "netpch.hpp"
-#include "netpeer.hpp"
-#include "netchannel.hpp"
+#include "TransportIncludes.hpp"
+#include "UdpEndpoint.hpp"
+#include "ReliableChannel.hpp"
 
-unsigned __int64 channelKey(const Ref<NetChannel>& ch)
+unsigned __int64 channelEndpointKey(const IntrusivePtr<ChannelInterface>& ch)
 {
 	struct sockaddr_in addr;
-	ch->getDistantAddress(addr);
-	return sockaddrKey(addr);
+	ch->remoteEndpointAddress(addr);
+	return udpEndpointKey(addr);
 }
 
-const NetworkParams defaultNetworkParams = {
+const TransportTuning defaultTransportTuning = {
 	400,
 	2,		  
 	32000,	  
@@ -22,9 +22,9 @@ const NetworkParams defaultNetworkParams = {
 	65536,	  
 	400,	  
 };
-NetworkParams networkParams = defaultNetworkParams;
+TransportTuning transportTuning = defaultTransportTuning;
 
-NetPeer* NetPool::createPeer(unsigned short port)
+EndpointInterface* EndpointRegistry::makeEndpoint(unsigned short port)
 {
 	SOCKET s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (s == INVALID_SOCKET)
@@ -51,7 +51,7 @@ NetPeer* NetPool::createPeer(unsigned short port)
 		closesocket(s);
 		return NULL;
 	}
-	tmp = RCVBUFSize;
+	tmp = SocketReceiveBufferBytes;
 	setsockopt(s, SOL_SOCKET, SO_RCVBUF, (char*)&tmp, sizeof(tmp));
 
 	struct sockaddr_in local;
@@ -62,10 +62,10 @@ NetPeer* NetPool::createPeer(unsigned short port)
 		local.sin_port = htons(port);
 		if (bind(s, (struct sockaddr*)&local, sizeof(local)) != SOCKET_ERROR)
 		{
-			NetPeer* newPeer = new NetPeerUDP(s, port, this);
+			EndpointInterface* newPeer = new UdpEndpoint(s, port, this);
 			if (!newPeer)
 				return NULL;
-			peers[newPeer->getPort()] = newPeer;
+			peers[newPeer->endpointPort()] = newPeer;
 			return newPeer;
 		}
 	}
@@ -73,4 +73,4 @@ NetPeer* NetPool::createPeer(unsigned short port)
 	return NULL;
 }
 
-NetChannel* NetPool::createChannel(bool control = false) { return new NetChannelBasic(control); }
+ChannelInterface* EndpointRegistry::makeChannel(bool control = false) { return new ReliableChannel(control); }

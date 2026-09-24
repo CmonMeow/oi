@@ -2,12 +2,12 @@
 #pragma once
 #endif
 
-#ifndef _BITMASK_H
-#define _BITMASK_H
+#ifndef BITMASK_H
+#define BITMASK_H
 
 #include <vector>
 
-class BitMask
+class SequenceBitmap
 {
 protected:
 	std::vector<unsigned __int32> words;
@@ -18,13 +18,13 @@ public:
 	
 	static const __int32 END;
 
-	BitMask();
+	SequenceBitmap();
 
-	BitMask(const BitMask& b);
+	SequenceBitmap(const SequenceBitmap& b);
 	
-	BitMask& operator=(const BitMask& b);
+	SequenceBitmap& operator=(const SequenceBitmap& b);
 
-	virtual ~BitMask();
+	virtual ~SequenceBitmap();
 
 	void set(__int32 value, bool flag);
 
@@ -64,10 +64,10 @@ public:
 	__int32 getNext(__int32 i) const;
 	__int32 getLast() const;
 
-	BitMask& operator|=(const BitMask& b);
-	BitMask& operator&=(const BitMask& b);
-	BitMask& operator^=(const BitMask& b);
-	BitMask& operator-=(const BitMask& b);
+	SequenceBitmap& operator|=(const SequenceBitmap& b);
+	SequenceBitmap& operator&=(const SequenceBitmap& b);
+	SequenceBitmap& operator^=(const SequenceBitmap& b);
+	SequenceBitmap& operator-=(const SequenceBitmap& b);
 
 	void getStat(__int32& minimum, __int32& maximum);
 };

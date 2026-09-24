@@ -2,20 +2,20 @@
 #pragma once
 #endif
 
-#ifndef _NETPEER_H
-#define _NETPEER_H
+#ifndef NETPEER_H
+#define NETPEER_H
 
 #include <winsock2.h>
 #include <unordered_map>
 #include <atomic>
-#include "bitmask.hpp"
+#include "SequenceBitmap.hpp"
 
 extern unsigned long bindIPAddress;
 
-const __int32 SLIDING_WINDOW = 64;
-const __int32 SLIDING_WINDOW_SEND = 256;
+const __int32 AckRateSampleSlots = 64;
+const __int32 SendRateSampleSlots = 256;
 
-inline bool getLocalAddress(struct sockaddr_in& me, unsigned short port)
+inline bool localEndpointAddress(struct sockaddr_in& me, unsigned short port)
 {
 	me.sin_family = AF_INET;
 	char meName[128];
@@ -39,7 +39,7 @@ inline bool getLocalAddress(struct sockaddr_in& me, unsigned short port)
 	return true;
 }
 
-inline bool getHostAddress(struct sockaddr_in& host, const char* ip, unsigned short port)
+inline bool resolveLocalHostAddress(struct sockaddr_in& host, const char* ip, unsigned short port)
 {
 	host.sin_family = AF_INET;
 	host.sin_port = htons(port);
@@ -61,12 +61,12 @@ inline bool getHostAddress(struct sockaddr_in& host, const char* ip, unsigned sh
 
 unsigned __int32 crc32(unsigned __int32 crc, const unsigned char* buf, __int64 len);
 
-class NetPeerUDP : public NetPeer
+class UdpEndpoint : public EndpointInterface
 {
 
 protected:
 	
-	std::unordered_map<unsigned __int64, Ref<NetChannel>> chMap;
+	std::unordered_map<unsigned __int64, IntrusivePtr<ChannelInterface>> chMap;
 
     std::atomic<unsigned __int64> incomingBytes{0};
     std::atomic<unsigned __int64> outgoingBytes{0};
@@ -76,9 +76,9 @@ protected:
 
 	std::atomic<bool> listen{false};
 
-	friend DWORD WINAPI udpListenSend(void* param);
+	friend DWORD WINAPI runUdpWorker(void* param);
 
-	void reconnect();
+	void reopenEndpoint();
 
 	bool reconnecting;
 
@@ -89,30 +89,30 @@ public:
         outgoing = outgoingBytes.load(std::memory_order_relaxed);
     }
 
-	NetPeerUDP(NetPool* _pool) : NetPeer(_pool)
+	UdpEndpoint(EndpointRegistry* _pool) : EndpointInterface(_pool)
 	{
 		sock = INVALID_SOCKET;
 		port = 0;
 		listen = reconnecting = false;
 	}
 
-	NetPeerUDP(SOCKET _sock, unsigned short _port, NetPool* _pool)
-		: NetPeer(_pool)
+	UdpEndpoint(SOCKET _sock, unsigned short _port, EndpointRegistry* _pool)
+		: EndpointInterface(_pool)
 	{
-		Critical_Section.lock();
+		stateMutex.lock();
 		sock = _sock;
 		port = _port;
 		listen = reconnecting = false;
-		broadcastCh = NULL;
-		if (pool)
+		handshakeLink = NULL;
+		if (registryStorage)
 		{ 
-			broadcastCh = pool->createChannel(true);
-			if (broadcastCh)
+			handshakeLink = registryStorage->makeChannel(true);
+			if (handshakeLink)
 			{
 				struct sockaddr_in distant;
 				memset((void*)&(distant), NULL, sizeof(distant));
 				distant.sin_addr.s_addr = INADDR_BROADCAST;
-				broadcastCh->open(this, distant);
+				handshakeLink->openChannel(this, distant);
 			}
 		}
 		if (sock != INVALID_SOCKET)
@@ -120,36 +120,36 @@ public:
 			
 			listen = true;
 			DWORD thid;
-			listener = CreateThread(NULL, 32 * 1024, &udpListenSend, this, 0, &thid);
+			listener = CreateThread(NULL, 32 * 1024, &runUdpWorker, this, 0, &thid);
 			if (listener)
 				SetThreadPriority(listener, THREAD_PRIORITY_HIGHEST); 
 			else
 				listen = false; 
 		}
-		Critical_Section.unlock();
+		stateMutex.unlock();
 	}
 
-	virtual void getLocalAddress(struct sockaddr_in& local) const { ::getLocalAddress(local, port); }
+	virtual void localEndpointAddress(struct sockaddr_in& local) const { ::localEndpointAddress(local, port); }
 
 	virtual SOCKET GetSocket() const { return sock; }
 
-	virtual bool registerChannel(struct sockaddr_in& distant, NetChannel* ch)
+	virtual bool attachChannel(struct sockaddr_in& distant, ChannelInterface* ch)
 	{
 		if (!ch)
 			return false;
-		Critical_Section.lock();
-		const unsigned __int64 key = sockaddrKey(distant);
+		stateMutex.lock();
+		const unsigned __int64 key = udpEndpointKey(distant);
 		bool result = (chMap.find(key) == chMap.end());
 		if (result)
 			chMap[key] = ch;
-		Critical_Section.unlock();
+		stateMutex.unlock();
 		return result;
 	}
 
-	virtual void unregisterChannel(NetChannel* ch)
+	virtual void detachChannel(ChannelInterface* ch)
 	{
         if (!ch) return;
-        Critical_Section.lock();
+        stateMutex.lock();
         for (auto it = chMap.begin(); it != chMap.end();)
 		{
 			if (it->second.GetRef() == ch)
@@ -157,19 +157,19 @@ public:
 			else
 				++it;
 		}
-        Critical_Section.unlock();
+        stateMutex.unlock();
 	}
 
-	virtual NetChannel* findChannel(const struct sockaddr_in& distant);
+	virtual ChannelInterface* lookupChannel(const struct sockaddr_in& distant);
 
-	virtual void close();
+	virtual void closeTransport();
 
 	virtual void stopThreads()
 	{
-		Critical_Section.lock();
+		stateMutex.lock();
 		bool wasListen = listen;
 		listen = false;
-		Critical_Section.unlock();
+		stateMutex.unlock();
 		if (wasListen)
 		{
 			if (listener)
@@ -178,11 +178,11 @@ public:
 		}
 	}
 
-	virtual void processData(MsgHeader* hdr, const struct sockaddr_in& distant) {}
+	virtual void handleDatagram(DatagramHeader* hdr, const struct sockaddr_in& distant) {}
 
-	virtual NetStatus sendData(MsgHeader* hdr, struct sockaddr_in distant)
+	virtual PacketStatus transmitDatagram(DatagramHeader* hdr, struct sockaddr_in distant)
 	{
-		Critical_Section.lock();
+		stateMutex.lock();
 		if (sock != INVALID_SOCKET)
 		{
 			hdr->crc = 0;
@@ -193,8 +193,8 @@ public:
 			if (sendto(sock, reinterpret_cast<const char*>(hdr), hdr->length, 0, (const sockaddr*)&distant, sizeof(distant)) != SOCKET_ERROR)
 			{
                 outgoingBytes.fetch_add(hdr->length, std::memory_order_relaxed);
-				Critical_Section.unlock();
-				return nsOutputSent;
+				stateMutex.unlock();
+				return PacketOutputSent;
 			}
 			__int32 werror = WSAGetLastError();
 			__int32 error = 0;
@@ -205,34 +205,34 @@ public:
 
 			if (werror == WSAECONNRESET)
 			{ 
-				reconnect();
+				reopenEndpoint();
 				if ((sock != INVALID_SOCKET) && (retryCounter--))
 					goto retry;
 			}
 		}
-		Critical_Section.unlock();
-		return nsError;
+		stateMutex.unlock();
+		return PacketError;
 	}
 
 	virtual void sendRaw(const sockaddr_in& ia, const void* data, __int32 size, __int32 sizeEncrypted)
 	{
-		Critical_Section.lock(); 
+		stateMutex.lock(); 
         int sentBytes = sendto(sock, reinterpret_cast<const char*>(data), size, 0, reinterpret_cast<const sockaddr*>(&ia), sizeof(ia));
         if (sentBytes > 0) outgoingBytes.fetch_add(sentBytes, std::memory_order_relaxed);
-		Critical_Section.unlock();
+		stateMutex.unlock();
 	}
 
-	virtual void cancelAllMessages()
+	virtual void discardPendingPackets()
 	{
-		Critical_Section.lock();
+		stateMutex.lock();
         const auto channels = chMap;
         for (const auto& it : channels)
-            if (it.second) it.second->cancelAllMessages();
+            if (it.second) it.second->discardPendingPackets();
 
-		Critical_Section.unlock();
+		stateMutex.unlock();
 	}
 
-	virtual ~NetPeerUDP() { close(); }
+	virtual ~UdpEndpoint() { closeTransport(); }
 };
 
 #endif

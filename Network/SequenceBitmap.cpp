@@ -1,8 +1,8 @@
-#include "bitmask.hpp"
+#include "SequenceBitmap.hpp"
 
 #include <algorithm>
 
-const __int32 BitMask::END = 0x7FFFFFFF;
+const __int32 SequenceBitmap::END = 0x7FFFFFFF;
 
 static __int32 alignDown32(__int32 value)
 {
@@ -14,17 +14,17 @@ static __int32 alignUp32(__int32 value)
 	return (value + 31) & -32;
 }
 
-BitMask::BitMask()
+SequenceBitmap::SequenceBitmap()
 {
 	min = max = 0;
 }
 
-BitMask::BitMask(const BitMask& b)
+SequenceBitmap::SequenceBitmap(const SequenceBitmap& b)
 {
 	this->operator=(b);
 }
 
-BitMask& BitMask::operator=(const BitMask& b)
+SequenceBitmap& SequenceBitmap::operator=(const SequenceBitmap& b)
 {
 	if (this == &b)
 		return *this;
@@ -34,18 +34,18 @@ BitMask& BitMask::operator=(const BitMask& b)
 	return *this;
 }
 
-void BitMask::empty()
+void SequenceBitmap::empty()
 {
 	words.clear();
 	min = max = 0;
 }
 
-BitMask::~BitMask()
+SequenceBitmap::~SequenceBitmap()
 {
 	empty();
 }
 
-void BitMask::access(__int32 value)
+void SequenceBitmap::access(__int32 value)
 {
 	if (words.empty())
 	{
@@ -71,7 +71,7 @@ void BitMask::access(__int32 value)
 	}
 }
 
-void BitMask::compact()
+void SequenceBitmap::compact()
 {
 	__int32 mMin = getFirst();
 	if (mMin == END)
@@ -93,7 +93,7 @@ void BitMask::compact()
 	max = mMax;
 }
 
-void BitMask::growOptimize(bool up, __int32 anchor)
+void SequenceBitmap::growOptimize(bool up, __int32 anchor)
 {
 	if (words.empty())
 		return;
@@ -160,7 +160,7 @@ void BitMask::growOptimize(bool up, __int32 anchor)
 	}
 }
 
-void BitMask::emptyOptimize(bool up, __int32 origin)
+void SequenceBitmap::emptyOptimize(bool up, __int32 origin)
 {
 	if (words.empty())
 		return;
@@ -187,7 +187,7 @@ void BitMask::emptyOptimize(bool up, __int32 origin)
 	std::fill(words.begin(), words.end(), 0);
 }
 
-void BitMask::setUnsafe(__int32 value, bool flag)
+void SequenceBitmap::setUnsafe(__int32 value, bool flag)
 {
 	const __int32 offset = value - min;
 	const unsigned __int32 bit = 1u << (offset & 31);
@@ -197,7 +197,7 @@ void BitMask::setUnsafe(__int32 value, bool flag)
 		words[offset >> 5] &= ~bit;
 }
 
-void BitMask::set(__int32 value, bool flag)
+void SequenceBitmap::set(__int32 value, bool flag)
 {
 	if (flag)
 	{
@@ -210,20 +210,20 @@ void BitMask::set(__int32 value, bool flag)
 	setUnsafe(value, false);
 }
 
-void BitMask::on(__int32 value)
+void SequenceBitmap::on(__int32 value)
 {
 	access(value);
 	setUnsafe(value, true);
 }
 
-void BitMask::off(__int32 value)
+void SequenceBitmap::off(__int32 value)
 {
 	if (value < min || value >= max)
 		return;
 	setUnsafe(value, false);
 }
 
-void BitMask::range(__int32 from, __int32 len, bool flag)
+void SequenceBitmap::range(__int32 from, __int32 len, bool flag)
 {
 	if (len <= 0)
 		return;
@@ -268,7 +268,7 @@ void BitMask::range(__int32 from, __int32 len, bool flag)
 		setUnsafe(from++, flag);
 }
 
-__int32 BitMask::card() const
+__int32 SequenceBitmap::card() const
 {
 	__int32 count = 0;
 	for (unsigned __int32 word : words)
@@ -282,12 +282,12 @@ __int32 BitMask::card() const
 	return count;
 }
 
-__int32 BitMask::getFirst() const
+__int32 SequenceBitmap::getFirst() const
 {
 	return getNext(min - 1);
 }
 
-__int32 BitMask::getNext(__int32 i) const
+__int32 SequenceBitmap::getNext(__int32 i) const
 {
 	if (words.empty())
 		return END;
@@ -323,7 +323,7 @@ __int32 BitMask::getNext(__int32 i) const
 	return END;
 }
 
-__int32 BitMask::getLast() const
+__int32 SequenceBitmap::getLast() const
 {
 	if (words.empty())
 		return END;
@@ -345,7 +345,7 @@ __int32 BitMask::getLast() const
 	return END;
 }
 
-BitMask& BitMask::operator|=(const BitMask& b)
+SequenceBitmap& SequenceBitmap::operator|=(const SequenceBitmap& b)
 {
 	const __int32 bFirst = b.getFirst();
 	if (bFirst == END)
@@ -363,7 +363,7 @@ BitMask& BitMask::operator|=(const BitMask& b)
 	return *this;
 }
 
-BitMask& BitMask::operator&=(const BitMask& b)
+SequenceBitmap& SequenceBitmap::operator&=(const SequenceBitmap& b)
 {
 	if (words.empty())
 		return *this;
@@ -392,7 +392,7 @@ BitMask& BitMask::operator&=(const BitMask& b)
 	return *this;
 }
 
-BitMask& BitMask::operator^=(const BitMask& b)
+SequenceBitmap& SequenceBitmap::operator^=(const SequenceBitmap& b)
 {
 	const __int32 bFirst = b.getFirst();
 	if (bFirst == END)
@@ -410,7 +410,7 @@ BitMask& BitMask::operator^=(const BitMask& b)
 	return *this;
 }
 
-BitMask& BitMask::operator-=(const BitMask& b)
+SequenceBitmap& SequenceBitmap::operator-=(const SequenceBitmap& b)
 {
 	const __int32 bFirst = b.getFirst();
 	if (bFirst == END)
@@ -428,7 +428,7 @@ BitMask& BitMask::operator-=(const BitMask& b)
 	return *this;
 }
 
-void BitMask::getStat(__int32& minimum, __int32& maximum)
+void SequenceBitmap::getStat(__int32& minimum, __int32& maximum)
 {
 	minimum = min;
 	maximum = max;

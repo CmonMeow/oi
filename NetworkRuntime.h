@@ -25,8 +25,8 @@ class cNetworkRuntime
     }
     bool fileQueueAvailable(int to, bool control = false) {
         int messages=0, bytes=0, guaranteedMessages=0, guaranteedBytes=0;
-        if (_server) _server->GetSendQueueInfo(to,messages,bytes,guaranteedMessages,guaranteedBytes);
-        else if (_client) _client->GetSendQueueInfo(messages,bytes,guaranteedMessages,guaranteedBytes);
+        if (_server) _server->QueryPendingSends(to,messages,bytes,guaranteedMessages,guaranteedBytes);
+        else if (_client) _client->QueryPendingSends(messages,bytes,guaranteedMessages,guaranteedBytes);
         else return false;
         // Keep bounded headroom for offers/accepts/acks during screen negotiation bursts.
         const int maxBytes=control?1048576:131072, maxMessages=control?1024:128;
@@ -41,9 +41,9 @@ class cNetworkRuntime
         randombytes_buf(cipher.data(),crypto_box_NONCEBYTES);
         if (crypto_box_easy(cipher.data()+crypto_box_NONCEBYTES,plain.data(),plain.size(),cipher.data(),
             (const unsigned char*)key->second.data(),_privateChatSecretKey) != 0) return false;
-        NetworkMessageRaw raw; raw.putInt32(isHost() ? 0 : to); raw.putBytes(cipher,FileTransfers::MaxPacketBytes+40);
-        if (isHost()) sendRawFromServer(to,NAMTFile,raw,NMFGuaranteed);
-        else sendRawFromClient(NAMTFile,raw,NMFGuaranteed);
+        NetPacket raw; raw.putInt32(isHost() ? 0 : to); raw.putBytes(cipher,FileTransfers::MaxPacketBytes+40);
+        if (isHost()) sendRawFromServer(to,NAMTFile,raw,DeliveryGuaranteed);
+        else sendRawFromClient(NAMTFile,raw,DeliveryGuaranteed);
         return true;
     }
     void receiveFilePayload(int from, const vector<unsigned char>& cipher) {
@@ -56,15 +56,15 @@ class cNetworkRuntime
         _files.receive(from,plain);
     }
     void handleFileMessage(int from, const char* message, int length, bool relay) {
-        NetworkMessageRaw raw(message+sizeof(NetAppMessageHeader),length-sizeof(NetAppMessageHeader));
+        NetPacket raw(message+sizeof(ChatPacketPrefix),length-sizeof(ChatPacketPrefix));
         int peer; vector<unsigned char> cipher;
         if (!raw.getInt32(peer) || peer < 0 || !raw.getBytes(cipher,FileTransfers::MaxPacketBytes+40) || !raw.fullyRead() || cipher.size() <= 40) return;
         const int sender = relay ? from : peer;
         if (!_privateChatKeys.count(sender) || !fileBudget(_fileBudgets[sender],cipher.size(),16777216)) return;
         if (relay && peer != 0) {
             if (peer == from || !_playerIdentities.count(peer) || !fileQueueAvailable(peer,cipher.size()<=552) || !fileBudget(_relayBudget,cipher.size(),67108864,16384)) return;
-            NetworkMessageRaw forwarded; forwarded.putInt32(from); forwarded.putBytes(cipher,FileTransfers::MaxPacketBytes+40);
-            sendRawFromServer(peer,NAMTFile,forwarded,NMFGuaranteed);
+            NetPacket forwarded; forwarded.putInt32(from); forwarded.putBytes(cipher,FileTransfers::MaxPacketBytes+40);
+            sendRawFromServer(peer,NAMTFile,forwarded,DeliveryGuaranteed);
         } else receiveFilePayload(sender,cipher);
     }
     void announceFile(int from, const string& id) {
@@ -82,8 +82,8 @@ class cNetworkRuntime
     string _connectingAddress;
     bool _transportConnecting = false;
     unsigned __int64 _connectDeadline = 0;
-    NetTranspServer* _server;
-    NetTranspClient* _client;
+    HostSessionInterface* _server;
+    ClientSessionInterface* _client;
     vector<__int32> _players;
     vector<NetworkChatLine> _chatLines;
     unsigned __int64 _nextClientHeartbeat;
@@ -139,7 +139,7 @@ class cNetworkRuntime
         return true;
     }
 
-    void encodeChatKey(NetworkMessageRaw& raw, __int32 player, const string& name, const string& publicKey) const
+    void encodeChatKey(NetPacket& raw, __int32 player, const string& name, const string& publicKey) const
     {
         raw.putInt32(player);
         raw.putString(name, 48);
@@ -148,16 +148,16 @@ class cNetworkRuntime
 
     bool decodeChatKey(const char* message, __int32 messageSize, __int32& player, string& name, string& publicKey)
     {
-        if (!message || messageSize < (__int32)sizeof(NetAppMessageHeader))
+        if (!message || messageSize < (__int32)sizeof(ChatPacketPrefix))
         {
             return false;
         }
-        const NetAppMessageHeader* header = reinterpret_cast<const NetAppMessageHeader*>(message);
+        const ChatPacketPrefix* header = reinterpret_cast<const ChatPacketPrefix*>(message);
         if (header->type != NAMTChatKey)
         {
             return false;
         }
-        NetworkMessageRaw raw(message + sizeof(NetAppMessageHeader), messageSize - (__int32)sizeof(NetAppMessageHeader));
+        NetPacket raw(message + sizeof(ChatPacketPrefix), messageSize - (__int32)sizeof(ChatPacketPrefix));
         return raw.getInt32(player) &&
                raw.getString(name, 48) &&
                raw.getString(publicKey, crypto_box_PUBLICKEYBYTES) &&
@@ -171,9 +171,9 @@ class cNetworkRuntime
         {
             return;
         }
-        NetworkMessageRaw raw;
+        NetPacket raw;
         encodeChatKey(raw, player, name, publicKey);
-        sendRawFromServer(to, NAMTChatKey, raw, (NetMsgFlags)(NMFGuaranteed | NMFHighPriority));
+        sendRawFromServer(to, NAMTChatKey, raw, (DeliveryOptions)(DeliveryGuaranteed | DeliveryHighPriority));
     }
 
     void broadcastChatKey(__int32 player, const string& name, const string& publicKey)
@@ -232,41 +232,41 @@ class cNetworkRuntime
 
     bool decodePrivateChatForServer(const char* message, __int32 messageSize, __int32& target, string& cipher)
     {
-        if (!message || messageSize < (__int32)sizeof(NetAppMessageHeader))
+        if (!message || messageSize < (__int32)sizeof(ChatPacketPrefix))
         {
             return false;
         }
-        const NetAppMessageHeader* header = reinterpret_cast<const NetAppMessageHeader*>(message);
+        const ChatPacketPrefix* header = reinterpret_cast<const ChatPacketPrefix*>(message);
         if (header->type != NAMTPrivateChat)
         {
             return false;
         }
-        NetworkMessageRaw raw(message + sizeof(NetAppMessageHeader), messageSize - (__int32)sizeof(NetAppMessageHeader));
+        NetPacket raw(message + sizeof(ChatPacketPrefix), messageSize - (__int32)sizeof(ChatPacketPrefix));
         return raw.getInt32(target) && raw.getString(cipher, 255) && raw.fullyRead();
     }
 
     bool decodePrivateChatForClient(const char* message, __int32 messageSize, __int32& from, string& name, string& cipher)
     {
-        if (!message || messageSize < (__int32)sizeof(NetAppMessageHeader))
+        if (!message || messageSize < (__int32)sizeof(ChatPacketPrefix))
         {
             return false;
         }
-        const NetAppMessageHeader* header = reinterpret_cast<const NetAppMessageHeader*>(message);
+        const ChatPacketPrefix* header = reinterpret_cast<const ChatPacketPrefix*>(message);
         if (header->type != NAMTPrivateChat)
         {
             return false;
         }
-        NetworkMessageRaw raw(message + sizeof(NetAppMessageHeader), messageSize - (__int32)sizeof(NetAppMessageHeader));
+        NetPacket raw(message + sizeof(ChatPacketPrefix), messageSize - (__int32)sizeof(ChatPacketPrefix));
         return raw.getInt32(from) && raw.getString(name, 48) && raw.getString(cipher, 255) && raw.fullyRead();
     }
 
     void sendPrivateChatToClient(__int32 to, __int32 from, const string& fromName, const string& cipher)
     {
-        NetworkMessageRaw raw;
+        NetPacket raw;
         raw.putInt32(from);
         raw.putString(fromName, 48);
         raw.putString(cipher, 255);
-        sendRawFromServer(to, NAMTPrivateChat, raw, (NetMsgFlags)(NMFGuaranteed | NMFHighPriority));
+        sendRawFromServer(to, NAMTPrivateChat, raw, (DeliveryOptions)(DeliveryGuaranteed | DeliveryHighPriority));
     }
 
     static void OnClientMessage(char* buffer, __int32 bufferSize, void* context)
@@ -279,12 +279,12 @@ class cNetworkRuntime
         static_cast<cNetworkRuntime*>(context)->onServerMessage(from, buffer, bufferSize);
     }
 
-    static void OnCreatePlayer(__int32 player, bool, const char* name, unsigned long, void* context)
+    static void OnPeerJoined(__int32 player, bool, const char* name, unsigned long, void* context)
     {
         static_cast<cNetworkRuntime*>(context)->onCreatePlayer(player, name);
     }
 
-    static void OnDeletePlayer(__int32 player, void* context)
+    static void OnPeerLeft(__int32 player, void* context)
     {
         static_cast<cNetworkRuntime*>(context)->onDeletePlayer(player);
     }
@@ -294,12 +294,12 @@ class cNetworkRuntime
         message = buffer;
         messageSize = bufferSize;
         if (!buffer ||
-            bufferSize < (__int32)sizeof(NetAppMessageHeader) ||
+            bufferSize < (__int32)sizeof(ChatPacketPrefix) ||
             (size_t)bufferSize > NET_MAX_ENCRYPTED_BYTES)
         {
             return false;
         }
-        const NetAppMessageHeader* header = reinterpret_cast<const NetAppMessageHeader*>(buffer);
+        const ChatPacketPrefix* header = reinterpret_cast<const ChatPacketPrefix*>(buffer);
         if (!ValidAppMessageType(header->type))
         {
             return false;
@@ -322,12 +322,12 @@ class cNetworkRuntime
         message = buffer;
         messageSize = bufferSize;
         if (!buffer ||
-            bufferSize < (__int32)sizeof(NetAppMessageHeader) ||
+            bufferSize < (__int32)sizeof(ChatPacketPrefix) ||
             (size_t)bufferSize > NET_MAX_ENCRYPTED_BYTES)
         {
             return false;
         }
-        const NetAppMessageHeader* header = reinterpret_cast<const NetAppMessageHeader*>(buffer);
+        const ChatPacketPrefix* header = reinterpret_cast<const ChatPacketPrefix*>(buffer);
         if (!ValidAppMessageType(header->type))
         {
             return false;
@@ -346,7 +346,7 @@ class cNetworkRuntime
         return header->type == NAMTKeyHello;
     }
 
-    void sendPlainRawFromClient(NetAppMessageType type, const NetworkMessageRaw& raw)
+    void sendPlainRawFromClient(ChatPacketKind type, const NetPacket& raw)
     {
         if (!_client)
         {
@@ -354,10 +354,10 @@ class cNetworkRuntime
         }
         string payload = BuildAppRawMessage(type, raw);
         DWORD msgID = 0;
-        _client->SendMsg((BYTE*)payload.data(), (__int32)payload.size(), msgID, NMFGuaranteed | NMFHighPriority, Ref<NetMessage>());
+        _client->SendPayload((BYTE*)payload.data(), (__int32)payload.size(), msgID, DeliveryGuaranteed | DeliveryHighPriority, IntrusivePtr<PacketBuffer>());
     }
 
-    void sendPlainRawFromServer(__int32 player, NetAppMessageType type, const NetworkMessageRaw& raw)
+    void sendPlainRawFromServer(__int32 player, ChatPacketKind type, const NetPacket& raw)
     {
         if (!_server)
         {
@@ -365,7 +365,7 @@ class cNetworkRuntime
         }
         string payload = BuildAppRawMessage(type, raw);
         DWORD msgID = 0;
-        _server->SendMsg(player, (BYTE*)payload.data(), (__int32)payload.size(), msgID, NMFGuaranteed | NMFHighPriority, Ref<NetMessage>());
+        _server->SendPayload(player, (BYTE*)payload.data(), (__int32)payload.size(), msgID, DeliveryGuaranteed | DeliveryHighPriority, IntrusivePtr<PacketBuffer>());
     }
 
     void beginClientCryptoHandshake()
@@ -373,7 +373,7 @@ class cNetworkRuntime
         string hello;
         if (_clientCrypto.buildClientHello(hello))
         {
-            NetworkMessageRaw raw;
+            NetPacket raw;
             raw.put(hello.data(), (__int32)hello.size());
             sendPlainRawFromClient(NAMTKeyHello, raw);
         }
@@ -396,12 +396,12 @@ class cNetworkRuntime
             bool pending = false;
             __int32 count=0, bytes=0, guaranteed=0, guaranteedBytes=0;
             if (_client) {
-                _client->GetSendQueueInfo(count,bytes,guaranteed,guaranteedBytes);
+                _client->QueryPendingSends(count,bytes,guaranteed,guaranteedBytes);
                 pending = count > 0 || guaranteed > 0;
             }
             if (_server) for (__int32 player : _players) {
                 if (onlyPlayer >= 0 && player != onlyPlayer) continue;
-                _server->GetSendQueueInfo(player,count,bytes,guaranteed,guaranteedBytes);
+                _server->QueryPendingSends(player,count,bytes,guaranteed,guaranteedBytes);
                 pending = pending || count > 0 || guaranteed > 0;
             }
             if (!pending) break;
@@ -409,20 +409,20 @@ class cNetworkRuntime
         } while (GetTickCount64() < deadline);
     }
 
-    void endPlayerSession(__int32 player, NetTerminationReason reason, const char* text)
+    void endPlayerSession(__int32 player, DisconnectReason reason, const char* text)
     {
         auto crypto = _serverCrypto.find(player);
         if (crypto != _serverCrypto.end() && crypto->second.ready()) {
-            NetworkMessageRaw raw; raw.putString(text, CHAT_MAX_LINE_CHARS);
-            sendRawFromServer(player, NAMTSessionEnd, raw, (NetMsgFlags)(NMFGuaranteed | NMFHighPriority));
+            NetPacket raw; raw.putString(text, CHAT_MAX_LINE_CHARS);
+            sendRawFromServer(player, NAMTSessionEnd, raw, (DeliveryOptions)(DeliveryGuaranteed | DeliveryHighPriority));
             flushOutgoing(player);
         }
-        _server->KickOff(player, reason, text);
+        _server->DisconnectPeer(player, reason, text);
     }
 
     void sendPresenceTo(__int32 player)
     {
-        NetworkMessageRaw raw;
+        NetPacket raw;
         raw.putInt32(_rosterRevision);
         raw.putInt32(static_cast<__int32>(_playerIdentities.size() + 1));
         raw.putInt32(0);
@@ -432,7 +432,7 @@ class cNetworkRuntime
             raw.putInt32(entry.first);
             raw.putString(entry.second.name, 48);
         }
-        sendRawFromServer(player, NAMTPresence, raw, (NetMsgFlags)(NMFGuaranteed | NMFHighPriority));
+        sendRawFromServer(player, NAMTPresence, raw, (DeliveryOptions)(DeliveryGuaranteed | DeliveryHighPriority));
     }
 
     void broadcastPresence()
@@ -463,12 +463,12 @@ class cNetworkRuntime
             return;
         }
 
-        if (messageSize < sizeof(NetAppMessageHeader)) return;
-        if (reinterpret_cast<const NetAppMessageHeader*>(message)->type == NAMTScreen) { NetworkMessageRaw raw(message+sizeof(NetAppMessageHeader),messageSize-sizeof(NetAppMessageHeader)); _screens.receive(0,raw); return; }
-        if (reinterpret_cast<const NetAppMessageHeader*>(message)->type == NAMTFile) { handleFileMessage(0,message,messageSize,false); return; }
-        if (reinterpret_cast<const NetAppMessageHeader*>(message)->type == NAMTPresence)
+        if (messageSize < sizeof(ChatPacketPrefix)) return;
+        if (reinterpret_cast<const ChatPacketPrefix*>(message)->type == NAMTScreen) { NetPacket raw(message+sizeof(ChatPacketPrefix),messageSize-sizeof(ChatPacketPrefix)); _screens.receive(0,raw); return; }
+        if (reinterpret_cast<const ChatPacketPrefix*>(message)->type == NAMTFile) { handleFileMessage(0,message,messageSize,false); return; }
+        if (reinterpret_cast<const ChatPacketPrefix*>(message)->type == NAMTPresence)
         {
-            NetworkMessageRaw raw(message + sizeof(NetAppMessageHeader), messageSize - sizeof(NetAppMessageHeader));
+            NetPacket raw(message + sizeof(ChatPacketPrefix), messageSize - sizeof(ChatPacketPrefix));
             __int32 revision, count;
             if (!raw.getInt32(revision) || !raw.getInt32(count) || count < 1 || count > 256) return;
             std::map<__int32, NetworkIdentity> roster;
@@ -583,11 +583,11 @@ class cNetworkRuntime
         {
             return;
         }
-        if (messageSize < (__int32)sizeof(NetAppMessageHeader))
+        if (messageSize < (__int32)sizeof(ChatPacketPrefix))
         {
             return;
         }
-        const NetAppMessageHeader* messageHeader = reinterpret_cast<const NetAppMessageHeader*>(message);
+        const ChatPacketPrefix* messageHeader = reinterpret_cast<const ChatPacketPrefix*>(message);
         if (messageHeader->type != NAMTKeyHello &&
             messageHeader->type != NAMTConnect &&
             _playerIdentities.find(from) == _playerIdentities.end())
@@ -595,7 +595,7 @@ class cNetworkRuntime
             return;
         }
 
-        if (messageHeader->type == NAMTScreen) { NetworkMessageRaw raw(message+sizeof(NetAppMessageHeader),messageSize-sizeof(NetAppMessageHeader)); _screens.receive(from,raw); return; }
+        if (messageHeader->type == NAMTScreen) { NetPacket raw(message+sizeof(ChatPacketPrefix),messageSize-sizeof(ChatPacketPrefix)); _screens.receive(from,raw); return; }
         if (messageHeader->type == NAMTFile) { handleFileMessage(from,message,messageSize,true); return; }
 
         // A remote client must not turn one fast input stream into unlimited
@@ -655,13 +655,13 @@ class cNetworkRuntime
             string response;
             if (_serverCrypto[from].acceptClientHello(keyBytes, response))
             {
-                NetworkMessageRaw raw;
+                NetPacket raw;
                 raw.put(response.data(), (__int32)response.size());
                 sendPlainRawFromServer(from, NAMTKeyAccept, raw);
             }
             else
             {
-                endPlayerSession(from, NTRKicked, "crypto failed");
+                endPlayerSession(from, DisconnectKicked, "crypto failed");
             }
             return;
         }
@@ -670,7 +670,7 @@ class cNetworkRuntime
         {
             if (std::find(_bannedSerials.begin(), _bannedSerials.end(), rawIdentity.driveSerial) != _bannedSerials.end())
             {
-                endPlayerSession(from, NTRBanned, "banned");
+                endPlayerSession(from, DisconnectBanned, "banned");
                 return;
             }
             if (_playerIdentities.find(from) != _playerIdentities.end()) return;
@@ -682,7 +682,7 @@ class cNetworkRuntime
 
         if (messageHeader->type == NAMTConnect)
         {
-            endPlayerSession(from, NTRKicked, "Incompatible identity; update your client.");
+            endPlayerSession(from, DisconnectKicked, "Incompatible identity; update your client.");
             return;
         }
 
@@ -693,7 +693,7 @@ class cNetworkRuntime
         if (ParseAppRawControl(message, messageSize, NAMTDisconnect))
         {
             _pendingLeaveMessages[from] = playerDisplayName(from) + " disconnected";
-            _server->KickOff(from, NTRDisconnected, "Client left.");
+            _server->DisconnectPeer(from, DisconnectDisconnected, "Client left.");
             return;
         }
 
@@ -745,7 +745,7 @@ class cNetworkRuntime
         }
         NetworkPlayerAssignPacket assignPacket;
         assignPacket.playerId = player;
-        sendPayloadFromServer(player, BuildAppPacket(NAMTPlayerAssign, assignPacket), NMFGuaranteed | NMFHighPriority);
+        sendPayloadFromServer(player, BuildAppPacket(NAMTPlayerAssign, assignPacket), DeliveryGuaranteed | DeliveryHighPriority);
 
         sendKnownChatKeysTo(player);
         _screens.sync(player);
@@ -794,7 +794,7 @@ class cNetworkRuntime
         }
     }
 
-    void sendRawFromClient(NetAppMessageType type, const NetworkMessageRaw& raw, NetMsgFlags flags)
+    void sendRawFromClient(ChatPacketKind type, const NetPacket& raw, DeliveryOptions flags)
     {
         if (!_client)
         {
@@ -807,15 +807,15 @@ class cNetworkRuntime
             return;
         }
         DWORD msgID = 0;
-        _client->SendMsg((BYTE*)encrypted.data(), (__int32)encrypted.size(), msgID, flags, Ref<NetMessage>());
+        _client->SendPayload((BYTE*)encrypted.data(), (__int32)encrypted.size(), msgID, flags, IntrusivePtr<PacketBuffer>());
     }
 
-    void sendRawFromServer(__int32 player, NetAppMessageType type, const NetworkMessageRaw& raw, NetMsgFlags flags)
+    void sendRawFromServer(__int32 player, ChatPacketKind type, const NetPacket& raw, DeliveryOptions flags)
     {
         sendPayloadFromServer(player, BuildAppRawMessage(type, raw), flags);
     }
 
-    void sendPayloadFromServer(__int32 player, const string& payload, NetMsgFlags flags)
+    void sendPayloadFromServer(__int32 player, const string& payload, DeliveryOptions flags)
     {
         if (!_server)
         {
@@ -828,24 +828,24 @@ class cNetworkRuntime
             return;
         }
         DWORD msgID = 0;
-        _server->SendMsg(player, (BYTE*)encrypted.data(), (__int32)encrypted.size(), msgID, flags, Ref<NetMessage>());
+        _server->SendPayload(player, (BYTE*)encrypted.data(), (__int32)encrypted.size(), msgID, flags, IntrusivePtr<PacketBuffer>());
     }
 
-    void sendRawStringFromClient(NetAppMessageType type, const string& message, size_t maxLength)
+    void sendRawStringFromClient(ChatPacketKind type, const string& message, size_t maxLength)
     {
-        NetworkMessageRaw raw;
+        NetPacket raw;
         raw.putString(message, maxLength);
-        sendRawFromClient(type, raw, (NetMsgFlags)(NMFGuaranteed | NMFHighPriority));
+        sendRawFromClient(type, raw, (DeliveryOptions)(DeliveryGuaranteed | DeliveryHighPriority));
     }
 
-    void sendRawStringFromServer(__int32 player, NetAppMessageType type, const string& message, size_t maxLength)
+    void sendRawStringFromServer(__int32 player, ChatPacketKind type, const string& message, size_t maxLength)
     {
-        NetworkMessageRaw raw;
+        NetPacket raw;
         raw.putString(message, maxLength);
-        sendRawFromServer(player, type, raw, (NetMsgFlags)(NMFGuaranteed | NMFHighPriority));
+        sendRawFromServer(player, type, raw, (DeliveryOptions)(DeliveryGuaranteed | DeliveryHighPriority));
     }
 
-    void sendRawStringFromServerToAll(NetAppMessageType type, const string& message, size_t maxLength)
+    void sendRawStringFromServerToAll(ChatPacketKind type, const string& message, size_t maxLength)
     {
         for (size_t i = 0; i < _players.size(); ++i)
         {
@@ -853,23 +853,23 @@ class cNetworkRuntime
         }
     }
 
-    void sendRawControlFromClient(NetAppMessageType type)
+    void sendRawControlFromClient(ChatPacketKind type)
     {
-        NetworkMessageRaw raw;
-        sendRawFromClient(type, raw, (NetMsgFlags)(NMFGuaranteed | NMFHighPriority));
+        NetPacket raw;
+        sendRawFromClient(type, raw, (DeliveryOptions)(DeliveryGuaranteed | DeliveryHighPriority));
     }
 
-    void sendRawControlFromServer(__int32 player, NetAppMessageType type)
+    void sendRawControlFromServer(__int32 player, ChatPacketKind type)
     {
-        NetworkMessageRaw raw;
-        sendRawFromServer(player, type, raw, (NetMsgFlags)(NMFGuaranteed | NMFHighPriority));
+        NetPacket raw;
+        sendRawFromServer(player, type, raw, (DeliveryOptions)(DeliveryGuaranteed | DeliveryHighPriority));
     }
 
     void sendRawIdentityFromClient()
     {
-        NetworkMessageRaw raw;
+        NetPacket raw;
         EncodeLocalIdentityRaw(raw);
-        sendRawFromClient(NAMTConnect, raw, (NetMsgFlags)(NMFGuaranteed | NMFHighPriority));
+        sendRawFromClient(NAMTConnect, raw, (DeliveryOptions)(DeliveryGuaranteed | DeliveryHighPriority));
     }
 
     void sendPrivateChatKeyFromClient()
@@ -878,9 +878,9 @@ class cNetworkRuntime
         {
             return;
         }
-        NetworkMessageRaw raw;
+        NetPacket raw;
         encodeChatKey(raw, 0, LocalUserName(), privateChatPublicKeyBytes());
-        sendRawFromClient(NAMTChatKey, raw, (NetMsgFlags)(NMFGuaranteed | NMFHighPriority));
+        sendRawFromClient(NAMTChatKey, raw, (DeliveryOptions)(DeliveryGuaranteed | DeliveryHighPriority));
     }
 
     void sendVoicePayloadFromClient(const NetworkVoicePacket& packet)
@@ -897,7 +897,7 @@ class cNetworkRuntime
         }
         payload = encrypted;
         DWORD msgID = 0;
-        _client->SendMsg((BYTE*)payload.data(), (__int32)payload.size(), msgID, NMFNone, Ref<NetMessage>());
+        _client->SendPayload((BYTE*)payload.data(), (__int32)payload.size(), msgID, DeliveryNone, IntrusivePtr<PacketBuffer>());
     }
 
     void sendVoicePayloadFromServer(__int32 player, const NetworkVoicePacket& packet)
@@ -915,7 +915,7 @@ class cNetworkRuntime
         }
         payload = encrypted;
         DWORD msgID = 0;
-        _server->SendMsg(player, (BYTE*)payload.data(), (__int32)payload.size(), msgID, NMFNone, Ref<NetMessage>());
+        _server->SendPayload(player, (BYTE*)payload.data(), (__int32)payload.size(), msgID, DeliveryNone, IntrusivePtr<PacketBuffer>());
     }
 
     void broadcastVoicePacket(const NetworkVoicePacket& packet, __int32 exceptPlayer)
@@ -1058,10 +1058,10 @@ class cNetworkRuntime
         }
         if (_client)
         {
-            NetworkMessageRaw raw;
+            NetPacket raw;
             raw.putInt32(target);
             raw.putString(cipher, 255);
-            sendRawFromClient(NAMTPrivateChat, raw, (NetMsgFlags)(NMFGuaranteed | NMFHighPriority));
+            sendRawFromClient(NAMTPrivateChat, raw, (DeliveryOptions)(DeliveryGuaranteed | DeliveryHighPriority));
             addChatLine(string(">") + playerDisplayName(target) + ": " + text, CLKPrivate);
             return true;
         }
@@ -1085,7 +1085,7 @@ class cNetworkRuntime
             __int32 player = person.first;
             __int32 latency = 0;
             __int32 throughput = 0;
-            if (player == 0 || !_server || !_server->GetConnectionInfo(player, latency, throughput))
+            if (player == 0 || !_server || !_server->QueryConnectionMetrics(player, latency, throughput))
             {
                 latency = 0;
             }
@@ -1181,16 +1181,16 @@ public:
     cNetworkRuntime(HWND hWnd, PackedClientSettings* settings = NULL)
         : _screens([this] { return isHost(); }, [this] { return localPlayerId(); },
             [this] { return _players; },
-            [this](int to,const NetworkMessageRaw& raw) {
-                NetworkMessageRaw header(raw.data(),raw.size());int kind=0;if(!header.getInt32(kind))return;
+            [this](int to,const NetPacket& raw) {
+                NetPacket header(raw.data(),raw.size());int kind=0;if(!header.getInt32(kind))return;
                 if(kind==ScreenSignaling::Media) {
                     int messages=0,bytes=0,guaranteedMessages=0,guaranteedBytes=0;
-                    if(isHost()) _server->GetSendQueueInfo(to,messages,bytes,guaranteedMessages,guaranteedBytes);
-                    else if(_client) _client->GetSendQueueInfo(messages,bytes,guaranteedMessages,guaranteedBytes);
+                    if(isHost()) _server->QueryPendingSends(to,messages,bytes,guaranteedMessages,guaranteedBytes);
+                    else if(_client) _client->QueryPendingSends(messages,bytes,guaranteedMessages,guaranteedBytes);
                     // Drop stale video before it consumes the room needed by reliable controls/files.
                     if(messages>=64 || bytes>=65536 || guaranteedMessages>=64 || guaranteedBytes>=65536)return;
                 }
-                auto flags=kind==ScreenSignaling::Media?NMFNone:NMFGuaranteed;
+                auto flags=kind==ScreenSignaling::Media?DeliveryNone:DeliveryGuaranteed;
                 if(isHost()) { if(_playerIdentities.count(to)) sendRawFromServer(to,NAMTScreen,raw,flags); }
                 else if(clientReady()) sendRawFromClient(NAMTScreen,raw,flags);
             },
@@ -1244,19 +1244,19 @@ public:
         _privateChatKeyReady = false;
         ensurePrivateChatKey();
         _nextServerBroadcast = 0;
-        _server = CreateNetServer();
-        if (!_server || !_server->Init("oi", "", port))
+        _server = MakeHostSession();
+        if (!_server || !_server->StartSession("oi", "", port))
         {
             addChatLine("host failed", CLKError);
             Error("Network host failed on port %u", port);
-            stopUdpListenSend();
+            stopUdpWorkers();
             delete _server;
             _server = NULL;
-            destroyPool();
+            releaseTransportRegistry();
             return false;
         }
 
-        LoadBanList(_bannedSerials);
+        ReadBlockedSerials(_bannedSerials);
         return true;
     }
 
@@ -1276,20 +1276,20 @@ public:
         const string address = requestedAddress.empty()
             ? (_settings ? _settings->serverAddress : DEFAULT_NETWORK_ADDRESS) : requestedAddress;
         unsigned short port = DEFAULT_NETWORK_PORT;
-        _client = CreateNetClient();
-        ConnectResult result = _client ? _client->Init(address, "", false, port, "oi", NULL) : CRError;
-        if (result != CROK && result != CRNone)
+        _client = MakeClientSession();
+        JoinResult result = _client ? _client->StartSession(address, "", false, port, "oi", NULL) : JoinError;
+        if (result != JoinOK && result != JoinNone)
         {
             addChatLine(string("Failed to join. Error: ") + ConnectResultName(result), CLKError);
-            stopUdpListenSend();
+            stopUdpWorkers();
             delete _client;
             _client = NULL;
-            destroyPool();
+            releaseTransportRegistry();
             return false;
         }
 
         _connectingAddress = address;
-        _transportConnecting = result == CRNone;
+        _transportConnecting = result == JoinNone;
         _connectDeadline = GetTickCount64() + 10000;
         addChatLine("connecting", CLKSystem);
         if (!_transportConnecting) beginClientCryptoHandshake();
@@ -1308,12 +1308,12 @@ public:
         }
         if (_client && _transportConnecting)
         {
-            ConnectResult result = _client->PollInit();
-            if (result == CRNone) return;
+            JoinResult result = _client->PollJoin();
+            if (result == JoinNone) return;
             _transportConnecting = false;
-            if (result != CROK)
+            if (result != JoinOK)
             {
-                addChatLine(result == CRTimeout ? "connection timed out" :
+                addChatLine(result == JoinTimeout ? "connection timed out" :
                     string("Failed to join. Error: ") + ConnectResultName(result), CLKError);
                 _remoteEnded = true;
                 disconnect();
@@ -1323,8 +1323,8 @@ public:
         }
         if (_server)
         {
-            _server->ProcessPlayers(OnCreatePlayer, OnDeletePlayer, this);
-            _server->ProcessUserMessages(OnServerMessage, this);
+            _server->DrainPeerEvents(OnPeerJoined, OnPeerLeft, this);
+            _server->DrainIncomingPayloads(OnServerMessage, this);
 
             unsigned __int64 now = GetTickCount64();
             if (!_players.empty() && now >= _nextServerBroadcast)
@@ -1339,9 +1339,9 @@ public:
 
         if (_client)
         {
-            _client->ProcessUserMessages(OnClientMessage, this);
-            _client->GetConnectionInfo(_latencyMS, _throughputBPS);
-            if (_remoteEnded || _client->IsSessionTerminated())
+            _client->DrainIncomingPayloads(OnClientMessage, this);
+            _client->QueryConnectionMetrics(_latencyMS, _throughputBPS);
+            if (_remoteEnded || _client->HasDisconnected())
             {
                 string reason = _client->GetWhySessionTerminatedStr();
                 if (!_remoteEnded && !reason.empty()) addChatLine(reason, CLKError);
@@ -1369,7 +1369,7 @@ public:
             {
                 __int32 latency = 0;
                 __int32 throughput = 0;
-                if (_server->GetConnectionInfo(_players[i], latency, throughput))
+                if (_server->QueryConnectionMetrics(_players[i], latency, throughput))
                 {
                     totalLatency += latency;
                     totalThroughput += throughput;
@@ -1556,13 +1556,13 @@ public:
             if (identity != _playerIdentities.end() &&
                 AddUniqueString(_bannedSerials, identity->second.driveSerial))
             {
-                SaveBanList(_bannedSerials);
+                WriteBlockedSerials(_bannedSerials);
             }
         }
         std::ostringstream line;
         line << displayName << (ban ? " was banned" : " was kicked");
         _pendingLeaveMessages[player] = line.str();
-        endPlayerSession(player, ban ? NTRBanned : NTRKicked, line.str().c_str());
+        endPlayerSession(player, ban ? DisconnectBanned : DisconnectKicked, line.str().c_str());
         return true;
     }
 
@@ -1620,12 +1620,12 @@ public:
         flushOutgoing();
         // Receive callbacks use the transport objects. Join their workers
         // before clearing pointers or freeing either object.
-        stopUdpListenSend();
+        stopUdpWorkers();
         delete _client;
         delete _server;
         _client = NULL;
         _server = NULL;
-        destroyPool();
+        releaseTransportRegistry();
         _remoteEnded = false;
         _localPlayerId = -1;
         _players.clear();

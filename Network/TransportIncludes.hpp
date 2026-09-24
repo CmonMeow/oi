@@ -2,8 +2,8 @@
 #pragma once
 #endif
 
-#ifndef _NETPCH_H
-#define _NETPCH_H
+#ifndef NETPCH_H
+#define NETPCH_H
 
 #include <math.h>
 #include <stdlib.h>
@@ -14,8 +14,8 @@
 
 #include <winsock2.h>
 
-#include "netglobal.hpp"
-#include "netapi.hpp"
-#include "netmessage.hpp"
+#include "DatagramFormat.hpp"
+#include "TransportCore.hpp"
+#include "PacketBuffer.hpp"
 
 #endif
