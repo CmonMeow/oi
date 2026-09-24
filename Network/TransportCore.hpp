@@ -128,7 +128,7 @@ public:
 
 	virtual void finishSendBatch() = 0;
 
-	virtual unsigned __int64 packetSendTime(unsigned __int32 ser) = 0;
+	virtual unsigned __int64 packetSendTime(unsigned __int64 ser) = 0;
 
 	virtual void discardPendingPackets() = 0;
 

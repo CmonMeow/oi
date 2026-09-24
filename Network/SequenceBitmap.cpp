@@ -2,14 +2,14 @@
 
 #include <algorithm>
 
-const __int32 SequenceBitmap::END = 0x7FFFFFFF;
+const __int64 SequenceBitmap::END = 0x7FFFFFFFFFFFFFFFLL;
 
-static __int32 alignDown32(__int32 value)
+static __int64 alignDown32(__int64 value)
 {
 	return value & -32;
 }
 
-static __int32 alignUp32(__int32 value)
+static __int64 alignUp32(__int64 value)
 {
 	return (value + 31) & -32;
 }
@@ -45,7 +45,7 @@ SequenceBitmap::~SequenceBitmap()
 	empty();
 }
 
-void SequenceBitmap::access(__int32 value)
+void SequenceBitmap::access(__int64 value)
 {
 	if (words.empty())
 	{
@@ -56,15 +56,15 @@ void SequenceBitmap::access(__int32 value)
 	}
 	if (value < min)
 	{
-		const __int32 add = (min - value + 31) >> 5;
+		const __int64 add = (min - value + 31) >> 5;
 		words.insert(words.begin(), add, 0);
 		min -= add << 5;
 		return;
 	}
 	if (value >= max)
 	{
-		const __int32 newWords = (value - min + 32) >> 5;
-		if (newWords <= static_cast<__int32>(words.size()))
+		const __int64 newWords = (value - min + 32) >> 5;
+		if (newWords <= static_cast<__int64>(words.size()))
 			return;
 		words.resize(newWords, 0);
 		max = min + (newWords << 5);
@@ -73,19 +73,19 @@ void SequenceBitmap::access(__int32 value)
 
 void SequenceBitmap::compact()
 {
-	__int32 mMin = getFirst();
+	__int64 mMin = getFirst();
 	if (mMin == END)
 	{
 		empty();
 		return;
 	}
 	mMin = alignDown32(mMin);
-	const __int32 mMax = alignUp32(getLast() + 1);
-	const __int32 newWords = (mMax - mMin) >> 5;
-	if (newWords == static_cast<__int32>(words.size()))
+	const __int64 mMax = alignUp32(getLast() + 1);
+	const __int64 newWords = (mMax - mMin) >> 5;
+	if (newWords == static_cast<__int64>(words.size()))
 		return;
 
-	const __int32 firstWord = (mMin - min) >> 5;
+	const __int64 firstWord = (mMin - min) >> 5;
 	std::vector<unsigned __int32> newMask(newWords);
 	std::copy(words.begin() + firstWord, words.begin() + firstWord + newWords, newMask.begin());
 	words.swap(newMask);
@@ -93,31 +93,31 @@ void SequenceBitmap::compact()
 	max = mMax;
 }
 
-void SequenceBitmap::growOptimize(bool up, __int32 anchor)
+void SequenceBitmap::growOptimize(bool up, __int64 anchor)
 {
 	if (words.empty())
 		return;
 
 	if (up)
 	{
-		__int32 m = getFirst();
+		__int64 m = getFirst();
 		if (m == END)
 		{
 			if (anchor != END)
 			{
-				const __int32 shift = alignDown32(anchor) - min;
+				const __int64 shift = alignDown32(anchor) - min;
 				min += shift;
 				max += shift;
 			}
 			return;
 		}
 
-		__int32 shift = m - min;
+		__int64 shift = m - min;
 		if (shift >= 32)
 		{
 			shift = alignDown32(shift);
-			const __int32 wordShift = shift >> 5;
-			if (wordShift >= static_cast<__int32>(words.size()))
+			const __int64 wordShift = shift >> 5;
+			if (wordShift >= static_cast<__int64>(words.size()))
 				std::fill(words.begin(), words.end(), 0);
 			else
 			{
@@ -130,24 +130,24 @@ void SequenceBitmap::growOptimize(bool up, __int32 anchor)
 	}
 	else
 	{
-		__int32 m = getLast();
+		__int64 m = getLast();
 		if (m == END)
 		{
 			if (anchor != END)
 			{
-				const __int32 shift = alignUp32(anchor + 1) - max;
+				const __int64 shift = alignUp32(anchor + 1) - max;
 				min += shift;
 				max += shift;
 			}
 			return;
 		}
 
-		__int32 shift = max - m + 1;
+		__int64 shift = max - m + 1;
 		if (shift >= 32)
 		{
 			shift = alignDown32(shift);
-			const __int32 wordShift = shift >> 5;
-			if (wordShift >= static_cast<__int32>(words.size()))
+			const __int64 wordShift = shift >> 5;
+			if (wordShift >= static_cast<__int64>(words.size()))
 				std::fill(words.begin(), words.end(), 0);
 			else
 			{
@@ -160,7 +160,7 @@ void SequenceBitmap::growOptimize(bool up, __int32 anchor)
 	}
 }
 
-void SequenceBitmap::emptyOptimize(bool up, __int32 origin)
+void SequenceBitmap::emptyOptimize(bool up, __int64 origin)
 {
 	if (words.empty())
 		return;
@@ -173,7 +173,7 @@ void SequenceBitmap::emptyOptimize(bool up, __int32 origin)
 				min = max - 32;
 			else
 				min = alignDown32(origin);
-			max = min + (static_cast<__int32>(words.size()) << 5);
+			max = min + (static_cast<__int64>(words.size()) << 5);
 		}
 		else
 		{
@@ -181,15 +181,15 @@ void SequenceBitmap::emptyOptimize(bool up, __int32 origin)
 				max = min + 32;
 			else
 				max = alignDown32(origin) + 32;
-			min = max - (static_cast<__int32>(words.size()) << 5);
+			min = max - (static_cast<__int64>(words.size()) << 5);
 		}
 	}
 	std::fill(words.begin(), words.end(), 0);
 }
 
-void SequenceBitmap::setUnsafe(__int32 value, bool flag)
+void SequenceBitmap::setUnsafe(__int64 value, bool flag)
 {
-	const __int32 offset = value - min;
+	const __int64 offset = value - min;
 	const unsigned __int32 bit = 1u << (offset & 31);
 	if (flag)
 		words[offset >> 5] |= bit;
@@ -197,7 +197,7 @@ void SequenceBitmap::setUnsafe(__int32 value, bool flag)
 		words[offset >> 5] &= ~bit;
 }
 
-void SequenceBitmap::set(__int32 value, bool flag)
+void SequenceBitmap::set(__int64 value, bool flag)
 {
 	if (flag)
 	{
@@ -210,20 +210,20 @@ void SequenceBitmap::set(__int32 value, bool flag)
 	setUnsafe(value, false);
 }
 
-void SequenceBitmap::on(__int32 value)
+void SequenceBitmap::on(__int64 value)
 {
 	access(value);
 	setUnsafe(value, true);
 }
 
-void SequenceBitmap::off(__int32 value)
+void SequenceBitmap::off(__int64 value)
 {
 	if (value < min || value >= max)
 		return;
 	setUnsafe(value, false);
 }
 
-void SequenceBitmap::range(__int32 from, __int32 len, bool flag)
+void SequenceBitmap::range(__int64 from, __int64 len, bool flag)
 {
 	if (len <= 0)
 		return;
@@ -268,9 +268,9 @@ void SequenceBitmap::range(__int32 from, __int32 len, bool flag)
 		setUnsafe(from++, flag);
 }
 
-__int32 SequenceBitmap::card() const
+__int64 SequenceBitmap::card() const
 {
-	__int32 count = 0;
+	__int64 count = 0;
 	for (unsigned __int32 word : words)
 	{
 		while (word)
@@ -282,62 +282,62 @@ __int32 SequenceBitmap::card() const
 	return count;
 }
 
-__int32 SequenceBitmap::getFirst() const
+__int64 SequenceBitmap::getFirst() const
 {
 	return getNext(min - 1);
 }
 
-__int32 SequenceBitmap::getNext(__int32 i) const
+__int64 SequenceBitmap::getNext(__int64 i) const
 {
-	if (words.empty())
+	if (words.empty() || i >= END - 1)
 		return END;
 
-	__int32 value = i + 1;
+	__int64 value = i + 1;
 	if (value < min)
 		value = min;
 	if (value >= max)
 		return END;
 
-	__int32 offset = value - min;
-	__int32 wordIndex = offset >> 5;
+	__int64 offset = value - min;
+	__int64 wordIndex = offset >> 5;
 	unsigned __int32 word = words[wordIndex] & (0xffffffffu << (offset & 31));
 
-	while (wordIndex < static_cast<__int32>(words.size()))
+	while (wordIndex < static_cast<__int64>(words.size()))
 	{
 		if (word)
 		{
-			for (__int32 bit = 0; bit < 32; bit++)
+			for (__int64 bit = 0; bit < 32; bit++)
 			{
 				if (word & (1u << bit))
 				{
-					const __int32 found = min + (wordIndex << 5) + bit;
+					const __int64 found = min + (wordIndex << 5) + bit;
 					return found < max ? found : END;
 				}
 			}
 		}
 		wordIndex++;
-		if (wordIndex >= static_cast<__int32>(words.size()))
+		if (wordIndex >= static_cast<__int64>(words.size()))
 			break;
 		word = words[wordIndex];
 	}
 	return END;
 }
 
-__int32 SequenceBitmap::getLast() const
+__int64 SequenceBitmap::getLast() const
 {
 	if (words.empty())
 		return END;
 
-	for (__int32 wordIndex = static_cast<__int32>(words.size()) - 1; wordIndex >= 0; --wordIndex)
+	for (__int64 wordIndex = static_cast<__int64>(words.size()) - 1; wordIndex >= 0; --wordIndex)
 	{
 		unsigned __int32 word = words[wordIndex];
 		if (!word)
 			continue;
-		for (__int32 bit = 31; bit >= 0; --bit)
+		for (__int64 bit = 31; bit >= 0; --bit)
 		{
 			if (word & (1u << bit))
 			{
-				const __int32 found = min + (wordIndex << 5) + bit;
+				const __int64 found = min + (wordIndex << 5) + bit;
 				return found < max ? found : END;
 			}
 		}
@@ -347,18 +347,18 @@ __int32 SequenceBitmap::getLast() const
 
 SequenceBitmap& SequenceBitmap::operator|=(const SequenceBitmap& b)
 {
-	const __int32 bFirst = b.getFirst();
+	const __int64 bFirst = b.getFirst();
 	if (bFirst == END)
 		return *this;
-	const __int32 bLast = b.getLast();
+	const __int64 bLast = b.getLast();
 	access(bFirst);
 	access(bLast);
 
-	const __int32 firstWordValue = alignDown32(bFirst);
-	const __int32 wordCount = (bLast - firstWordValue + 32) >> 5;
-	const __int32 src = (firstWordValue - b.min) >> 5;
-	const __int32 dst = (firstWordValue - min) >> 5;
-	for (__int32 i = 0; i < wordCount; ++i)
+	const __int64 firstWordValue = alignDown32(bFirst);
+	const __int64 wordCount = (bLast - firstWordValue + 32) >> 5;
+	const __int64 src = (firstWordValue - b.min) >> 5;
+	const __int64 dst = (firstWordValue - min) >> 5;
+	for (__int64 i = 0; i < wordCount; ++i)
 		words[dst + i] |= b.words[src + i];
 	return *this;
 }
@@ -368,13 +368,13 @@ SequenceBitmap& SequenceBitmap::operator&=(const SequenceBitmap& b)
 	if (words.empty())
 		return *this;
 
-	const __int32 bFirst = b.getFirst();
+	const __int64 bFirst = b.getFirst();
 	if (bFirst == END)
 	{
 		empty();
 		return *this;
 	}
-	const __int32 bLast = b.getLast();
+	const __int64 bLast = b.getLast();
 	access(bFirst);
 	access(bLast);
 
@@ -383,52 +383,52 @@ SequenceBitmap& SequenceBitmap::operator&=(const SequenceBitmap& b)
 	if (bLast < max - 1)
 		range(bLast + 1, max - bLast - 1, false);
 
-	const __int32 firstWordValue = alignDown32(bFirst);
-	const __int32 wordCount = (bLast - firstWordValue + 32) >> 5;
-	const __int32 src = (firstWordValue - b.min) >> 5;
-	const __int32 dst = (firstWordValue - min) >> 5;
-	for (__int32 i = 0; i < wordCount; ++i)
+	const __int64 firstWordValue = alignDown32(bFirst);
+	const __int64 wordCount = (bLast - firstWordValue + 32) >> 5;
+	const __int64 src = (firstWordValue - b.min) >> 5;
+	const __int64 dst = (firstWordValue - min) >> 5;
+	for (__int64 i = 0; i < wordCount; ++i)
 		words[dst + i] &= b.words[src + i];
 	return *this;
 }
 
 SequenceBitmap& SequenceBitmap::operator^=(const SequenceBitmap& b)
 {
-	const __int32 bFirst = b.getFirst();
+	const __int64 bFirst = b.getFirst();
 	if (bFirst == END)
 		return *this;
-	const __int32 bLast = b.getLast();
+	const __int64 bLast = b.getLast();
 	access(bFirst);
 	access(bLast);
 
-	const __int32 firstWordValue = alignDown32(bFirst);
-	const __int32 wordCount = (bLast - firstWordValue + 32) >> 5;
-	const __int32 src = (firstWordValue - b.min) >> 5;
-	const __int32 dst = (firstWordValue - min) >> 5;
-	for (__int32 i = 0; i < wordCount; ++i)
+	const __int64 firstWordValue = alignDown32(bFirst);
+	const __int64 wordCount = (bLast - firstWordValue + 32) >> 5;
+	const __int64 src = (firstWordValue - b.min) >> 5;
+	const __int64 dst = (firstWordValue - min) >> 5;
+	for (__int64 i = 0; i < wordCount; ++i)
 		words[dst + i] ^= b.words[src + i];
 	return *this;
 }
 
 SequenceBitmap& SequenceBitmap::operator-=(const SequenceBitmap& b)
 {
-	const __int32 bFirst = b.getFirst();
+	const __int64 bFirst = b.getFirst();
 	if (bFirst == END)
 		return *this;
-	const __int32 bLast = b.getLast();
+	const __int64 bLast = b.getLast();
 	access(bFirst);
 	access(bLast);
 
-	const __int32 firstWordValue = alignDown32(bFirst);
-	const __int32 wordCount = (bLast - firstWordValue + 32) >> 5;
-	const __int32 src = (firstWordValue - b.min) >> 5;
-	const __int32 dst = (firstWordValue - min) >> 5;
-	for (__int32 i = 0; i < wordCount; ++i)
+	const __int64 firstWordValue = alignDown32(bFirst);
+	const __int64 wordCount = (bLast - firstWordValue + 32) >> 5;
+	const __int64 src = (firstWordValue - b.min) >> 5;
+	const __int64 dst = (firstWordValue - min) >> 5;
+	for (__int64 i = 0; i < wordCount; ++i)
 		words[dst + i] &= ~b.words[src + i];
 	return *this;
 }
 
-void SequenceBitmap::getStat(__int32& minimum, __int32& maximum)
+void SequenceBitmap::getStat(__int64& minimum, __int64& maximum)
 {
 	minimum = min;
 	maximum = max;

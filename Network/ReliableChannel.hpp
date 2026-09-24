@@ -8,8 +8,8 @@
 #include "UdpEndpoint.hpp"
 #include <Network/SequenceBitmap.hpp>
 
-extern unsigned __int32 packetSequenceKey(const IntrusivePtr<PacketBuffer>& msg);
-extern unsigned __int32 packetDependencyKey(const IntrusivePtr<PacketBuffer>& msg);
+extern unsigned __int64 packetSequenceKey(const IntrusivePtr<PacketBuffer>& msg);
+extern unsigned __int64 packetDependencyKey(const IntrusivePtr<PacketBuffer>& msg);
 
 #define ACK_RING_CAPACITY 1024 
 
@@ -44,9 +44,25 @@ extern unsigned __int32 packetDependencyKey(const IntrusivePtr<PacketBuffer>& ms
 
 #define RECEIVE_WINDOW_TRIM_SLACK 4096 
 
-// SequenceBitmap uses signed indices. End a very long session before its indices
-// overflow rather than allowing sequence-number wrap to corrupt memory.
-constexpr unsigned MAX_CHANNEL_SERIAL = 0x7fffffc0u;
+// Local bookkeeping only. Wire sequences and the datagram header remain 32-bit.
+constexpr unsigned __int64 MAX_LOCAL_SEQUENCE = 0x7fffffff00000000ull;
+
+// Select the nearest 32-bit wrap relative to a known local sequence. Peers must
+// remain within half the wire sequence space; receive windows are far smaller.
+inline bool expandWireSequence(unsigned __int32 wire, unsigned __int64 reference, unsigned __int64& result)
+{
+    const unsigned __int32 forward = wire - static_cast<unsigned __int32>(reference);
+    if (forward == 0x80000000u) return false;
+    if (forward < 0x80000000u)
+    {
+        result = reference + forward;
+        return result >= reference && result < MAX_LOCAL_SEQUENCE;
+    }
+    const unsigned __int32 backward = 0u - forward;
+    if (reference < backward) return false;
+    result = reference - backward;
+    return true;
+}
 
 #define ACK_RATE_SAMPLE_INTERVAL_MS 100
 
@@ -73,7 +89,8 @@ public:
 		dist.sin_addr.s_addr = INADDR_BROADCAST;
 		peer = NULL;
 		
-		highestReceivedSequence = ackRingFirstSequence = receivedSerialWindowStart = ackRingCursor = serial = 1;
+		highestReceivedSequence = ackRingFirstSequence = receivedSerialWindowStart = serial = 1;
+		ackRingCursor = 1;
 		lastSentSequence = -1;
 		recentAckHead = recentAckTail = 0;
 		smoothedRttMs = latestRttMs = 0;
@@ -113,7 +130,8 @@ public:
 		stateMutex.lock();
 
 		opened = true;
-		highestReceivedSequence = ackRingFirstSequence = receivedSerialWindowStart = ackRingCursor = serial = 1;
+		highestReceivedSequence = ackRingFirstSequence = receivedSerialWindowStart = serial = 1;
+		ackRingCursor = 1;
 		lastSentSequence = -1;
 		recentAckHead = recentAckTail = 0;
 		for (__int32 i = 0; i < ACK_RING_CAPACITY;)
@@ -203,15 +221,19 @@ public:
 		stateMutex.lock();
 		// These fields are not authenticated by the application. Bound the work
 		// they can request before allocating a message or touching the bit masks.
-		if (!control && !(hdr->flags & PACKET_FROM_CONTROL_CHANNEL) &&
-			(hdr->serial == 0 || hdr->serial >= MAX_CHANNEL_SERIAL ||
-			 (hdr->serial > highestReceivedSequence && hdr->serial - highestReceivedSequence > transportTuning.receiveSequenceWindowSize) ||
-			 ((hdr->flags & (PACKET_RELIABLE | PACKET_ORDERED)) == (PACKET_RELIABLE | PACKET_ORDERED) &&
-			  (unsigned)hdr->c.control2 >= hdr->serial)))
-		{
-			stateMutex.unlock();
-			return;
-		}
+        unsigned __int64 incomingSequence = hdr->serial;
+        unsigned __int64 predecessorSequence = 0;
+        if (!control && !(hdr->flags & PACKET_FROM_CONTROL_CHANNEL))
+        {
+            if (!hdr->serial || !expandWireSequence(hdr->serial, highestReceivedSequence, incomingSequence) ||
+                (incomingSequence > highestReceivedSequence && incomingSequence - highestReceivedSequence > transportTuning.receiveSequenceWindowSize) ||
+                ((hdr->flags & (PACKET_RELIABLE | PACKET_ORDERED)) == (PACKET_RELIABLE | PACKET_ORDERED) && hdr->c.control2 &&
+                 (!expandWireSequence(hdr->c.control2, incomingSequence, predecessorSequence) || predecessorSequence >= incomingSequence)))
+            {
+                stateMutex.unlock();
+                return;
+            }
+        }
 		IntrusivePtr<PacketBuffer> msg = PacketCache::sharedPacketCache()->acquirePacket(hdr->length - sizeof(DatagramHeader), this);
 		if (!msg)
 		{
@@ -225,7 +247,9 @@ public:
 			return;
 		}
 
-		if (!control && alreadyReceived(hdr->serial))
+		msg->localSequence = incomingSequence;
+
+		if (!control && alreadyReceived(incomingSequence))
 		{
 			recordRetransmission(msg.GetRef());
 			msg->releaseToCache();
@@ -248,7 +272,7 @@ public:
 
 		if (!control && !(flags & PACKET_FROM_CONTROL_CHANNEL))
 		{ 
-			const unsigned orderingPredecessor = hdr->c.control2;
+			const unsigned __int64 orderingPredecessor = predecessorSequence;
 			if ((flags & (PACKET_RELIABLE | PACKET_ORDERED)) == (PACKET_RELIABLE | PACKET_ORDERED) &&
 				orderingPredecessor >= receivedSerialWindowStart && !processedSerials.get(orderingPredecessor) &&
 				(deferredMessages >= 1024 || deferredBytes + msg->payloadLength() > 1024 * 1024))
@@ -273,7 +297,7 @@ public:
 			{
 				if (flags & PACKET_ORDERED)
 				{ 
-					unsigned __int32 orderingPredecessor = (unsigned __int32)hdr->c.control2;
+					const unsigned __int64 orderingPredecessor = predecessorSequence;
 					if (orderingPredecessor >= receivedSerialWindowStart && !processedSerials.get(orderingPredecessor))
 					{
 
@@ -347,7 +371,7 @@ public:
 
 	virtual void finishSendBatch();
 
-	virtual unsigned __int64 packetSendTime(unsigned __int32 ser);
+	virtual unsigned __int64 packetSendTime(unsigned __int64 ser);
 
 	static const unsigned __int64 RetransmitScanIntervalMs;
 
@@ -398,7 +422,7 @@ public:
 	{
 		stateMutex.lock();
 		unsigned __int64 now = GetTickCount64();
-		bool drop = serial >= MAX_CHANNEL_SERIAL ||
+		bool drop = serial >= MAX_LOCAL_SEQUENCE ||
 			(now > lastPingReceivedMs + (PING_REPLY_TIMEOUT_MS << 1) && now > lastPacketReceivedMs + 15000);
 		stateMutex.unlock();
 
@@ -446,8 +470,8 @@ protected:
 
 	struct sockaddr_in dist; 
 
-	unsigned __int32 serial;		 
-	unsigned __int32 lastSentSequence; 
+	unsigned __int64 serial;
+	unsigned __int64 lastSentSequence;
 
 	IntrusivePtr<PacketBuffer> reliableQueueHead; 
 	PacketBuffer* reliableQueueTail;  
@@ -462,9 +486,9 @@ protected:
 
 	SequenceBitmap pendingAckSerials; 
 
-	unsigned __int32 ackMax; 
+	unsigned __int64 ackMax;
 
-	unsigned __int32 ackMin; 
+	unsigned __int64 ackMin;
 
 	SequenceBitmap recentPendingAckSerials; 
 
@@ -474,7 +498,7 @@ protected:
 
 	void resetSendRateSamples(unsigned __int64 time);
 	
-	typedef std::unordered_map<unsigned __int32, IntrusivePtr<PacketBuffer>> SentPacketIndex;
+	typedef std::unordered_map<unsigned __int64, IntrusivePtr<PacketBuffer>> SentPacketIndex;
 	SentPacketIndex sentPacketsBySequence;
 	
 	unsigned __int64 lastRetransmitScanMs;
@@ -497,7 +521,7 @@ protected:
 	
 	bool prepareBestEffortPacket();
 
-	std::unordered_map<unsigned __int32, IntrusivePtr<PacketBuffer>> deferred;
+	std::unordered_map<unsigned __int64, IntrusivePtr<PacketBuffer>> deferred;
 	unsigned deferredMessages = 0;
 	size_t deferredBytes = 0;
 
@@ -505,13 +529,13 @@ protected:
 
 	void recordRetransmission(PacketBuffer* msg)
 	{
-		unsigned __int32 ser = msg->sequenceNumber();
+		unsigned __int64 ser = msg->sequenceNumber();
 		if (ser < receivedSerialWindowStart)
 			return;
 		if (ser >= ackRingFirstSequence)
 		{
 			
-			__int32 serI = ackRingCursor - (highestReceivedSequence - ser);
+			__int32 serI = ackRingCursor - static_cast<int>(highestReceivedSequence - ser);
 			if (serI < 0)
 				serI += ACK_RING_CAPACITY;
 			ackTime[serI] = (unsigned)msg->packetActivityMs;
@@ -541,7 +565,7 @@ protected:
 		while (!ready.empty())
 		{
 			IntrusivePtr<PacketBuffer> current = ready.back(); ready.pop_back();
-			const unsigned ser = current->sequenceNumber();
+			const unsigned __int64 ser = current->sequenceNumber();
 			if (ser >= receivedSerialWindowStart)
 			{
 				if (current->packetEventHandler)
@@ -570,7 +594,7 @@ protected:
 
 	unsigned char ack[ACK_RING_CAPACITY];
 
-	unsigned __int32 recentAckQueue[RECENT_ACK_CAPACITY];
+	unsigned __int64 recentAckQueue[RECENT_ACK_CAPACITY];
 
 	__int32 recentAckHead;
 	
@@ -580,19 +604,19 @@ protected:
 
 	__int32 ackRingCursor; 
 
-	unsigned __int32 highestReceivedSequence; 
+	unsigned __int64 highestReceivedSequence;
 
-	unsigned __int32 ackRingFirstSequence; 
+	unsigned __int64 ackRingFirstSequence;
 
 	SequenceBitmap receivedSerials; 
 
-	unsigned __int32 receivedSerialWindowStart; 
+	unsigned __int64 receivedSerialWindowStart;
 
 	bool starvation; 
 
 	unsigned reliablePacketsSinceAck; 
 
-	inline bool alreadyReceived(unsigned __int32 ser)
+	inline bool alreadyReceived(unsigned __int64 ser)
 	{
 		if (ser < receivedSerialWindowStart)
 			return true;
@@ -605,7 +629,7 @@ protected:
 
 	unsigned newBytes; 
 	
-	void recordAcknowledgement(unsigned __int32 s, PacketBuffer* msg)
+	void recordAcknowledgement(unsigned __int64 s, PacketBuffer* msg)
 	{
 		pendingAckSerials.off(s);
 		recentPendingAckSerials.off(s);
@@ -625,15 +649,15 @@ protected:
 		}
 	}
 
-	unsigned __int64 lastPacketReceivedMs; 
+	unsigned __int64 lastPacketReceivedMs;
 
-	unsigned __int64 lastPacketSentMs; 
+	unsigned __int64 lastPacketSentMs;
 
-	unsigned __int64 lastPingReceivedMs; 
+	unsigned __int64 lastPingReceivedMs;
 
-	unsigned __int64 lastPingSentMs; 
+	unsigned __int64 lastPingSentMs;
 
-	unsigned __int64 lastProbePairSentMs; 
+	unsigned __int64 lastProbePairSentMs;
 
 	void updateLivenessLocked(unsigned __int64 now)
 	{

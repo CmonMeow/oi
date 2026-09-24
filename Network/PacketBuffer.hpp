@@ -17,6 +17,8 @@ class PacketBuffer : public AtomicRefCount
 protected:
 	ChannelInterface* channel;
 	struct sockaddr_in distant;
+	// Local sequence including wrap count; never serialized.
+	unsigned __int64 localSequence;
 	PacketStatus status;
 
 	union
@@ -38,7 +40,7 @@ protected:
 
 	PacketStatus subscribedPacketEvent;
 
-	unsigned __int32 heartbeatRequestSequence;
+	unsigned __int64 heartbeatRequestSequence;
 	unsigned __int64 heartbeatReceivedMs;
 
 	IntrusivePtr<PacketBuffer> orderingPredecessor;
@@ -52,6 +54,7 @@ protected:
 		channel = NULL;
 		memset(data, 0, totalLen);
 		header->serial = NULL;
+		localSequence = 0;
 		header->flags = 0;
 		msgLen = header->length = sizeof(DatagramHeader);
 		header->ackBaseSequence = 1;
@@ -105,6 +108,7 @@ public:
 
 		memcpy(data, (const char*)hdr, hdr->length);
 		msgLen = hdr->length;
+		localSequence = hdr->serial;
 		packetActivityMs = packetStartedMs = GetTickCount64();
 		return true;
 	}
@@ -115,6 +119,7 @@ public:
 		status = msg->status;
 		header->flags = msg->header->flags & ~(PACKET_FRAGMENT | PACKET_FINAL_FRAGMENT);
 		header->serial = msg->header->serial;
+		localSequence = msg->localSequence;
 		header->ackBaseSequence = msg->header->ackBaseSequence;
 		header->ackSequenceBits = msg->header->ackSequenceBits;
 
@@ -182,7 +187,7 @@ public:
 			else
 			{
 				orderingPredecessor = NULL; 
-				header->c.control2 = _pred->sequenceNumber();
+				header->c.control2 = static_cast<unsigned __int32>(_pred->sequenceNumber());
 			}
 		}
 		else
@@ -203,7 +208,7 @@ public:
 				header->flags |= PACKET_PRIORITY;
 			if (orderingPredecessor->sequenceNumber() != NULL)
 			{ 
-				header->c.control2 = orderingPredecessor->sequenceNumber();
+				header->c.control2 = static_cast<unsigned __int32>(orderingPredecessor->sequenceNumber());
 				orderingPredecessor = NULL; 
 			}
 		}
@@ -228,7 +233,7 @@ public:
 	virtual void* payloadBytes() const { return (data ? data + sizeof(DatagramHeader) : NULL); }
 	virtual void packetDestination(struct sockaddr_in& _distant) const { _distant = distant; }
 	virtual void assignDestination(struct sockaddr_in& _distant) { distant = _distant; }
-	virtual unsigned __int32 sequenceNumber() const { return header->serial; }
+	virtual unsigned __int64 sequenceNumber() const { return localSequence; }
 	virtual ChannelInterface* ownerChannel() const { return channel; }
 	virtual unsigned __int64 packetTimestamp() const { return packetActivityMs; }
 	virtual PacketStatus packetState() const { return status; }

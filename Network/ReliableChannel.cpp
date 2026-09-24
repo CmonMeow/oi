@@ -3,14 +3,17 @@
 #include "UdpEndpoint.hpp"
 #include "ReliableChannel.hpp"
 
-unsigned __int32 packetSequenceKey(const IntrusivePtr<PacketBuffer>& msg)
+unsigned __int64 packetSequenceKey(const IntrusivePtr<PacketBuffer>& msg)
 {
 	return msg ? msg->sequenceNumber() : NULL;
 }
 
-unsigned __int32 packetDependencyKey(const IntrusivePtr<PacketBuffer>& msg)
+unsigned __int64 packetDependencyKey(const IntrusivePtr<PacketBuffer>& msg)
 {
-	return msg ? ((unsigned __int32)msg->datagramHeader()->c.control2) : NULL;
+	unsigned __int64 result = 0;
+    if (msg && msg->datagramHeader()->c.control2)
+        expandWireSequence(msg->datagramHeader()->c.control2, msg->sequenceNumber(), result);
+    return result;
 }
 
 void ReliableChannel::resetSendRateSamples(unsigned __int64 time)
@@ -24,13 +27,13 @@ void ReliableChannel::resetSendRateSamples(unsigned __int64 time)
 void ReliableChannel::updateReceiveMetrics(PacketBuffer* msg)
 {
 	
-	const unsigned __int32 ser = msg->sequenceNumber();
+	const unsigned __int64 ser = msg->sequenceNumber();
 	receivedSerials.on(ser);
 	if (msg->header->flags & PACKET_RELIABLE)
 		reliablePacketsSinceAck++;
 	if (ser > highestReceivedSequence)
 	{
-		const unsigned gap = ser - highestReceivedSequence;
+		const unsigned gap = static_cast<unsigned>(ser - highestReceivedSequence);
 		if (gap >= ACK_RING_CAPACITY)
 		{
 			memset(ack, ACK_SLOT_EMPTY, sizeof(ack));
@@ -49,7 +52,7 @@ void ReliableChannel::updateReceiveMetrics(PacketBuffer* msg)
 	
 	if (highestReceivedSequence - receivedSerialWindowStart > transportTuning.receiveSequenceWindowSize)
 	{
-		__int32 newReceivedSerialWindowStart = highestReceivedSequence - transportTuning.receiveSequenceWindowSize + RECEIVE_WINDOW_TRIM_SLACK;
+		unsigned __int64 newReceivedSerialWindowStart = highestReceivedSequence - transportTuning.receiveSequenceWindowSize + RECEIVE_WINDOW_TRIM_SLACK;
 		receivedSerials.range(receivedSerialWindowStart, newReceivedSerialWindowStart - receivedSerialWindowStart, false);
 		receivedSerials.growOptimize(true, newReceivedSerialWindowStart);
 		processedSerials.range(receivedSerialWindowStart, newReceivedSerialWindowStart - receivedSerialWindowStart, false);
@@ -60,7 +63,7 @@ void ReliableChannel::updateReceiveMetrics(PacketBuffer* msg)
 	__int32 serI;
 	if (ser >= ackRingFirstSequence)
 	{
-		serI = ackRingCursor - (highestReceivedSequence - ser);
+		serI = ackRingCursor - static_cast<int>(highestReceivedSequence - ser);
 		if (serI < 0)
 			serI += ACK_RING_CAPACITY;
 		ack[serI] = transportTuning.ackRepeatCount; 
@@ -69,7 +72,7 @@ void ReliableChannel::updateReceiveMetrics(PacketBuffer* msg)
 		serI = -1;
 	
 	__int32 i = ackRingCursor;
-	unsigned __int32 notAck = highestReceivedSequence - ACK_RING_CAPACITY;
+	unsigned __int64 notAck = highestReceivedSequence - ACK_RING_CAPACITY;
 	do
 	{
 		notAck++;
@@ -88,13 +91,15 @@ void ReliableChannel::updateReceiveMetrics(PacketBuffer* msg)
 	if (serI >= 0)
 		ackTime[serI] = (unsigned)lastPacketReceivedMs;
 
-	if (msg->header->flags & PACKET_PING_REPLY)
+	unsigned __int64 ackOrigin = 0;
+    const bool validAck = expandWireSequence(msg->header->ackBaseSequence, serial - 1, ackOrigin) && ackOrigin < serial;
+    if (validAck && (msg->header->flags & PACKET_PING_REPLY))
 	{ 
 		lastPingReceivedMs = msg->packetActivityMs;
 		IntrusivePtr<PacketBuffer> origMsg;
 
 		{
-			auto it = sentPacketsBySequence.find(msg->header->ackBaseSequence);
+			auto it = sentPacketsBySequence.find(ackOrigin);
 			if (it != sentPacketsBySequence.end())
 				origMsg = it->second;
 		}
@@ -121,9 +126,9 @@ void ReliableChannel::updateReceiveMetrics(PacketBuffer* msg)
 		}
 	}
 
-	unsigned __int64 ack; 
+	unsigned __int64 ack;
 	unsigned ackLen;
-	unsigned __int32 s = msg->header->ackBaseSequence;
+	unsigned __int64 s = ackOrigin;
 	if (PACKET_HAS_SHORT_ACK(msg->header->flags))
 	{
 		ack = msg->header->c.control1;
@@ -134,7 +139,8 @@ void ReliableChannel::updateReceiveMetrics(PacketBuffer* msg)
 		ack = msg->header->ackSequenceBits;
 		ackLen = 64;
 	}
-	unsigned __int32 oldest; 
+	if (!validAck) ack = 0;
+	unsigned __int64 oldest;
 	if (s >= ackLen - 1)
 		oldest = s - ackLen + 1;
 	else
@@ -144,7 +150,7 @@ void ReliableChannel::updateReceiveMetrics(PacketBuffer* msg)
 	newBytes = 0; 
 
 	bool wasNegative = false;
-	unsigned __int32 highest = 0; 
+	unsigned __int64 highest = 0;
 	IntrusivePtr<PacketBuffer> ackMsg;
 	while (ack && s >= oldest)
 	{ 
@@ -168,6 +174,7 @@ void ReliableChannel::updateReceiveMetrics(PacketBuffer* msg)
 			highest = s;
 		}
 		ack >>= 1;
+		if (s == 0) break;
 		s--;
 	}
 
@@ -300,7 +307,7 @@ bool ReliableChannel::prepareNextPacket()
 	if (!opened)
 		return false;
 	stateMutex.lock();
-	if (serial >= MAX_CHANNEL_SERIAL)
+	if (serial >= MAX_LOCAL_SEQUENCE)
 	{
 		stateMutex.unlock();
 		return false;
@@ -466,11 +473,11 @@ unsigned __int64 ReliableChannel::beginSendBatch(unsigned __int64 bunchStart)
 	if (prepared->header->flags & PACKET_PING_REQUEST)
 		lastPingSentMs = lastPacketSentMs;
 	
-	if (prepared->markBatchMember(lastSentSequence + 1 == prepared->header->serial &&
+	if (prepared->markBatchMember(lastSentSequence + 1 == prepared->sequenceNumber() &&
 						   bunchStart && previousMsgDeparture >= bunchStart &&
 						   previousMsgDeparture >= lastPacketSentMs - PACKET_PAIR_SEND_GAP_MS))
 		lastProbePairSentMs = lastPacketSentMs;
-	lastSentSequence = prepared->header->serial;
+	lastSentSequence = prepared->sequenceNumber();
 	if (prepared->status == PacketOutputPending)
 	{ 
 		if (lastSentSequence >= ackMin)
@@ -490,7 +497,7 @@ void ReliableChannel::finishSendBatch()
 		return;
 	}
 	
-	sentPacketsBySequence[prepared->header->serial] = prepared.GetRef();
+	sentPacketsBySequence[prepared->sequenceNumber()] = prepared.GetRef();
 	
 	unsigned sendBytes = prepared->header->length + IPV4_UDP_HEADER_BYTES;
 
@@ -506,7 +513,7 @@ void ReliableChannel::finishSendBatch()
 	prepared = NULL; 
 }
 
-unsigned __int64 ReliableChannel::packetSendTime(unsigned __int32 ser)
+unsigned __int64 ReliableChannel::packetSendTime(unsigned __int64 ser)
 {
 	IntrusivePtr<PacketBuffer> msg;
 	auto it = sentPacketsBySequence.find(ser);
@@ -532,17 +539,18 @@ void ReliableChannel::writeAcknowledgements(PacketBuffer* msg)
 	}
 	else
 	{ 
-		msg->header->serial = serial++;
-		if (serial == NULL)
-			serial++;
+		msg->localSequence = serial++;
+        msg->header->serial = static_cast<unsigned __int32>(msg->localSequence);
+        // Zero still means "not assigned" / "no ordered predecessor" on wire.
+        if (static_cast<unsigned __int32>(serial) == 0) ++serial;
 		msg->status = PacketOutputPending;
 		msg->retransmitDelayMs = timeout; 
 		if (msg->header->flags & PACKET_PING_REQUEST)
 			msg->awaitingRttSample = true; 
 	}
 
-	unsigned __int32 newest; 
-	unsigned __int32 oldest; 
+	unsigned __int64 newest;
+	unsigned __int64 oldest;
 	__int32 i;
 	unsigned size = PACKET_HAS_SHORT_ACK(msg->header->flags) ? 31 : 63;
 
@@ -578,14 +586,14 @@ void ReliableChannel::writeAcknowledgements(PacketBuffer* msg)
 	}
 	oldest = (newest >= size) ? newest - size : 0;
 
-	msg->header->ackBaseSequence = newest;
+	msg->header->ackBaseSequence = static_cast<unsigned __int32>(newest);
 	
 	if (newest >= ackRingFirstSequence)
 	{
-		i = ackRingCursor - (highestReceivedSequence - newest);
+		i = ackRingCursor - static_cast<int>(highestReceivedSequence - newest);
 		if (i < 0)
 			i += ACK_RING_CAPACITY; 
-		unsigned j = newest;
+		unsigned __int64 j = newest;
 		while (j >= ackRingFirstSequence && j >= oldest)
 		{
 			if (ack[i] > 0 && ack[i] != ACK_SLOT_EMPTY)
@@ -612,7 +620,7 @@ void ReliableChannel::writeAcknowledgements(PacketBuffer* msg)
 		{ 
 			if (msg->orderingPredecessor)
 			{
-				msg->header->c.control2 = msg->orderingPredecessor->sequenceNumber();
+				msg->header->c.control2 = static_cast<unsigned __int32>(msg->orderingPredecessor->sequenceNumber());
 				msg->orderingPredecessor = NULL;
 			}
 		}
@@ -650,7 +658,7 @@ void ReliableChannel::serviceChannel()
 
 			if (msg->packetActivityMs < lostTime)
 			{
-				unsigned s = msg->header->serial;
+				unsigned __int64 s = msg->sequenceNumber();
 				if (recentPendingAckSerials.get(s))
 				{
 					recentPendingAckSerials.off(s);
@@ -660,7 +668,7 @@ void ReliableChannel::serviceChannel()
 			}
 		}
 
-		__int32 actual = pendingAckSerials.getFirst();
+		unsigned __int64 actual = pendingAckSerials.getFirst();
 		while (actual != SequenceBitmap::END)
 		{
 			auto it = sentPacketsBySequence.find(actual);
@@ -681,7 +689,7 @@ void ReliableChannel::serviceChannel()
 		
 		actual = ackMin;
 		bool shiftMin = false;
-		while ((unsigned)actual < ackMax)
+		while (actual < ackMax)
 		{
 			auto it = sentPacketsBySequence.find(actual);
 			msg = (it != sentPacketsBySequence.end()) ? it->second : IntrusivePtr<PacketBuffer>();
@@ -698,12 +706,12 @@ void ReliableChannel::serviceChannel()
 				ackMin = ackMax - transportTuning.pendingAckWindowSize;
 
 			actual = pendingAckSerials.getFirst();
-			if ((unsigned)actual < ackMin)
+			if (actual < ackMin)
 				pendingAckSerials.range(actual, ackMin - actual, false);
 			pendingAckSerials.growOptimize(true, ackMin);
 
 			actual = recentPendingAckSerials.getFirst();
-			if ((unsigned)actual < ackMin)
+			if (actual < ackMin)
 				recentPendingAckSerials.range(actual, ackMin - actual, false);
 			recentPendingAckSerials.growOptimize(true, ackMin);
 		}
