@@ -58,7 +58,7 @@ protected:
 		header->flags = 0;
 		msgLen = header->length = sizeof(DatagramHeader);
 		header->ackBaseSequence = 1;
-		header->ackSequenceBits = 0;
+		header->ackBits = 0;
 		subscribedPacketEvent = PacketInvalidMessage;
 		memset((void*)&(distant), NULL, sizeof(distant));
 		awaitingRttSample = false;
@@ -121,7 +121,7 @@ public:
 		header->serial = msg->header->serial;
 		localSequence = msg->localSequence;
 		header->ackBaseSequence = msg->header->ackBaseSequence;
-		header->ackSequenceBits = msg->header->ackSequenceBits;
+		header->ackBits = msg->header->ackBits;
 
 		packetActivityMs = msg->packetActivityMs;
 		packetStartedMs = msg->packetStartedMs;
@@ -187,7 +187,7 @@ public:
 			else
 			{
 				orderingPredecessor = NULL; 
-				header->c.control2 = static_cast<unsigned __int32>(_pred->sequenceNumber());
+				header->ordered.predecessorSequence = static_cast<unsigned __int32>(_pred->sequenceNumber());
 			}
 		}
 		else
@@ -208,7 +208,7 @@ public:
 				header->flags |= PACKET_PRIORITY;
 			if (orderingPredecessor->sequenceNumber() != NULL)
 			{ 
-				header->c.control2 = static_cast<unsigned __int32>(orderingPredecessor->sequenceNumber());
+				header->ordered.predecessorSequence = static_cast<unsigned __int32>(orderingPredecessor->sequenceNumber());
 				orderingPredecessor = NULL; 
 			}
 		}

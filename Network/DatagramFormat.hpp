@@ -33,17 +33,20 @@ struct DatagramHeader {
 	unsigned __int32 serial;
 	
 	unsigned __int32 ackBaseSequence;
+	// Packet flags select the view; all three occupy the same eight bytes.
 	union
 	{
-		
-		unsigned __int64 ackSequenceBits;
+		unsigned __int64 ackBits;
 		struct
 		{
-			
-			unsigned __int32 control1;
-			
-			unsigned __int32 control2;
-		} c;
+			unsigned __int32 ackBits;
+			unsigned __int32 predecessorSequence;
+		} ordered;
+		struct
+		{
+			unsigned __int32 ackBits;
+			unsigned __int32 replyDelayMs;
+		} pingReply;
 	};
 };
 

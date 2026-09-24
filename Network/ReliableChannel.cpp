@@ -11,8 +11,8 @@ unsigned __int64 packetSequenceKey(const IntrusivePtr<PacketBuffer>& msg)
 unsigned __int64 packetDependencyKey(const IntrusivePtr<PacketBuffer>& msg)
 {
 	unsigned __int64 result = 0;
-    if (msg && msg->datagramHeader()->c.control2)
-        expandWireSequence(msg->datagramHeader()->c.control2, msg->sequenceNumber(), result);
+    if (msg && msg->datagramHeader()->ordered.predecessorSequence)
+        expandWireSequence(msg->datagramHeader()->ordered.predecessorSequence, msg->sequenceNumber(), result);
     return result;
 }
 
@@ -105,10 +105,10 @@ void ReliableChannel::updateReceiveMetrics(PacketBuffer* msg)
 		}
 		unsigned measuredRttMs;
 
-		if (origMsg && (measuredRttMs = (unsigned)(msg->packetActivityMs - origMsg->packetActivityMs)) >= msg->header->c.control2)
+		if (origMsg && (measuredRttMs = (unsigned)(msg->packetActivityMs - origMsg->packetActivityMs)) >= msg->header->pingReply.replyDelayMs)
 		{
 
-			latestRttMs = measuredRttMs - msg->header->c.control2;
+			latestRttMs = measuredRttMs - msg->header->pingReply.replyDelayMs;
 
 			if (smoothedRttMs)
 				smoothedRttMs = (unsigned)((1.0f - RTT_SMOOTHING_WEIGHT) * smoothedRttMs + RTT_SMOOTHING_WEIGHT * latestRttMs);
@@ -131,12 +131,13 @@ void ReliableChannel::updateReceiveMetrics(PacketBuffer* msg)
 	unsigned __int64 s = ackOrigin;
 	if (PACKET_HAS_SHORT_ACK(msg->header->flags))
 	{
-		ack = msg->header->c.control1;
+		ack = (msg->header->flags & PACKET_ORDERED)
+			? msg->header->ordered.ackBits : msg->header->pingReply.ackBits;
 		ackLen = 32;
 	}
 	else
 	{
-		ack = msg->header->ackSequenceBits;
+		ack = msg->header->ackBits;
 		ackLen = 64;
 	}
 	if (!validAck) ack = 0;
@@ -468,7 +469,7 @@ unsigned __int64 ReliableChannel::beginSendBatch(unsigned __int64 bunchStart)
 	prepared->packetActivityMs = lastPacketSentMs;
 	
 	if (prepared->header->flags & PACKET_PING_REPLY)
-		prepared->header->c.control2 = (unsigned __int32)(lastPacketSentMs - prepared->heartbeatReceivedMs);
+		prepared->header->pingReply.replyDelayMs = (unsigned __int32)(lastPacketSentMs - prepared->heartbeatReceivedMs);
 	
 	if (prepared->header->flags & PACKET_PING_REQUEST)
 		lastPingSentMs = lastPacketSentMs;
@@ -620,17 +621,20 @@ void ReliableChannel::writeAcknowledgements(PacketBuffer* msg)
 		{ 
 			if (msg->orderingPredecessor)
 			{
-				msg->header->c.control2 = static_cast<unsigned __int32>(msg->orderingPredecessor->sequenceNumber());
+				msg->header->ordered.predecessorSequence = static_cast<unsigned __int32>(msg->orderingPredecessor->sequenceNumber());
 				msg->orderingPredecessor = NULL;
 			}
 		}
 		
-		msg->header->c.control1 = (unsigned __int32)am;
+		if (msg->header->flags & PACKET_ORDERED)
+			msg->header->ordered.ackBits = (unsigned __int32)am;
+		else
+			msg->header->pingReply.ackBits = (unsigned __int32)am;
 	}
 	else
 	{
 		
-		msg->header->ackSequenceBits = am;
+		msg->header->ackBits = am;
 	}
 }
 

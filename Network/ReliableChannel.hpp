@@ -227,8 +227,8 @@ public:
         {
             if (!hdr->serial || !expandWireSequence(hdr->serial, highestReceivedSequence, incomingSequence) ||
                 (incomingSequence > highestReceivedSequence && incomingSequence - highestReceivedSequence > transportTuning.receiveSequenceWindowSize) ||
-                ((hdr->flags & (PACKET_RELIABLE | PACKET_ORDERED)) == (PACKET_RELIABLE | PACKET_ORDERED) && hdr->c.control2 &&
-                 (!expandWireSequence(hdr->c.control2, incomingSequence, predecessorSequence) || predecessorSequence >= incomingSequence)))
+                ((hdr->flags & (PACKET_RELIABLE | PACKET_ORDERED)) == (PACKET_RELIABLE | PACKET_ORDERED) && hdr->ordered.predecessorSequence &&
+                 (!expandWireSequence(hdr->ordered.predecessorSequence, incomingSequence, predecessorSequence) || predecessorSequence >= incomingSequence)))
             {
                 stateMutex.unlock();
                 return;
