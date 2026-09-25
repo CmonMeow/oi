@@ -3,6 +3,7 @@
 #include "UdpEndpoint.hpp"
 
 #include "ReliableChannel.hpp"
+#include "../HostDirectoryProbe.h"
 
 const unsigned UdpWorkerPollIntervalMs = 5;
 
@@ -147,6 +148,7 @@ DWORD WINAPI runUdpWorker(void* param)
 			memset(&from, 0, sizeof(from)); 
 			error = recvfrom(peer->sock, data, DatagramReceiveBufferBytes - 1, 0, (struct sockaddr*)&from, &fromLen);
             if (error > 0) peer->incomingBytes.fetch_add(error, std::memory_order_relaxed);
+            if (error > 0 && HostDirectoryProbe::instance().receive(peer->sock,data,error,from)) continue;
 			if (error != SOCKET_ERROR && error >= (__int32)sizeof(DatagramHeader) && error <= DatagramReceiveBufferBytes &&
 				error == (__int32)header.length && header.length <= DatagramReceiveBufferBytes)
 			{

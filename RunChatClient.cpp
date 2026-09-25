@@ -39,6 +39,7 @@ static void DrawChatButton(const char* text, vec2i pos, bool on, bool speaking =
 #include "VoiceChat.h"
 #include "ChatBox.h"
 #include "ScreenShare.h"
+#include "HostBrowser.h"
 struct ChatParticipantView
 {
     string label;
@@ -111,7 +112,15 @@ void RunChatClient(HWND hWnd)
     PackedClientSettings settings;
     cNetworkRuntime network(hWnd, &settings);
     if (settings.dedicated()) network.hostOnPort();
+    HostDirectoryClient directory(HostDirectoryClient::configuredAddress(DEFAULT_NETWORK_ADDRESS), APP_PROTOCOL_VERSION);
+    HostBrowser browser;
     cChatBox chatBox;
+    string previousPublishStatus,directoryHostName;
+    ULONGLONG nextDirectoryNameRead=0;
+    network.browseHosts=[&]{
+        if(network.hasConnection())network.showNotice("Use /disconnect before browsing hosts.",true);
+        else {chatBox.deactivate();browser.show(directory);}
+    };
     cVoiceChat voiceChat;
     ScreenShare screenShare(hWnd,
         [&](const ScreenSignaling::Event& event){ network.sendScreenEvent(event); },
@@ -176,6 +185,16 @@ void RunChatClient(HWND hWnd)
         }
 
         network.update();
+        if(network.isHost()&&GetTickCount64()>=nextDirectoryNameRead){
+            directoryHostName=LocalUserName();nextDirectoryNameRead=GetTickCount64()+5000;
+        }
+        directory.update(network.isHost(),network.hostingPort(),(unsigned)network.participants().size(),directoryHostName);
+        browser.update(network,directory);
+        if(directory.publishStatus!=previousPublishStatus){
+            previousPublishStatus=directory.publishStatus;
+            if(network.isHost()&&!previousPublishStatus.empty()&&previousPublishStatus!="Publishing host...")
+                network.showNotice(previousPublishStatus,previousPublishStatus!="Listed in host browser.");
+        }
         if(!network.isHost() && !network.clientReady()) screenShare.close();
         ScreenSignaling::Event screenEvent;
         while(network.popScreenEvent(screenEvent)) screenShare.receive(screenEvent);
@@ -224,7 +243,7 @@ void RunChatClient(HWND hWnd)
         if(screenClicked) {
             selectingHotkey=false;releaseHotkey=0;input.Clear();
             if(network.isHost() || network.clientReady()) screenShare.toggle();
-            else network.showNotice("Connect or host before sharing a screen.",true);
+            else {chatBox.deactivate();browser.toggle(directory);}
         }
         if (micClicked && !settings.voiceEnabled()) settings.toggleVoiceEnabled();
         if (hotkeyClicked)
@@ -234,6 +253,7 @@ void RunChatClient(HWND hWnd)
             voiceChat.resetTransmitMode();
         }
         if (!selectingHotkey && !releaseHotkey) chatBox.update(network);
+        if(chatBox.active())browser.hide();
         input.ConsumeMouseWheel();
         const bool talkDown = !selectingHotkey && !releaseHotkey &&
             (screenShare.focused() ? (GetAsyncKeyState(settings.talkKey)&0x8000)!=0 :
@@ -254,10 +274,11 @@ void RunChatClient(HWND hWnd)
             glMatrixMode(GL_MODELVIEW); glLoadIdentity();
             chatBox.draw(network, GetForegroundWindow() == hWnd);
             DrawChatStatus(MakeChatStatus(network, voiceChat), chatBox.historyOffset());
+            browser.draw(network,directory);
             DrawChatButton(voiceChat.micEnabled() ? "MIC ON" : "MIC OFF",
                                         micButton, voiceChat.micEnabled(), voiceChat.transmitting(network));
             DrawChatButton(selectingHotkey ? "PRESS KEY" : settings.talkKeyLabel().c_str(), hotkeyButton, selectingHotkey);
-            DrawChatButton(screenShare.sharing() ? "STOP SHARE" : "SCREEN",screenButton,screenShare.sharing());
+            DrawChatButton(!network.hasConnection() ? "HOSTS" : screenShare.sharing() ? "STOP SHARE" : "SCREEN",screenButton,screenShare.sharing());
             SwapBuffers(dc);
         }
 

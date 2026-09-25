@@ -5,3 +5,5 @@ build/
 # Never commit private signing-key backups.
 *.pfx
 *.p12
+/tests
+/bin/oi-idle-test.exe

@@ -120,6 +120,10 @@
     <ClInclude Include="sysdef.h" />
     <ClInclude Include="ChatBox.h" />
     <ClInclude Include="ChatCommands.h" />
+    <ClInclude Include="HostDirectoryProtocol.h" />
+    <ClInclude Include="HostDirectoryProbe.h" />
+    <ClInclude Include="HostDirectoryClient.h" />
+    <ClInclude Include="HostBrowser.h" />
     <ClInclude Include="FileTransfers.h" />
     <ClInclude Include="FileSaveDialog.h" />
     <ClInclude Include="ClientSettings.h" />

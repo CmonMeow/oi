@@ -355,6 +355,10 @@ class cChatBox
             network.setDedicated(command.substr(10));
             break;
 
+        case ChatCommand::Hosts:
+            if (network.browseHosts) network.browseHosts();
+            break;
+
         case ChatCommand::Host:
             if (!Trim(command.substr(5)).empty())
                 network.showNotice("usage: /host", true);
@@ -441,6 +445,8 @@ public:
     }
 
     size_t historyOffset() const { return _scrollOffset; }
+
+    void deactivate() { _active = false; }
 
     bool active() const
     {

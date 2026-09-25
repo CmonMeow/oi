@@ -7,6 +7,8 @@
 
 class cNetworkRuntime
 {
+    string _hostName;
+    unsigned short _hostingPort = DEFAULT_NETWORK_PORT;
     ScreenSignaling _screens;
     FileTransfers _files;
     ULONGLONG _voiceActiveUntil = 0;
@@ -135,7 +137,7 @@ class cNetworkRuntime
         }
         _privateChatKeyReady = true;
         _privateChatKeys[0] = privateChatPublicKeyBytes();
-        _privateChatNames[0] = "system";
+        _privateChatNames[0] = _hostName;
         return true;
     }
 
@@ -426,7 +428,7 @@ class cNetworkRuntime
         raw.putInt32(_rosterRevision);
         raw.putInt32(static_cast<__int32>(_playerIdentities.size() + 1));
         raw.putInt32(0);
-        raw.putString("system", 48);
+        raw.putString(_hostName, 48);
         for (const auto& entry : _playerIdentities)
         {
             raw.putInt32(entry.first);
@@ -931,9 +933,9 @@ class cNetworkRuntime
 
     string playerDisplayName(__int32 player) const
     {
-        if (player == 0)
+        if (player == 0 && _server)
         {
-            return "system";
+            return _hostName;
         }
         std::map<__int32, NetworkIdentity>::const_iterator found = _playerIdentities.find(player);
         if (found != _playerIdentities.end() && !found->second.name.empty())
@@ -1067,7 +1069,7 @@ class cNetworkRuntime
         }
         if (_server)
         {
-            sendPrivateChatToClient(target, 0, "system", cipher);
+            sendPrivateChatToClient(target, 0, _hostName, cipher);
             addChatLine(string(">") + playerDisplayName(target) + ": " + text, CLKPrivate);
             return true;
         }
@@ -1111,9 +1113,9 @@ class cNetworkRuntime
         if (MatchesCommand(command, "/name"))
         {
             std::map<__int32, NetworkIdentity>::iterator identity = _playerIdentities.find(from);
-            if (identity == _playerIdentities.end())
+            if (from != 0 && identity == _playerIdentities.end())
             {
-                sendCommandResult(from, "The server uses the name system.");
+                sendCommandResult(from, "Player not found.", true);
                 return;
             }
             string name = TrimWhitespace(command.substr(5));
@@ -1127,13 +1129,14 @@ class cNetworkRuntime
                 sendCommandResult(from, "usage: /name username (1-32 letters: a-z, A-Z only)", true);
                 return;
             }
-            string oldName = identity->second.name;
-            identity->second.name = IdentityDisplayName(name, from);
+            string& displayName = from == 0 ? _hostName : identity->second.name;
+            string oldName = displayName;
+            displayName = IdentityDisplayName(name, from);
             broadcastPresence();
-            _privateChatNames[from] = identity->second.name;
+            _privateChatNames[from] = displayName;
             std::map<__int32, string>::const_iterator key = _privateChatKeys.find(from);
-            if (key != _privateChatKeys.end()) broadcastChatKey(from, identity->second.name, key->second);
-            string notice = "system: " + oldName + " is now " + identity->second.name;
+            if (key != _privateChatKeys.end()) broadcastChatKey(from, displayName, key->second);
+            string notice = "system: " + oldName + " is now " + displayName;
             addChatLine(notice, CLKSystem);
             sendRawStringFromServerToAll(NAMTSystemNotice, notice, CHAT_MAX_LINE_CHARS);
             return;
@@ -1231,6 +1234,7 @@ public:
             return false;
         }
 
+        _hostName = IdentityDisplayName(LocalUserName(), 0);
         _players.clear();
         _playerIdentities.clear();
         _participantsDirty = true;
@@ -1256,6 +1260,7 @@ public:
             return false;
         }
 
+        _hostingPort = port;
         ReadBlockedSerials(_bannedSerials);
         return true;
     }
@@ -1395,7 +1400,7 @@ public:
     {
         if (!_participantsDirty) return _participantCache;
         _participantCache.clear();
-        if (_server) _participantCache.push_back({0, "system"});
+        if (_server) _participantCache.push_back({0, _hostName});
         if (_server || clientReady())
             for (const auto& entry : _playerIdentities) _participantCache.push_back({entry.first, entry.second.name});
         _participantsDirty = false;
@@ -1459,7 +1464,6 @@ public:
     void changeName(const string& argument)
     {
         string name = TrimWhitespace(argument);
-        if (_server) { addChatLine("The server uses the name system.", CLKSystem); return; }
         if (name.empty())
         {
             addChatLine("usage: /name username", CLKError);
@@ -1474,7 +1478,7 @@ public:
         file << name << "\n";
         file.close();
         if (!file) { addChatLine("Could not save your name.", CLKError); return; }
-        if (_client) sendChat("/name " + name);
+        if (_client || _server) sendChat("/name " + name);
         else addChatLine("Name saved: " + name, CLKSystem);
     }
 
@@ -1484,6 +1488,8 @@ public:
             if (person.first != localPlayerId() && _privateChatKeys.count(person.first)) peers.push_back(person.first);
         _files.offer(path,peers);
     }
+    unsigned short hostingPort() const { return _hostingPort; }
+    std::function<void()> browseHosts;
     std::function<void(int,const string&)> openScreen;
     void sendScreenEvent(const ScreenSignaling::Event& event) { if(isHost() || clientReady()) _screens.send(event); }
     bool popScreenEvent(ScreenSignaling::Event& event) { return _screens.pop(event); }
@@ -1529,7 +1535,7 @@ public:
                 runPlayerCommand(0, message);
                 return;
             }
-            string line = string("system: ") + message;
+            string line = _hostName + ": " + message;
             addChatLine(line, CLKNormal);
             sendRawStringFromServerToAll(NAMTChat, line, CHAT_MAX_LINE_CHARS);
         }

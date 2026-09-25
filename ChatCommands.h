@@ -1,10 +1,11 @@
 #pragma once
 
-enum class ChatCommand { Name, Help, Host, Dedicated, Connect, Clear, Disconnect, Users, Private, Kick, Ban, Unknown };
+enum class ChatCommand { Name, Help, Hosts, Host, Dedicated, Connect, Clear, Disconnect, Users, Private, Kick, Ban, Unknown };
 struct ChatCommandEntry { const char* name; ChatCommand id; const char* help; bool hostOnly; };
 static constexpr ChatCommandEntry CHAT_COMMANDS[] = {
     {"/name", ChatCommand::Name, "/name username - change your name", false},
     {"/help", ChatCommand::Help, "/help - show commands", false},
+    {"/hosts", ChatCommand::Hosts, "/hosts - browse available hosts", false},
     {"/host", ChatCommand::Host, "/host - host on UDP port 777", false},
     {"/dedicated", ChatCommand::Dedicated, "/dedicated [on|off] - host at startup", false},
     {"/connect", ChatCommand::Connect, "/connect [address] - connect", false},
