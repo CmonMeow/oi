@@ -9,7 +9,8 @@
 namespace HostDirectory {
 constexpr uint32_t Magic = 0x3144494f; // OID1, directory protocol 1.
 constexpr unsigned short Port = 778;
-constexpr unsigned PageSize = 5, MaxHosts = 256;
+constexpr unsigned PageSize = 5, MaxHosts = 2500;
+constexpr unsigned MaxHostsPerAddress = 8;
 constexpr unsigned long long LeaseMs = 90000;
 enum Kind : uint8_t { Browse=1, Challenge, Fetch, List, Register, Probe, Proof, Listed, Retire };
 #pragma pack(push,1)

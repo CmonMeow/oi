@@ -56,7 +56,10 @@ int wmain(int argc,wchar_t** argv) {
         crypto_generichash(out,16,input,sizeof(input),cookieKey,sizeof(cookieKey));
     };
     auto authorized=[&](const sockaddr_in& from,const Packet& p,ULONGLONG now){unsigned char expected[16];for(unsigned age=0;age<2;++age){cookie(from,p,now/30000-age,expected);if(sodium_memcmp(expected,p.cookie,16)==0)return true;}return false;};
-    std::map<uint64_t,Listing> hosts;std::map<uint64_t,Pending> pending;std::map<uint32_t,Budget> budgets;
+    std::map<uint64_t,Listing> hosts;std::map<uint64_t,Pending> pending;
+    // Fixed, keyed buckets cannot be exhausted by allocating spoofed source addresses.
+    // Colliding addresses share a limit; the key changes on each process start.
+    std::array<Budget,4096> budgets={};unsigned char rateKey[crypto_shorthash_KEYBYTES];randombytes_buf(rateKey,sizeof(rateKey));
     Budget global;ULONGLONG nextCleanup=0;
     printf("Directory listening on %s UDP %u. Listings expire after 90 seconds. Ctrl+C stops it.\n",bindAddress.c_str(),port);fflush(stdout);
     for(;;){
@@ -65,17 +68,22 @@ int wmain(int argc,wchar_t** argv) {
         if(now>=nextCleanup){
             for(auto it=hosts.begin();it!=hosts.end();)if(now>=it->second.expires)it=hosts.erase(it);else ++it;
             for(auto it=pending.begin();it!=pending.end();)if(now>=it->second.expires)it=pending.erase(it);else ++it;
-            for(auto it=budgets.begin();it!=budgets.end();)if(now-it->second.start>10000)it=budgets.erase(it);else ++it;
             nextCleanup=now+1000;
         }
-        for(unsigned work=0;work<128;++work){
+        unsigned work=0;
+        for(;work<128;++work){
             unsigned char bytes[sizeof(Packet)+1];sockaddr_in from={};int length=sizeof(from);
             int received=recvfrom(socket,reinterpret_cast<char*>(bytes),sizeof(bytes),0,reinterpret_cast<sockaddr*>(&from),&length);
             if(received==SOCKET_ERROR){int error=WSAGetLastError();if(error==WSAEWOULDBLOCK)break;if(error==WSAECONNRESET||error==WSAEMSGSIZE)continue;fprintf(stderr,"Directory receive failed: %d\n",error);break;}
             Packet p;if(!decode(bytes,received,p))continue;
-            if(now-global.start>=1000)global={now,0};if(++global.packets>1000)continue;
-            if(!budgets.count(from.sin_addr.s_addr)&&budgets.size()>=2048)continue;
-            auto& budget=budgets[from.sin_addr.s_addr];if(now-budget.start>=1000)budget={now,0};if(++budget.packets>128)continue;
+            // Ignore response-only packets before charging request allowances.
+            if(p.kind!=Browse&&p.kind!=Fetch&&p.kind!=Register&&p.kind!=Proof&&p.kind!=Retire)continue;
+            unsigned char hash[crypto_shorthash_BYTES];
+            crypto_shorthash(hash,reinterpret_cast<const unsigned char*>(&from.sin_addr.s_addr),sizeof(from.sin_addr.s_addr),rateKey);
+            unsigned bucket=(unsigned(hash[0])|(unsigned(hash[1])<<8))%budgets.size();
+            auto& budget=budgets[bucket];if(now-budget.start>=1000)budget={now,0};
+            if(budget.packets>=128)continue;++budget.packets;
+            if(now-global.start>=1000)global={now,0};if(global.packets>=1000)continue;++global.packets;
             auto reply=[&](Packet response,const sockaddr_in& to){sign(response,key);HostDirectory::send(socket,to,response);};
             if(p.kind==Browse || (p.kind==Register && !authorized(from,p,now))){
                 Packet response;response.kind=Challenge;memcpy(response.nonce,p.nonce,16);cookie(from,p,now/30000,response.cookie);reply(response,from);
@@ -94,7 +102,16 @@ int wmain(int argc,wchar_t** argv) {
                     Packet response;response.kind=Listed;memcpy(response.nonce,p.nonce,16);reply(response,from);continue;
                 }
                 if((!hosts.count(id)&&hosts.size()>=MaxHosts)||(!pending.count(id)&&pending.size()>=MaxHosts))continue;
+                if(!hosts.count(id)&&!pending.count(id)){
+                    unsigned used=0;
+                    for(const auto& h:hosts)if(h.second.entry.address==from.sin_addr.s_addr)++used;
+                    for(const auto& h:pending)if(h.second.owner.sin_addr.s_addr==from.sin_addr.s_addr&&!hosts.count(h.first))++used;
+                    if(used>=MaxHostsPerAddress)continue;
+                }
                 auto found=pending.find(id);
+                // Another registration must not replace a challenge still in flight.
+                if(found!=pending.end() && found->second.expires>now &&
+                   (!sameEndpoint(found->second.owner,from)||sodium_memcmp(found->second.packet.nonce,p.nonce,16)!=0))continue;
                 if(found!=pending.end() && now-found->second.lastProbe<1000)continue;
                 if(found!=pending.end() && found->second.expires>now && sameEndpoint(found->second.owner,from) &&
                    sodium_memcmp(found->second.packet.nonce,p.nonce,16)==0 && found->second.packet.users==p.users &&
@@ -117,5 +134,6 @@ int wmain(int argc,wchar_t** argv) {
                 if(probe!=pending.end()&&sameEndpoint(probe->second.owner,from)&&sodium_memcmp(probe->second.packet.nonce,p.nonce,16)==0)pending.erase(probe);
             }
         }
+        if(work==128)Sleep(1);
     }
 }
