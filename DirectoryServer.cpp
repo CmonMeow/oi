@@ -48,7 +48,8 @@ int wmain(int argc,wchar_t** argv) {
     SOCKET socket=::socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);if(socket==INVALID_SOCKET)return 2;
     sockaddr_in local={};local.sin_family=AF_INET;local.sin_port=htons((u_short)port);
     if(inet_pton(AF_INET,bindAddress.c_str(),&local.sin_addr)!=1 || bind(socket,reinterpret_cast<sockaddr*>(&local),sizeof(local))==SOCKET_ERROR){fprintf(stderr,"Cannot bind directory socket: %d\n",WSAGetLastError());closesocket(socket);WSACleanup();return 2;}
-    u_long nonblocking=1;ioctlsocket(socket,FIONBIO,&nonblocking);
+    u_long nonblocking=1;
+    if(ioctlsocket(socket,FIONBIO,&nonblocking)==SOCKET_ERROR){fprintf(stderr,"Cannot make directory socket nonblocking: %d\n",WSAGetLastError());closesocket(socket);WSACleanup();return 2;}
     unsigned char cookieKey[32];randombytes_buf(cookieKey,sizeof(cookieKey));
     auto cookie=[&](const sockaddr_in& from,const Packet& p,ULONGLONG bucket,unsigned char* out){
         unsigned char input[30]={};memcpy(input,&from.sin_addr.s_addr,4);memcpy(input+4,&from.sin_port,2);memcpy(input+6,p.nonce,16);memcpy(input+22,&bucket,8);
@@ -85,6 +86,13 @@ int wmain(int argc,wchar_t** argv) {
                 for(unsigned i=0;i<response.count;++i)response.entries[i]=entries[first+i];reply(response,from);
             }else if(p.kind==Register && p.gamePort && p.version && validName(p.name)){
                 sockaddr_in game=from;game.sin_port=htons(p.gamePort);auto id=endpointKey(game);
+                // Re-acknowledge an already verified registration if its reply was lost.
+                auto listed=hosts.find(id);
+                if(listed!=hosts.end() && listed->second.expires>now && sameEndpoint(listed->second.owner,from) &&
+                   sodium_memcmp(listed->second.registration.nonce,p.nonce,16)==0 && listed->second.entry.users==p.users &&
+                   listed->second.entry.version==p.version && memcmp(listed->second.entry.name,p.name,33)==0){
+                    Packet response;response.kind=Listed;memcpy(response.nonce,p.nonce,16);reply(response,from);continue;
+                }
                 if((!hosts.count(id)&&hosts.size()>=MaxHosts)||(!pending.count(id)&&pending.size()>=MaxHosts))continue;
                 auto found=pending.find(id);
                 if(found!=pending.end() && now-found->second.lastProbe<1000)continue;

@@ -7,7 +7,7 @@
 class HostDirectoryClient {
     SOCKET socket=INVALID_SOCKET;
     bool winsock=false,resolved=false,resolving=false,hosting=false;
-    sockaddr_in directory={};
+    sockaddr_in directory={},listedDirectory={};
     AsyncResolver resolver;
     std::string hostname;
     uint32_t version;
@@ -15,10 +15,14 @@ class HostDirectoryClient {
     bool fetching=false,registering=false,haveListing=false;
     unsigned queryAttempts=0,registrationAttempts=0;
     ULONGLONG nextResolve=0,nextQuery=0,nextRegistration=0,lastList=0,lastPublished=0;
-    void retire() {
+    void cancelRegistration() {
         HostDirectoryProbe::instance().clear();
-        if(registering&&resolved&&socket!=INVALID_SOCKET){auto p=registration;p.kind=HostDirectory::Retire;HostDirectory::send(socket,directory,p);}
-        if(haveListing&&resolved&&socket!=INVALID_SOCKET){auto p=lastListed;p.kind=HostDirectory::Retire;HostDirectory::send(socket,directory,p);}
+        if(registering&&socket!=INVALID_SOCKET){auto p=registration;p.kind=HostDirectory::Retire;HostDirectory::send(socket,directory,p);}
+        registering=false;
+    }
+    void retire() {
+        cancelRegistration();
+        if(haveListing&&socket!=INVALID_SOCKET){auto p=lastListed;p.kind=HostDirectory::Retire;HostDirectory::send(socket,listedDirectory,p);}
         haveListing=false;registering=false;lastPublished=0;
     }
 public:
@@ -35,7 +39,8 @@ public:
         if(hostname.empty()||hostname.size()>253){status="Invalid directory address.";return;}
         WSADATA data;winsock=WSAStartup(MAKEWORD(2,2),&data)==0;if(!winsock){status="Directory unavailable.";return;}
         socket=::socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);if(socket==INVALID_SOCKET){status="Directory unavailable.";return;}
-        u_long nonblocking=1;ioctlsocket(socket,FIONBIO,&nonblocking);
+        u_long nonblocking=1;
+        if(ioctlsocket(socket,FIONBIO,&nonblocking)==SOCKET_ERROR){closesocket(socket);socket=INVALID_SOCKET;status="Directory unavailable.";}
     }
     ~HostDirectoryClient(){retire();resolver.cancel();if(socket!=INVALID_SOCKET)closesocket(socket);if(winsock)WSACleanup();}
     HostDirectoryClient(const HostDirectoryClient&)=delete;
@@ -45,13 +50,17 @@ public:
         return file.getline(text,sizeof(text))&&text[0]?text:fallback;
     }
     void refresh(unsigned requestedPage=0) {
+        if(socket==INVALID_SOCKET)return;
         if(requestedPage!=page)entries.clear();
         page=requestedPage;fetching=false;nextQuery=0;status="Finding hosts...";
     }
     void update(bool isHost,unsigned short port,unsigned users,const std::string& hostName) {
         using namespace HostDirectory;auto now=GetTickCount64();
         if(hosting&&!isHost)retire();if(hosting!=isHost){hosting=isHost;nextRegistration=0;publishStatus=hosting?"Publishing host...":"";}
-        if(socket==INVALID_SOCKET)return;
+        // Expiry must run even while DNS resolution is failing.
+        if(lastList&&now-lastList>=LeaseMs){entries.clear();lastList=0;page=0;pages=1;status="Directory unavailable. Use /connect or /host.";}
+        if(lastPublished&&now-lastPublished>=LeaseMs)publishStatus="Host listing expired. Check UDP forwarding.";
+        if(socket==INVALID_SOCKET){if(hosting)publishStatus="Directory unavailable. Direct connections still work.";return;}
         if(!resolved){
             if(!resolving&&now>=nextResolve){resolver.start(hostname);resolving=true;nextResolve=now+30000;}
             if(resolving){int result=resolver.poll(directory);if(result){resolving=false;resolved=result>0;if(!resolved){status="Directory unavailable. Use /connect or /host.";if(hosting)publishStatus="Directory unavailable. Direct connections still work.";}}}
@@ -76,7 +85,7 @@ public:
             }
             if(hosting&&registering&&sodium_memcmp(p.nonce,registration.nonce,16)==0){
                 if(p.kind==Challenge&&sodium_is_zero(registration.cookie,16)){memcpy(registration.cookie,p.cookie,16);send(socket,directory,registration);}
-                else if(p.kind==Listed){registering=false;haveListing=true;lastListed=registration;lastPublished=now;nextRegistration=now+20000;publishStatus="Listed in host browser.";}
+                else if(p.kind==Listed){registering=false;haveListing=true;lastListed=registration;listedDirectory=directory;lastPublished=now;nextRegistration=now+20000;publishStatus="Listed in host browser.";}
             }
         }
         if(now>=nextQuery){
@@ -84,20 +93,18 @@ public:
             if(queryAttempts++>=4){
                 fetching=false;nextQuery=now+15000;
                 status=entries.empty()?"Directory unavailable. Use /connect or /host.":"Directory unavailable; showing last known hosts.";
-                if(now>=nextResolve){resolved=false;registering=false;nextRegistration=0;HostDirectoryProbe::instance().clear();}
+                if(now>=nextResolve){cancelRegistration();resolved=false;nextRegistration=0;return;}
             }
             else {send(socket,directory,query);nextQuery=now+2000;}
         }
-        if(lastList&&now-lastList>LeaseMs){entries.clear();lastList=0;status="Directory unavailable. Use /connect or /host.";}
         if(hosting&&now>=nextRegistration){
             if(!registering){
                 registration=Packet{};registration.kind=Register;registration.gamePort=port;registration.users=(uint16_t)(std::min)(users,65535u);registration.version=version;
                 const std::string name=hostName.empty()?"Host":hostName;strncpy_s(registration.name,name.c_str(),32);
                 randombytes_buf(registration.nonce,16);registrationAttempts=0;registering=true;HostDirectoryProbe::instance().set(directory,registration);
             }
-            if(registrationAttempts++>=4){registering=false;nextRegistration=now+20000;publishStatus="Host not listed. Check directory and UDP forwarding.";}
+            if(registrationAttempts++>=4){cancelRegistration();nextRegistration=now+20000;publishStatus="Host not listed. Check directory and UDP forwarding.";}
             else {send(socket,directory,registration);nextRegistration=now+2000;}
         }
-        if(lastPublished&&now-lastPublished>=LeaseMs)publishStatus="Host listing expired. Check UDP forwarding.";
     }
 };
