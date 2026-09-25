@@ -24,7 +24,7 @@ function relayDescription(description){
   if(line.startsWith('o='))return 'o=- 0 0 IN IP4 127.0.0.1';
   if(line.startsWith('c='))return 'c=IN IP4 0.0.0.0';
   if(line.startsWith('a=rtcp:'))return 'a=rtcp:9 IN IP4 0.0.0.0';
-  return line.replace(/^m=video \S+ /,'m=video 9 ');
+  return line.replace(/^m=(video|audio) \S+ /,'m=$1 9 ');
  }).join('\r\n');
  return {type:description.type,sdp};
 }
@@ -34,6 +34,18 @@ const codecs=role=>{
  if(!h264.length) throw Error('H264 is unavailable in this WebView2 runtime. Update Microsoft Edge WebView2.');
  return [...h264,...caps.codecs.filter(c=>c.mimeType.toLowerCase()==='video/rtx')];
 };
+const audioCodecs=role=>{
+ const caps=(role==='send'?RTCRtpSender:RTCRtpReceiver).getCapabilities('audio');
+ const opus=caps?.codecs.filter(c=>c.mimeType.toLowerCase()==='audio/opus')||[];
+ if(!opus.length)throw Error('Screen audio is unavailable in this WebView2 runtime.');
+ return opus;
+};
+function validateDescription(sdp){
+ if(typeof sdp!=='string')throw Error('Invalid screen negotiation.');
+ const media=sdp.split(/(?=^m=)/m).filter(s=>s.startsWith('m='));
+ if(media.length<1||media.length>2||!/^m=video /m.test(media[0])||!/^a=rtpmap:\d+ H264\/90000\r?$/m.test(media[0]))throw Error('Screen peer did not offer H264 video.');
+ if(media.length===2&&(!/^m=audio /m.test(media[1])||!/^a=rtpmap:\d+ opus\/48000\/2\r?$/im.test(media[1])))throw Error('Invalid screen audio negotiation.');
+}
 function drop(connection,notify=true){
  for(const job of pendingJobs)if(job.key===connection)job.cancelled=true;
  const p=peers.get(connection);if(!p)return;
@@ -61,8 +73,10 @@ function connection(peer,shared,key,role){
   if(pc.connectionState==='connected'){clearTimeout(p.timeout);status('');}
   if(pc.connectionState==='failed'){drop(key);fail('Screen relay connection failed.');}
  };
- pc.ontrack=e=>{if(peers.get(key)!==p||role!=='receive'||e.track.kind!=='video'){e.track.stop();return;}
-  $('remote').srcObject=new MediaStream([e.track]);$('remoteSection').style.display='block';};
+ pc.ontrack=e=>{if(peers.get(key)!==p||role!=='receive'||!['video','audio'].includes(e.track.kind)){e.track.stop();return;}
+  if(!p.received)p.received=new MediaStream();
+  if(p.received.getTracks().some(t=>t.kind===e.track.kind)){e.track.stop();return;}
+  p.received.addTrack(e.track);$('remote').srcObject=p.received;$('remoteSection').style.display='block';};
  p.timeout=setTimeout(()=>{if(peers.has(key)&&pc.connectionState!=='connected'){drop(key);fail('Screen relay connection timed out.');}},30000);
  return p;
 }
@@ -77,8 +91,11 @@ async function startPeer(peer,shared,key){
  const p=connection(peer,shared,key,'send');
  const sender=p.pc.addTrack(stream.getVideoTracks()[0],stream);
  p.pc.getTransceivers()[0].setCodecPreferences(codecs('send'));
+ const audio=stream.getAudioTracks()[0];let audioSender;
+ if(audio){audioSender=p.pc.addTrack(audio,stream);p.pc.getTransceivers().find(t=>t.sender===audioSender).setCodecPreferences(audioCodecs('send'));}
  await p.pc.setLocalDescription(await p.pc.createOffer());
  const params=sender.getParameters();if(params.encodings?.length){params.encodings[0].maxBitrate=2000000;params.encodings[0].maxFramerate=60;await sender.setParameters(params);}
+ if(audioSender){const audioParams=audioSender.getParameters();if(audioParams.encodings?.length){audioParams.encodings[0].maxBitrate=96000;await audioSender.setParameters(audioParams);}}
  if(peers.has(key))tell('signal',peer,shared,key,JSON.stringify({description:relayDescription(p.pc.localDescription)}));
 }
 async function signal(peer,shared,key,body){
@@ -88,10 +105,10 @@ async function signal(peer,shared,key,body){
   if(p.descriptionReceived)throw Error('Duplicate screen negotiation.');
   p.descriptionReceived=true;
   if(data.description.type!==(p.role==='receive'?'offer':'answer'))throw Error('Invalid screen negotiation.');
-  // Limit media to the one negotiated video transceiver; no audio or data channels.
-  const sdp=data.description.sdp;
-  if(typeof sdp!=='string'||(sdp.match(/^m=/gm)||[]).length!==1||!/^m=video /m.test(sdp)||!/^a=rtpmap:\d+ H264\/90000\r?$/m.test(sdp))throw Error('Screen peer did not offer H264 video.');
+  // Only H264 video and one optional Opus audio stream; never data channels.
+  validateDescription(data.description.sdp);
   await p.pc.setRemoteDescription(relayDescription(data.description));
+  if(p.role==='receive')for(const t of p.pc.getTransceivers())if(t.receiver.track.kind==='audio'){t.direction='recvonly';t.setCodecPreferences(audioCodecs('receive'));}
   const port=await p.port;if(!port||peers.get(key)!==p)return;
   await p.pc.addIceCandidate({candidate:`candidate:1 1 udp 2122260223 127.0.0.1 ${port} typ host`,sdpMLineIndex:0});
   if(p.role==='receive'){await p.pc.setLocalDescription(await p.pc.createAnswer());if(peers.get(key)===p)tell('signal',peer,shared,key,JSON.stringify({description:relayDescription(p.pc.localDescription)}));}
@@ -100,7 +117,7 @@ async function signal(peer,shared,key,body){
 $('choose').onclick=async()=>{
  if(picking||stream)return;picking=true;$('choose').disabled=true;
  try{
-  codecs('send');stream=await navigator.mediaDevices.getDisplayMedia({video:{width:{max:1920},height:{max:1080},frameRate:{ideal:60,max:60}},audio:false});
+  codecs('send');stream=await navigator.mediaDevices.getDisplayMedia({video:{width:{max:1920},height:{max:1080},frameRate:{ideal:60,max:60}},audio:true,systemAudio:'include',windowAudio:'window'});
   share=id();const captured=stream,track=captured.getVideoTracks()[0];track.contentHint='detail';track.onended=()=>{if(stream===captured)stop();};
   $('local').srcObject=stream;$('localSection').style.display='block';$('stop').style.display='inline-block';
   tell('start',-1,share);status('Waiting for viewers.');

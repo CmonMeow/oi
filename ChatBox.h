@@ -83,8 +83,28 @@ class cChatBox
         return result;
     }
 
-    void pasteClipboard()
+    void pasteClipboard(cNetworkRuntime& network)
     {
+        if (IsClipboardFormatAvailable(CF_HDROP))
+        {
+            if (!OpenClipboard(NULL)) { network.showNotice("Could not open the clipboard.", true); return; }
+            HDROP drop = static_cast<HDROP>(GetClipboardData(CF_HDROP));
+            vector<std::wstring> paths;
+            const UINT count = drop ? DragQueryFileW(drop, 0xffffffff, nullptr, 0) : 0;
+            for (UINT i = 0; i < count && i < 8; ++i)
+            {
+                const UINT length = DragQueryFileW(drop, i, nullptr, 0);
+                if (!length || length >= 32768) continue;
+                vector<wchar_t> path(length + 1);
+                if (DragQueryFileW(drop, i, path.data(), length + 1)) paths.emplace_back(path.data());
+            }
+            // Clipboard storage belongs to Windows; release it before offering files.
+            CloseClipboard();
+            for (const auto& path : paths) network.offerFile(path);
+            if (count > 8) network.showNotice("Paste at most eight files at once.", true);
+            else if (paths.empty()) network.showNotice("No readable file paths on the clipboard.", true);
+            return;
+        }
         string text = SanitiseChatText(ClipboardText());
         if (text.empty() || _draft.size() >= CHAT_MAX_MESSAGE_CHARS)
         {
@@ -497,6 +517,14 @@ public:
             input.KeyUp(VK_LBUTTON);
             return;
         }
+        if (ControlDown() && input.pressed('V'))
+        {
+            if (!_active) { _active = true; _cursor = _draft.size(); }
+            pasteClipboard(network);
+            DrainTextInput();
+            input.KeyUp('V');
+            return;
+        }
         if (!_active)
         {
             if (input.pressed(VK_RETURN) || input.leftClick() && capturesMouse)
@@ -522,13 +550,6 @@ public:
         {
             setCursorFromMouse();
             input.KeyUp(VK_LBUTTON);
-        }
-
-        if (ControlDown() && input.pressed('V'))
-        {
-            pasteClipboard();
-            DrainTextInput();
-            input.KeyUp('V');
         }
 
         unsigned char c;

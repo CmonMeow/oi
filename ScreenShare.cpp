@@ -133,7 +133,7 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
         WNDCLASSW cls={};cls.lpfnWndProc=proc;cls.hInstance=GetModuleHandleW(nullptr);cls.lpszClassName=L"oiScreenShare";
         cls.hCursor=LoadCursor(nullptr,IDC_ARROW);RegisterClassW(&cls);
         window=CreateWindowExW(0,cls.lpszClassName,L"Screen share",WS_OVERLAPPEDWINDOW|WS_VISIBLE,
-            CW_USEDEFAULT,CW_USEDEFAULT,1000,720,parent,nullptr,cls.hInstance,this);
+            CW_USEDEFAULT,CW_USEDEFAULT,1000,720,nullptr,nullptr,cls.hInstance,this);
         if(!window){error("Could not open the screen-share window.",HRESULT_FROM_WIN32(GetLastError()));return false;}
         wchar_t folder[32768];DWORD count=GetEnvironmentVariableW(L"LOCALAPPDATA",folder,32768);
         if(!count||count>=32768){error("Could not locate the screen viewer's data folder.");PostMessageW(window,WM_CLOSE,0,0);return false;}

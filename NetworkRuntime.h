@@ -1457,7 +1457,7 @@ public:
     {
         for (const auto& command : CHAT_COMMANDS)
             if (!command.hostOnly || isHost()) addChatLine(command.help, CLKSystem);
-        addChatLine("Drop files into chat; click a red offer to save.",CLKSystem);
+        addChatLine("Drop or paste files into chat; click a red offer to save.",CLKSystem);
         addChatLine("Click an active transfer to cancel it.",CLKSystem);
     }
 
