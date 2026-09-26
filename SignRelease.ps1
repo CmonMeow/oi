@@ -2,20 +2,8 @@ param([string]$Executable, [switch]$Initialize)
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1')
 Import-Module (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\Modules\PKI\PKI.psd1')
-$signingDirectory = Join-Path $env:LOCALAPPDATA 'oi\Signing'
-$identityFile = Join-Path $signingDirectory 'thumbprint.txt'
-if ($Initialize -and !(Test-Path -LiteralPath $identityFile)) {
-    New-Item -ItemType Directory -Path $signingDirectory -Force | Out-Null
-    $certificate = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=oi Private Signing' -FriendlyName 'oi private release signing' -CertStoreLocation 'Cert:\CurrentUser\My' -KeyAlgorithm RSA -KeyLength 3072 -HashAlgorithm SHA256 -KeyExportPolicy Exportable -NotAfter (Get-Date).AddYears(3)
-    Set-Content -LiteralPath $identityFile -Value $certificate.Thumbprint -Encoding ASCII
-}
-if (!(Test-Path -LiteralPath $identityFile)) { throw 'Run SignRelease.ps1 -Initialize once to configure private signing.' }
-$thumbprint = (Get-Content -LiteralPath $identityFile -Raw).Trim()
-if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'Invalid signing certificate thumbprint.' }
-$certificate = Get-Item -LiteralPath "Cert:\CurrentUser\My\$thumbprint"
-if (!$certificate.HasPrivateKey -or $certificate.NotAfter -le (Get-Date) -or $certificate.NotBefore -gt (Get-Date)) { throw 'Signing certificate is expired, not yet valid, or missing its private key.' }
-# Export only the public certificate, never the private key. Do not install trust.
-Export-Certificate -Cert $certificate -FilePath (Join-Path $signingDirectory 'oi-signing.cer') -Force | Out-Null
+$certificate = & (Join-Path $PSScriptRoot 'GetSigningCertificate.ps1') -Initialize:$Initialize
+$thumbprint = $certificate.Thumbprint
 if (!$Executable) { if ($Initialize) { Write-Output "Private signing configured: $thumbprint"; exit 0 }; throw 'Executable is required.' }
 $target = (Resolve-Path -LiteralPath $Executable).Path
 function Test-ExpectedSignature($signature) {

@@ -34,9 +34,12 @@ int wmain(int argc,wchar_t** argv) {
         else {fwprintf(stderr,L"Usage: oi-directory [--init] [--key path] [--bind IPv4] [--port 778]\n");return 2;}
     }
     if(keyPath.empty()) {
-        wchar_t local[MAX_PATH];DWORD length=GetEnvironmentVariableW(L"LOCALAPPDATA",local,MAX_PATH);if(!length||length>=MAX_PATH)return 2;
-        keyPath=std::wstring(local)+L"\\oi-directory";if(!CreateDirectoryW(keyPath.c_str(),nullptr)&&GetLastError()!=ERROR_ALREADY_EXISTS)return 2;
-        keyPath+=L"\\identity.key";
+        wchar_t executable[32768];DWORD length=GetModuleFileNameW(nullptr,executable,32768);
+        if(!length||length>=32768)return 2;
+        std::wstring folder(executable,length);auto slash=folder.find_last_of(L"\\/");if(slash==std::wstring::npos)return 2;
+        folder.resize(slash);folder+=L"\\..\\private";
+        if(init&&!CreateDirectoryW(folder.c_str(),nullptr)&&GetLastError()!=ERROR_ALREADY_EXISTS)return 2;
+        keyPath=folder+L"\\directory.key";
     }
     if(sodium_init()<0)return 2;
     unsigned char key[crypto_sign_SECRETKEYBYTES]={};

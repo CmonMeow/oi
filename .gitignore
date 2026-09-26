@@ -7,3 +7,6 @@ build/
 *.p12
 /tests
 /bin/oi-idle-test.exe
+
+# Operator-only secrets; never part of the portable client.
+/private/
