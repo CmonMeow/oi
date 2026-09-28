@@ -1190,8 +1190,9 @@ public:
                     int messages=0,bytes=0,guaranteedMessages=0,guaranteedBytes=0;
                     if(isHost()) _server->QueryPendingSends(to,messages,bytes,guaranteedMessages,guaranteedBytes);
                     else if(_client) _client->QueryPendingSends(messages,bytes,guaranteedMessages,guaranteedBytes);
-                    // Drop stale video before it consumes the room needed by reliable controls/files.
-                    if(messages>=64 || bytes>=65536 || guaranteedMessages>=64 || guaranteedBytes>=65536)return;
+                    // Bound the realtime queue independently. Reliable file backlog must
+                    // not suppress screen media or WebRTC's loss/connection recovery traffic.
+                    if(messages>=64 || bytes>=65536)return;
                 }
                 auto flags=kind==ScreenSignaling::Media?DeliveryNone:DeliveryGuaranteed;
                 if(isHost()) { if(_playerIdentities.count(to)) sendRawFromServer(to,NAMTScreen,raw,flags); }

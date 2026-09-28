@@ -12,6 +12,7 @@ class FileTransfers
 public:
     enum : unsigned char { Offer = 1, Accept, Chunk, Ack, Finish, Done, Cancel };
     static constexpr unsigned ChunkBytes = 8192;
+    static constexpr unsigned FlightBytes = 8 * ChunkBytes;
     static constexpr unsigned __int64 MaxFileBytes = 4ULL * 1024 * 1024 * 1024;
     static constexpr unsigned MaxPacketBytes = ChunkBytes + 128;
     using Key = std::pair<int, string>;
@@ -213,7 +214,8 @@ public:
             auto it = uploads.find(key); if (it == uploads.end() || token != it->second.token) return;
             auto& u = it->second; unsigned __int64 offset = 0;
             if (type == Ack) {
-                if (!raw.getUInt64(offset) || !raw.fullyRead() || u.finishing || offset != u.offset || offset <= u.acknowledged) return;
+                if (!raw.getUInt64(offset) || !raw.fullyRead() || u.finishing || offset > u.offset || offset <= u.acknowledged ||
+                    (offset != u.source->size && offset % ChunkBytes != 0)) return;
                 u.acknowledged = offset; u.touched = now;
             } else if (raw.fullyRead() && u.finishing) {
                 notice("Sent " + displayName(u.source->name) + ".",false); u.source->peers.erase(peer); uploads.erase(it);
@@ -268,26 +270,35 @@ public:
             if (now >= it->second->expires || it->second->peers.empty()) it = sources.erase(it); else ++it;
         }
         if (uploads.empty() || (voiceActive && now - lastChunk < 64)) return;
-        auto it = uploads.upper_bound(lastServed); if (it == uploads.end()) it = uploads.begin();
-        for (size_t n = 0; n < uploads.size(); ++n) {
-            if (!it->second.finishing && it->second.offset == it->second.acknowledged) break;
-            if (++it == uploads.end()) it = uploads.begin();
+        // Bound work per service tick and bytes awaiting receiver acknowledgement.
+        // The receiver already accepts ordered chunks and acknowledges each offset.
+        for (unsigned sent = 0; sent < (voiceActive ? 1U : 8U); ++sent) {
+            auto it = uploads.upper_bound(lastServed); if (it == uploads.end()) it = uploads.begin();
+            const auto ready = [](const Upload& u) {
+                return !u.finishing && (u.offset == u.source->size ? u.offset == u.acknowledged :
+                    u.offset - u.acknowledged < FlightBytes);
+            };
+            for (size_t n = 0; n < uploads.size(); ++n) {
+                if (ready(it->second)) break;
+                if (++it == uploads.end()) it = uploads.begin();
+            }
+            auto& u = it->second; if (!ready(u)) return;
+            lastServed = it->first;
+            if (u.offset == u.source->size) {
+                unsigned char digest[32]; auto hash = u.hash; crypto_generichash_final(&hash,digest,32);
+                auto raw = header(Finish,it->first.second,u.token); raw.put(digest,32);
+                u.finishing = transmit(it->first.first,raw); return;
+            }
+            const unsigned count = (unsigned)(std::min)((unsigned __int64)ChunkBytes,u.source->size-u.offset);
+            vector<unsigned char> bytes(count); LARGE_INTEGER pos; pos.QuadPart = u.offset; DWORD read = 0;
+            if (!SetFilePointerEx(u.source->file->handle,pos,nullptr,FILE_BEGIN) || !ReadFile(u.source->file->handle,bytes.data(),count,&read,nullptr) || read != count) {
+                control(Cancel,it->first,u.token); notice("File read failed.",true); uploads.erase(it); return;
+            }
+            auto raw = header(Chunk,it->first.second,u.token); raw.putUInt64(u.offset); raw.putBytes(bytes,ChunkBytes);
+            if (!transmit(it->first.first,raw)) return;
+            crypto_generichash_update(&u.hash,bytes.data(),bytes.size()); u.offset += count;
+            lastChunk = now; // Voice: one chunk per 64 ms. Idle: bounded pipelining.
         }
-        auto& u = it->second; if (u.finishing || u.offset != u.acknowledged) return;
-        lastServed = it->first;
-        if (u.offset == u.source->size) {
-            unsigned char digest[32]; auto hash = u.hash; crypto_generichash_final(&hash,digest,32);
-            auto raw = header(Finish,it->first.second,u.token); raw.put(digest,32);
-            u.finishing = transmit(it->first.first,raw); return;
-        }
-        const unsigned count = (unsigned)(std::min)((unsigned __int64)ChunkBytes,u.source->size-u.offset);
-        vector<unsigned char> bytes(count); LARGE_INTEGER pos; pos.QuadPart = u.offset; DWORD read = 0;
-        if (!SetFilePointerEx(u.source->file->handle,pos,nullptr,FILE_BEGIN) || !ReadFile(u.source->file->handle,bytes.data(),count,&read,nullptr) || read != count) {
-            control(Cancel,it->first,u.token); notice("File read failed.",true); uploads.erase(it); return;
-        }
-        auto raw = header(Chunk,it->first.second,u.token); raw.putUInt64(u.offset); raw.putBytes(bytes,ChunkBytes);
-        if (transmit(it->first.first,raw)) { crypto_generichash_update(&u.hash,bytes.data(),bytes.size()); u.offset += count; }
-        lastChunk = now; // Voice: 128 KiB/s. Idle: ACK/queue-limited, one chunk per service tick.
     }
     void peerLeft(int peer) {
         for (auto it = uploads.begin(); it != uploads.end();) if (it->first.first == peer) it = uploads.erase(it); else ++it;

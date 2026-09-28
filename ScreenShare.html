@@ -17,6 +17,12 @@ let stream=null, share='', picking=false;
 const tell=(type,peer=-1,id='',connection='',payload='')=>chrome.webview.postMessage([type,peer,id,connection,payload].join('\n'));
 const status=text=>{$('status').textContent=text};
 const fail=text=>{status(text);tell('error',-1,'','',text)};
+// A live viewer has no buffered timeline to pause. Keep audio controls, but
+// resume accidental clicks on the native video pause control.
+$('remote').addEventListener('pause',()=>{
+ const video=$('remote');
+ if(video.srcObject&&video.paused)video.play().catch(()=>status('Click the video to resume playback.'));
+});
 const id=()=>crypto.randomUUID().replaceAll('-','');
 // Never exchange real ICE endpoints, including candidates embedded in SDP.
 function relayDescription(description){
@@ -117,7 +123,11 @@ async function signal(peer,shared,key,body){
 $('choose').onclick=async()=>{
  if(picking||stream)return;picking=true;$('choose').disabled=true;
  try{
-  codecs('send');stream=await navigator.mediaDevices.getDisplayMedia({video:{width:{max:1920},height:{max:1080},frameRate:{ideal:60,max:60}},audio:true,systemAudio:'include',windowAudio:'window'});
+  codecs('send');stream=await navigator.mediaDevices.getDisplayMedia({video:{width:{max:1920},height:{max:1080},frameRate:{ideal:60,max:60}},audio:true,systemAudio:'exclude',windowAudio:'window',selfBrowserSurface:'exclude'});
+  // Do not relay the system mix: it includes oi's incoming voices and loops them back.
+  // Enforce this even if the runtime ignores the picker preference.
+  const surface=stream.getVideoTracks()[0]?.getSettings().displaySurface;
+  if(surface!=='window'&&surface!=='browser')for(const audio of stream.getAudioTracks()){audio.stop();stream.removeTrack(audio);}
   share=id();const captured=stream,track=captured.getVideoTracks()[0];track.contentHint='detail';track.onended=()=>{if(stream===captured)stop();};
   $('local').srcObject=stream;$('localSection').style.display='block';$('stop').style.display='inline-block';
   tell('start',-1,share);status('Waiting for viewers.');
