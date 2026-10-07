@@ -12,7 +12,8 @@ class FileTransfers
 public:
     enum : unsigned char { Offer = 1, Accept, Chunk, Ack, Finish, Done, Cancel };
     static constexpr unsigned ChunkBytes = 8192;
-    static constexpr unsigned FlightBytes = 8 * ChunkBytes;
+    // Shared by all uploads, so four recipients cannot multiply the backlog.
+    static constexpr unsigned FlightBytes = 1024 * 1024;
     static constexpr unsigned __int64 MaxFileBytes = 4ULL * 1024 * 1024 * 1024;
     static constexpr unsigned MaxPacketBytes = ChunkBytes + 128;
     using Key = std::pair<int, string>;
@@ -270,13 +271,16 @@ public:
             if (now >= it->second->expires || it->second->peers.empty()) it = sources.erase(it); else ++it;
         }
         if (uploads.empty() || (voiceActive && now - lastChunk < 64)) return;
+        unsigned __int64 outstanding = 0;
+        for (const auto& entry : uploads) outstanding += entry.second.offset - entry.second.acknowledged;
         // Bound work per service tick and bytes awaiting receiver acknowledgement.
         // The receiver already accepts ordered chunks and acknowledges each offset.
-        for (unsigned sent = 0; sent < (voiceActive ? 1U : 8U); ++sent) {
+        for (unsigned sent = 0; sent < (voiceActive ? 1U : FlightBytes / ChunkBytes); ++sent) {
+            if (sent && GetTickCount64() - now >= 2) return;
             auto it = uploads.upper_bound(lastServed); if (it == uploads.end()) it = uploads.begin();
-            const auto ready = [](const Upload& u) {
+            const auto ready = [outstanding](const Upload& u) {
                 return !u.finishing && (u.offset == u.source->size ? u.offset == u.acknowledged :
-                    u.offset - u.acknowledged < FlightBytes);
+                    outstanding + (std::min)((unsigned __int64)ChunkBytes,u.source->size-u.offset) <= FlightBytes);
             };
             for (size_t n = 0; n < uploads.size(); ++n) {
                 if (ready(it->second)) break;
@@ -297,6 +301,7 @@ public:
             auto raw = header(Chunk,it->first.second,u.token); raw.putUInt64(u.offset); raw.putBytes(bytes,ChunkBytes);
             if (!transmit(it->first.first,raw)) return;
             crypto_generichash_update(&u.hash,bytes.data(),bytes.size()); u.offset += count;
+            outstanding += count;
             lastChunk = now; // Voice: one chunk per 64 ms. Idle: bounded pipelining.
         }
     }

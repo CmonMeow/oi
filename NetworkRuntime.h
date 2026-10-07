@@ -17,7 +17,7 @@ class cNetworkRuntime
     std::map<int, FileBudget> _fileBudgets;
     struct PeerBudget { FileBudget voice, control; };
     std::map<int, PeerBudget> _peerBudgets;
-    FileBudget _relayBudget;
+    FileBudget _relayBudget{8388608, 65536, GetTickCount64()};
     bool fileBudget(FileBudget& budget, size_t bytes, double rate, double packetRate = 4096) {
         const auto now = GetTickCount64(); const double elapsed = (now-budget.time)/1000.0; budget.time = now;
         budget.bytes = (std::min)(rate, budget.bytes + elapsed*rate);
@@ -31,7 +31,9 @@ class cNetworkRuntime
         else if (_client) _client->QueryPendingSends(messages,bytes,guaranteedMessages,guaranteedBytes);
         else return false;
         // Keep bounded headroom for offers/accepts/acks during screen negotiation bursts.
-        const int maxBytes=control?1048576:131072, maxMessages=control?1024:128;
+        // Four downloads can each have a 1 MiB application window in flight.
+        // Allow framing/retransmission headroom, plus reserved space for controls.
+        const int maxBytes=control?9437184:8388608, maxMessages=control?18432:16384;
         return bytes >= 0 && guaranteedBytes >= 0 && bytes < maxBytes && guaranteedBytes < maxBytes &&
             messages < maxMessages && guaranteedMessages < maxMessages;
     }
@@ -62,9 +64,11 @@ class cNetworkRuntime
         int peer; vector<unsigned char> cipher;
         if (!raw.getInt32(peer) || peer < 0 || !raw.getBytes(cipher,FileTransfers::MaxPacketBytes+40) || !raw.fullyRead() || cipher.size() <= 40) return;
         const int sender = relay ? from : peer;
-        if (!_privateChatKeys.count(sender) || !fileBudget(_fileBudgets[sender],cipher.size(),16777216)) return;
+        if (!_privateChatKeys.count(sender)) return;
+        auto budget = _fileBudgets.try_emplace(sender, FileBudget{2097152, 8192, GetTickCount64()});
+        if (!fileBudget(budget.first->second,cipher.size(),134217728,65536)) return;
         if (relay && peer != 0) {
-            if (peer == from || !_playerIdentities.count(peer) || !fileQueueAvailable(peer,cipher.size()<=552) || !fileBudget(_relayBudget,cipher.size(),67108864,16384)) return;
+            if (peer == from || !_playerIdentities.count(peer) || !fileQueueAvailable(peer,cipher.size()<=552) || !fileBudget(_relayBudget,cipher.size(),536870912,262144)) return;
             NetPacket forwarded; forwarded.putInt32(from); forwarded.putBytes(cipher,FileTransfers::MaxPacketBytes+40);
             sendRawFromServer(peer,NAMTFile,forwarded,DeliveryGuaranteed);
         } else receiveFilePayload(sender,cipher);
