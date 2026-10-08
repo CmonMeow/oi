@@ -633,7 +633,7 @@ public:
         const float historyHeight = (float)(rows * (size_t)lineHeight);
         const float height = historyHeight + inputHeight + 18.f;
 
-        QueueChatRect(x, y, x + width, y + height, .02f, .025f, .025f, .70f, false);
+        if(!chatOverlayCanvas.active)QueueChatRect(x, y, x + width, y + height, .02f, .025f, .025f, 1.f, false);
         QueueChatRect(x, y, x + width, y + height, .32f, .38f, .36f, .95f, true);
 
         const size_t newestExclusive = lines.size() > _scrollOffset ? lines.size() - _scrollOffset : 0;

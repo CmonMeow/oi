@@ -2,6 +2,7 @@
 
 #include "RunClient.h"
 #include "sysdef.h"
+#include "ChatWindowInput.h"
 #include <string.h>
 #include <windows.h>
 
@@ -13,6 +14,7 @@ const int CHAT_CLIENT_HEIGHT = 250;
 
 LRESULT CALLBACK ChatWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if(ChatWindowInput(hwnd,message,wParam,lParam))return 0;
     switch (message)
     {
     case WM_CLOSE:
@@ -29,47 +31,6 @@ LRESULT CALLBACK ChatWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             if (GetCapture() == hwnd) ReleaseCapture();
         }
         return DefWindowProcA(hwnd, message, wParam, lParam);
-    case WM_KILLFOCUS:
-    case WM_CANCELMODE:
-        input.Clear();
-        if (GetCapture() == hwnd) ReleaseCapture();
-        return DefWindowProcA(hwnd, message, wParam, lParam);
-    case WM_CAPTURECHANGED:
-        input.KeyUp(VK_LBUTTON);
-        return 0;
-    case WM_KEYDOWN:
-    case WM_SYSKEYDOWN:
-        input.KeyDown((unsigned char)wParam);
-        return 0;
-    case WM_KEYUP:
-    case WM_SYSKEYUP:
-        input.KeyUp((unsigned char)wParam);
-        return 0;
-    case WM_CHAR:
-        if (wParam >= 32 && wParam < 127)
-        {
-            input.TextInput((unsigned char)wParam);
-        }
-        return 0;
-    case WM_LBUTTONDOWN:
-    case WM_LBUTTONDBLCLK:
-        SetFocus(hwnd);
-        SetCapture(hwnd);
-        input.KeyDown(VK_LBUTTON);
-        input.mouse.x = (short)LOWORD(lParam);
-        input.mouse.y = (short)HIWORD(lParam);
-        return 0;
-    case WM_LBUTTONUP:
-        if (GetCapture() == hwnd) ReleaseCapture();
-        input.KeyUp(VK_LBUTTON);
-        return 0;
-    case WM_MOUSEMOVE:
-        input.mouse.x = (short)LOWORD(lParam);
-        input.mouse.y = (short)HIWORD(lParam);
-        return 0;
-    case WM_MOUSEWHEEL:
-        input.AddMouseWheel(GET_WHEEL_DELTA_WPARAM(wParam));
-        return 0;
     case WM_SIZE:
         App.size = vec2i(LOWORD(lParam), HIWORD(lParam));
         return 0;
