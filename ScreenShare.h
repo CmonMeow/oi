@@ -19,6 +19,4 @@ public:
     void close();
     bool sharing() const;
     bool focused() const;
-    HWND chatOverlay() const;
-    bool stopWatching();
 };

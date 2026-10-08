@@ -6,21 +6,10 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#080d0b;color:#d5ece2;font:15px Segoe UI,sans-serif}header{padding:16px;background:#101b16;border-bottom:1px solid #315044}button{font:inherit;padding:8px 15px;border:1px solid #56ba88;background:#173a2b;color:#e5ffef;cursor:pointer}button:disabled{opacity:.5;cursor:default}#status{margin:10px 0 0;color:#97b4a6}#status:empty{display:none}main{display:flex;flex-wrap:wrap;gap:16px;padding:16px}section{flex:1;min-width:260px}h2{font-size:14px;font-weight:400;color:#83d7ac}video{width:100%;max-height:75vh;background:#000;object-fit:contain}#localSection,#remoteSection,#stop{display:none}
 </style>
-<style>
-body.theater{overflow:hidden;background:#000}
-body.theater main{position:absolute;inset:0;padding:0;display:block}
-body.theater #remoteSection{height:100%;width:100%;min-width:0}
-body.theater #remote{width:100%;height:100%;max-height:none;display:block}
-body.theater #remoteSection h2,body.theater #localSection{display:none!important}
-body.theater header{position:absolute;right:0;top:0;z-index:2;padding:8px;background:transparent;border:0}
-body.theater header button{background:rgba(25,25,25,.5);border-color:rgba(140,140,140,.5)}
-#choose,#stop,#localSection{display:none!important}
-#remote::-webkit-media-controls-fullscreen-button{display:none}
-</style>
 <header><button id="choose">Choose screen or window</button> <button id="stop">Stop sharing</button>
 <p id="status"></p></header>
 <main><section id="localSection"><h2>Your screen</h2><video id="local" autoplay muted playsinline></video></section>
-<section id="remoteSection"><h2>Watching screen</h2><video id="remote" autoplay muted playsinline controls controlslist="nodownload noplaybackrate nofullscreen" disablepictureinpicture></video></section></main>
+<section id="remoteSection"><h2>Watching screen</h2><video id="remote" autoplay muted playsinline controls controlslist="nodownload noplaybackrate" disablepictureinpicture></video></section></main>
 <script>
 'use strict';
 const $=id=>document.getElementById(id), peers=new Map(), pendingJobs=new Set();
@@ -28,8 +17,6 @@ let stream=null, share='', picking=false;
 const tell=(type,peer=-1,id='',connection='',payload='')=>chrome.webview.postMessage([type,peer,id,connection,payload].join('\n'));
 const status=text=>{$('status').textContent=text};
 const fail=text=>{status(text);tell('error',-1,'','',text)};
-let theater=false;
-document.addEventListener('keydown',e=>{if(theater&&e.key==='Escape')tell('leave-watch');});
 // A live viewer has no buffered timeline to pause. Keep audio controls, but
 // resume accidental clicks on the native video pause control.
 $('remote').addEventListener('pause',()=>{
@@ -136,21 +123,21 @@ async function signal(peer,shared,key,body){
 $('choose').onclick=async()=>{
  if(picking||stream)return;picking=true;$('choose').disabled=true;
  try{
-  codecs('send');stream=await navigator.mediaDevices.getDisplayMedia({video:{width:{max:1920},height:{max:1080},frameRate:{ideal:60,max:60}},audio:{restrictOwnAudio:true},systemAudio:'exclude',windowAudio:'window',selfBrowserSurface:'exclude'});
-  // Prefer isolated window audio, but permit the runtime's system-audio fallback.
-  // restrictOwnAudio requests removal of this viewer where the runtime supports it.
+  codecs('send');stream=await navigator.mediaDevices.getDisplayMedia({video:{width:{max:1920},height:{max:1080},frameRate:{ideal:60,max:60}},audio:true,systemAudio:'exclude',windowAudio:'window',selfBrowserSurface:'exclude'});
+  // Do not relay the system mix: it includes oi's incoming voices and loops them back.
+  // Enforce this even if the runtime ignores the picker preference.
+  const surface=stream.getVideoTracks()[0]?.getSettings().displaySurface;
+  if(surface!=='window'&&surface!=='browser')for(const audio of stream.getAudioTracks()){audio.stop();stream.removeTrack(audio);}
   share=id();const captured=stream,track=captured.getVideoTracks()[0];track.contentHint='detail';track.onended=()=>{if(stream===captured)stop();};
-  // Sharing is controlled by the native chat button; no local preview window.
+  $('local').srcObject=stream;$('localSection').style.display='block';$('stop').style.display='inline-block';
   tell('start',-1,share);status('Waiting for viewers.');
  }catch(e){if(stream)stop();if(e.name==='NotAllowedError')status('Screen selection cancelled.');else fail(e.message);$('choose').disabled=false;}
- finally{picking=false;tell('pick-finished');}
+ finally{picking=false;}
 };
 $('stop').onclick=stop;
 let chain=Promise.resolve();
 chrome.webview.addEventListener('message',event=>{
  const parts=event.data.split('\n'),type=parts.shift(),peer=Number(parts.shift()),shared=parts.shift(),key=parts.shift(),body=parts.join('\n');
- if(type==='theater'){theater=body==='1';document.body.classList.toggle('theater',theater);return;}
- if(type==='unwatch'){for(const [connection,p] of peers)if(p.role==='receive')drop(connection);return;}
  if(type==='relay-port'){
   const p=peers.get(key);if(!p||p.peer!==peer||p.share!==shared)return;
   const port=Number(body);if(!Number.isInteger(port)||port<1||port>65535){drop(key);fail('Could not open the local screen relay.');return;}
@@ -164,6 +151,7 @@ chrome.webview.addEventListener('message',event=>{
  const job={type,shared,key,cancelled:false};pendingJobs.add(job);
  chain=chain.then(async()=>{
   if(job.cancelled)return;
+  if(type==='choose'){ $('choose').focus();return; }
   if(type==='view'){await requestWatch(peer,shared);return;}
   if(type==='watch'){await startPeer(peer,shared,key);return;}
   if(type==='signal'){await signal(peer,shared,key,body);return;}

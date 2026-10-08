@@ -24,10 +24,7 @@ public:
         }
         if(hit(20,48,128,22))directory.refresh(displayedPage);
         else if(hit(156,48,128,22)&&displayedPage>0)directory.refresh(displayedPage-1);
-        else if(hit(292,48,128,22)){
-            if(displayedPage+1<displayedPages)directory.refresh(displayedPage+1);
-            else {input.KeyUp(VK_LBUTTON);network.hostOnPort();hide();return;}
-        }
+        else if(hit(292,48,128,22)&&displayedPage+1<displayedPages)directory.refresh(displayedPage+1);
         else if(hit(App.size.x-140,48,128,22))visible=false;
         if(hit(12,44,App.size.x-24,top-44))input.KeyUp(VK_LBUTTON);
     }
@@ -50,7 +47,7 @@ public:
         }
         DrawChatButton("REFRESH",vec2i(20,48),false);
         DrawChatButton(directory.page?"PREVIOUS":"--",vec2i(156,48),false);
-        DrawChatButton(directory.page+1<directory.pages?"NEXT":"HOST",vec2i(292,48),false);
+        DrawChatButton(directory.page+1<directory.pages?"NEXT":"--",vec2i(292,48),false);
         DrawChatButton("CHAT",vec2i(App.size.x-140,48),false);
     }
 };

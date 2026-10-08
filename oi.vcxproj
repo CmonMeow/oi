@@ -58,7 +58,6 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
-    <Manifest><AdditionalManifestFiles>$(ProjectDir)oi.manifest;%(AdditionalManifestFiles)</AdditionalManifestFiles></Manifest>
     <Link>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>ole32.lib;oleaut32.lib;shlwapi.lib;version.lib;comdlg32.lib;$(ProjectDir)third_party\webview2\lib\x64\WebView2LoaderStatic.lib;ws2_32.lib;winmm.lib;user32.lib;shell32.lib;opengl32.lib;gdi32.lib;$(ProjectDir)third_party\opus\lib\x64\Release\opus.lib;$(ProjectDir)third_party\libsodium\lib\x64\Release\libsodium.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -134,7 +133,6 @@
     <ClInclude Include="VoiceCodec.h" />
     <ClInclude Include="VoiceMixer.h" />
     <ClInclude Include="VoiceProcessing.h" />
-    <ClInclude Include="VoiceCapture.h" />
     <ClInclude Include="Network\SequenceBitmap.hpp" />
     <ClInclude Include="Network\SessionTransport.hpp" />
     <ClInclude Include="Network\SessionOperations.hpp" />
@@ -152,9 +150,6 @@
   <ItemGroup>
     <ResourceCompile Include="rc.rc" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="ChatOverlay.h" />
-    <ClInclude Include="ChatWindowInput.h" />
-    <Manifest Include="oi.manifest" />
     <Image Include="Icon.ico" />
     <None Include="cursor_white.cur" />
     <None Include="cursor_cyan.cur" />

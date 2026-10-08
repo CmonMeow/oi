@@ -9,20 +9,14 @@
 #include <conio.h>
 #include "NetworkRuntime.h"
 #include "font.h"
-#include "ChatOverlay.h"
-static ChatOverlayCanvas chatOverlayCanvas;
 static void QueueChatRect(float minX,float minY,float maxX,float maxY,float r,float g,float b,float a,bool outline)
 {
-    if(chatOverlayCanvas.active){
-        if(!outline&&maxX-minX>2.f&&maxY-minY>2.f)return; // One uniform backdrop, without accumulating alpha.
-        chatOverlayCanvas.rect(minX,minY,maxX,maxY,r,g,b,outline?.50f:a,outline);return;
-    }
     glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
     glColor4f(r,g,b,a); glPolygonMode(GL_FRONT_AND_BACK,outline ? GL_LINE : GL_FILL);
     glRectf(minX,minY,maxX,maxY); glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
 }
 static void QueueChatText(const char* text,float x,float y,float r=.86f,float g=.9f,float b=.88f)
-{ if(chatOverlayCanvas.active)chatOverlayCanvas.text(text,x,y,r,g,b);else drawstring(text,vec3f(x,y,0),vec3f(r,g,b)); }
+{ drawstring(text,vec3f(x,y,0),vec3f(r,g,b)); }
 static bool ChatButtonHovered(vec2i pos)
 {
     const int y = App.size.y - input.mouse.y;
@@ -146,7 +140,6 @@ void RunChatClient(HWND hWnd)
         MSG msg;
         while (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
         {
-            if(msg.message==WM_KEYDOWN&&msg.wParam==VK_ESCAPE&&!chatBox.active()&&screenShare.stopWatching())continue;
             if (msg.hwnd == hWnd && msg.message == WM_DROPFILES)
             {
                 HDROP drop = reinterpret_cast<HDROP>(msg.wParam);
@@ -249,8 +242,7 @@ void RunChatClient(HWND hWnd)
         if (micClicked || hotkeyClicked || screenClicked) input.KeyUp(VK_LBUTTON);
         if(screenClicked) {
             selectingHotkey=false;releaseHotkey=0;input.Clear();
-            if(screenShare.chatOverlay())screenShare.stopWatching();
-            else if(network.isHost() || network.clientReady()) screenShare.toggle();
+            if(network.isHost() || network.clientReady()) screenShare.toggle();
             else {chatBox.deactivate();browser.toggle(directory);}
         }
         if (micClicked && !settings.voiceEnabled()) settings.toggleVoiceEnabled();
@@ -264,7 +256,7 @@ void RunChatClient(HWND hWnd)
         if(chatBox.active())browser.hide();
         input.ConsumeMouseWheel();
         const bool talkDown = !selectingHotkey && !releaseHotkey &&
-            (screenShare.focused() ? !chatBox.active()&&(GetAsyncKeyState(settings.talkKey)&0x8000)!=0 :
+            (screenShare.focused() ? (GetAsyncKeyState(settings.talkKey)&0x8000)!=0 :
              input.pressed(settings.talkKey) && !chatBox.active());
         if (talkDown && !settings.voiceEnabled()) settings.toggleVoiceEnabled();
         voiceChat.update(network, talkDown, settings, micClicked);
@@ -274,25 +266,20 @@ void RunChatClient(HWND hWnd)
         {
             nextDraw += frameIntervalMS;
             if (nextDraw <= now) nextDraw = now + frameIntervalMS;
-            const HWND overlay=screenShare.chatOverlay();
-            if(overlay&&!chatOverlayCanvas.begin(App.size.x,App.size.y,GetDpiForWindow(overlay))) {
-                network.showNotice("Could not draw transparent chat.",true);screenShare.stopWatching();continue;
-            }
             glViewport(0, 0, App.size.x, App.size.y);
             glClearColor(0.f, 0.f, 0.f, 1.f);
             glClear(GL_COLOR_BUFFER_BIT);
             glDisable(GL_DEPTH_TEST);
             glMatrixMode(GL_PROJECTION); glLoadIdentity(); glOrtho(0, App.size.x, 0, App.size.y, -1, 1);
             glMatrixMode(GL_MODELVIEW); glLoadIdentity();
-            chatBox.draw(network, GetForegroundWindow() == hWnd || GetFocus() == hWnd || (overlay&&GetFocus()==overlay));
+            chatBox.draw(network, GetForegroundWindow() == hWnd);
             DrawChatStatus(MakeChatStatus(network, voiceChat), chatBox.historyOffset());
             browser.draw(network,directory);
             DrawChatButton(voiceChat.micEnabled() ? "MIC ON" : "MIC OFF",
                                         micButton, voiceChat.micEnabled(), voiceChat.transmitting(network));
             DrawChatButton(selectingHotkey ? "PRESS KEY" : settings.talkKeyLabel().c_str(), hotkeyButton, selectingHotkey);
-            DrawChatButton(overlay ? "STOP WATCH" : !network.hasConnection() ? "HOSTS" : screenShare.sharing() ? "STOP SHARE" : "SCREEN",screenButton,overlay || screenShare.sharing());
-            if(overlay){if(!chatOverlayCanvas.present(overlay)){network.showNotice("Could not display transparent chat.",true);screenShare.stopWatching();}}
-            else {chatOverlayCanvas.clear();SwapBuffers(dc);}
+            DrawChatButton(!network.hasConnection() ? "HOSTS" : screenShare.sharing() ? "STOP SHARE" : "SCREEN",screenButton,screenShare.sharing());
+            SwapBuffers(dc);
         }
 
         // Wake for the next frame instead of rounding every frame up to 20 ms.

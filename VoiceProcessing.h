@@ -6,8 +6,8 @@
 #include "speex/speex_echo.h"
 #include "speex/speex_preprocess.h"
 
-// All processing and queues belong to the voice/UI thread. Pending transmission
-// queues are cleared on mute/PTT changes; the adaptive filter can stay trained.
+// All processing and queues belong to the voice/UI thread. No microphone data
+// is retained across mute/PTT sessions.
 class cVoiceProcessing
 {
 public:
@@ -23,8 +23,8 @@ private:
 
     void configure()
     {
-        int enabled = 1, noiseDb = -12, echoDb = -40, talkingEchoDb = -15;
-        int target = 16000, maxGainDb = 24;
+        int enabled = 1, noiseDb = -20, echoDb = -40, talkingEchoDb = -15;
+        int target = 8000, maxGainDb = 12;
         speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_DENOISE, &enabled);
         speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noiseDb);
         speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_ECHO_STATE, _echo);
@@ -37,7 +37,7 @@ private:
 
 public:
     cVoiceProcessing()
-        : _echo(speex_echo_state_init(FrameSamples, SampleRate / 2)),
+        : _echo(speex_echo_state_init(FrameSamples, SampleRate / 5)),
           _preprocess(speex_preprocess_state_init(FrameSamples, SampleRate))
     {
         int rate = SampleRate;
@@ -56,14 +56,11 @@ public:
 
     void resetEcho() { speex_echo_state_reset(_echo); }
 
-    void reset(bool resetFilter = true)
+    void reset()
     {
         _leadIn.clear();
         _ready.clear();
         _hold = 0;
-        // Mute/PTT clears pending microphone data without discarding the
-        // learned speaker path or restarting automatic gain on every utterance.
-        if (!resetFilter) return;
         resetEcho();
         speex_preprocess_state_destroy(_preprocess);
         _preprocess = speex_preprocess_state_init(FrameSamples, SampleRate);
