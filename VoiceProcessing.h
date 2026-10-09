@@ -1,4 +1,5 @@
 #pragma once
+#include "VoiceAudioFormat.h"
 
 #include "VoiceEchoSuppressor.h"
 #include <array>
@@ -12,7 +13,7 @@
 class cVoiceProcessing
 {
 public:
-    enum { SampleRate = 16000, FrameSamples = 320 };
+    enum { SampleRate = VoiceAudioFormat::SampleRate, FrameSamples = VoiceAudioFormat::FrameSamples };
     typedef std::array<int16_t, FrameSamples> Frame;
 
 private:
@@ -64,10 +65,9 @@ public:
         _leadIn.clear();
         _ready.clear();
         _hold = 0;
-        _speakerEcho.reset();_previousEcho=false;
         // Mute/PTT clears pending microphone data without discarding the
         // learned speaker path or restarting automatic gain on every utterance.
-        if (!resetFilter) return;
+        if (!resetFilter) { _speakerEcho.reset();_previousEcho=false;return; }
         resetEcho();
         speex_preprocess_state_destroy(_preprocess);
         _preprocess = speex_preprocess_state_init(FrameSamples, SampleRate);

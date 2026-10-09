@@ -134,6 +134,7 @@
     <ClInclude Include="VoiceCodec.h" />
     <ClInclude Include="VoiceMixer.h" />
     <ClInclude Include="VoiceProcessing.h" />
+    <ClInclude Include="VoiceAudioFormat.h" />
     <ClInclude Include="VoiceEchoSuppressor.h" />
     <ClInclude Include="Network\SequenceBitmap.hpp" />
     <ClInclude Include="Network\SessionTransport.hpp" />

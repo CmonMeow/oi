@@ -28,13 +28,12 @@ class cVoiceChat
     cVoiceProcessing _processing;
     typedef cVoiceProcessing::Frame AudioFrame;
     cVoiceMixer _mixer;
-    bool _networkWasActive = false;
+    bool _networkWasActive = false, _voiceWasEnabled = false;
     bool _recording;
     bool _transmitEnabled;
     bool _buttonTransmitEnabled = false;
     unsigned __int64 _lastVoiceSent = 0;
     bool _captureFailed = false;
-    bool _captureReady;
     bool _playbackReady;
     unsigned __int32 _sequence;
 
@@ -43,15 +42,6 @@ class cVoiceChat
     {
         if(!_recording)return;
         if(!_capture.update()){captureFailed();return;}
-        if(_capture.takeOutputChange()){
-            cleanupPlaybackBuffers(true);
-            if(_playbackReady){
-                for(auto& buffer:_playbackStorage)if(buffer.header.dwFlags&WHDR_PREPARED)waveOutUnprepareHeader(_waveOut,&buffer.header,sizeof(WAVEHDR));
-                waveOutClose(_waveOut);
-            }
-            for(auto& buffer:_playbackStorage)buffer=PlaybackBuffer{};
-            _playbackReady=false;openPlayback();
-        }
         if(_capture.takeEchoReset())_processing.reset();
         AudioFrame microphone,reference,clean;
         while(_capture.pop(microphone,reference)){
@@ -88,15 +78,15 @@ class cVoiceChat
         _playbackReady = waveOutOpen(&_waveOut, WAVE_MAPPER, &format, 0, 0, CALLBACK_NULL) == MMSYSERR_NOERROR;
     }
 
-    void closeCapture(){stopRecording();}
     void startRecording(){
         if(_recording||_captureFailed)return;
         _processing.reset(false);
         if(!_capture.start()){captureFailed();return;}
-        _recording=_captureReady=true;
+        _recording=true;
     }
     void stopRecording(){
-        _capture.stop();_recording=_captureReady=false;
+        if(!_recording)return;
+        _capture.stop();_recording=false;
         _captureQueue.clear();_processing.reset(false);
     }
 
@@ -182,7 +172,6 @@ public:
         : _waveOut(NULL),
           _recording(false),
           _transmitEnabled(false),
-          _captureReady(false),
           _playbackReady(false),
           _sequence(0)
     {
@@ -193,7 +182,7 @@ public:
 
     ~cVoiceChat()
     {
-        closeCapture();
+        stopRecording();
         if (_playbackReady)
         {
             waveOutReset(_waveOut);
@@ -207,7 +196,7 @@ public:
 
     bool transmitting(const cNetworkRuntime& network) const
     {
-        return _transmitEnabled && _captureReady && _recording &&
+        return _transmitEnabled && _recording &&
                (network.clientReady() || network.isHost()) &&
                _lastVoiceSent != 0 && GetTickCount64() - _lastVoiceSent < 250;
     }
@@ -227,10 +216,20 @@ public:
         return player == network.localPlayerId() ? transmitting(network) : _mixer.speaking(player, GetTickCount64());
     }
 
-    bool micEnabled() const { return _transmitEnabled && _recording && _captureReady; }
+    bool micEnabled() const { return _transmitEnabled && _recording; }
 
     void update(cNetworkRuntime& network, bool talkKeyDown, const PackedClientSettings& settings, bool micClicked = false)
     {
+        _capture.pollOutputDevice();
+        if(_capture.takeOutputChange()){
+            cleanupPlaybackBuffers(true);
+            if(_playbackReady){
+                for(auto& buffer:_playbackStorage)if(buffer.header.dwFlags&WHDR_PREPARED)waveOutUnprepareHeader(_waveOut,&buffer.header,sizeof(WAVEHDR));
+                waveOutClose(_waveOut);
+            }
+            for(auto& buffer:_playbackStorage)buffer=PlaybackBuffer{};
+            _playbackReady=false;openPlayback();
+        }
         const bool networkActive = network.clientReady() || network.isHost();
         if (_networkWasActive && !networkActive) cleanupPlaybackBuffers(true);
         _networkWasActive = networkActive;
@@ -243,10 +242,12 @@ public:
             while (network.consumeVoicePacket(packet))
             {
             }
-            cleanupPlaybackBuffers(true);
+            if(_voiceWasEnabled)cleanupPlaybackBuffers(true);
+            _voiceWasEnabled=false;
             return;
         }
 
+        _voiceWasEnabled=true;
         if (!talkKeyDown) _captureFailed = false;
         if (micClicked) _buttonTransmitEnabled = !_buttonTransmitEnabled;
         // PTT takes over from a latched mic; releasing the key must mute it.

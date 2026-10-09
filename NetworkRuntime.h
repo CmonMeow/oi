@@ -7,6 +7,9 @@
 
 class cNetworkRuntime
 {
+    ULONGLONG _disconnectDeadline=0;
+    struct EndingPeer { ULONGLONG deadline; DisconnectReason reason; string text; };
+    std::map<int,EndingPeer> _endingPeers;
     string _hostName;
     unsigned short _hostingPort = DEFAULT_NETWORK_PORT;
     ScreenSignaling _screens;
@@ -394,36 +397,39 @@ class cNetworkRuntime
                packet.data.size() <= VOICE_MAX_OPUS_BYTES;
     }
 
-    // Bounded drain lets the transport send/retry notices before channel teardown.
-    void flushOutgoing(__int32 onlyPlayer = -1)
+    bool outgoingPending(__int32 onlyPlayer=-1) const
     {
-        const unsigned __int64 deadline = GetTickCount64() + 250;
-        do {
-            bool pending = false;
-            __int32 count=0, bytes=0, guaranteed=0, guaranteedBytes=0;
-            if (_client) {
-                _client->QueryPendingSends(count,bytes,guaranteed,guaranteedBytes);
-                pending = count > 0 || guaranteed > 0;
-            }
-            if (_server) for (__int32 player : _players) {
-                if (onlyPlayer >= 0 && player != onlyPlayer) continue;
-                _server->QueryPendingSends(player,count,bytes,guaranteed,guaranteedBytes);
-                pending = pending || count > 0 || guaranteed > 0;
-            }
-            if (!pending) break;
-            Sleep(5);
-        } while (GetTickCount64() < deadline);
+        __int32 count=0,bytes=0,guaranteed=0,guaranteedBytes=0;
+        if(_client){
+            _client->QueryPendingSends(count,bytes,guaranteed,guaranteedBytes);
+            if(count>0||guaranteed>0)return true;
+        }
+        if(_server)for(__int32 player:_players){
+            if(onlyPlayer>=0&&player!=onlyPlayer)continue;
+            _server->QueryPendingSends(player,count,bytes,guaranteed,guaranteedBytes);
+            if(count>0||guaranteed>0)return true;
+        }
+        return false;
     }
-
+    void drainEndingPeers()
+    {
+        if(!_server)return;
+        const auto now=GetTickCount64();
+        for(auto it=_endingPeers.begin();it!=_endingPeers.end();){
+            if(now<it->second.deadline&&outgoingPending(it->first)){++it;continue;}
+            _server->DisconnectPeer(it->first,it->second.reason,it->second.text.c_str());
+            it=_endingPeers.erase(it);
+        }
+    }
     void endPlayerSession(__int32 player, DisconnectReason reason, const char* text)
     {
-        auto crypto = _serverCrypto.find(player);
-        if (crypto != _serverCrypto.end() && crypto->second.ready()) {
-            NetPacket raw; raw.putString(text, CHAT_MAX_LINE_CHARS);
-            sendRawFromServer(player, NAMTSessionEnd, raw, (DeliveryOptions)(DeliveryGuaranteed | DeliveryHighPriority));
-            flushOutgoing(player);
-        }
-        _server->DisconnectPeer(player, reason, text);
+        if(!_server||_endingPeers.count(player))return;
+        auto crypto=_serverCrypto.find(player);
+        if(crypto!=_serverCrypto.end()&&crypto->second.ready()){
+            NetPacket raw;raw.putString(text,CHAT_MAX_LINE_CHARS);
+            sendRawFromServer(player,NAMTSessionEnd,raw,(DeliveryOptions)(DeliveryGuaranteed|DeliveryHighPriority));
+            _endingPeers.emplace(player,EndingPeer{GetTickCount64()+250,reason,text});
+        }else _server->DisconnectPeer(player,reason,text);
     }
 
     void sendPresenceTo(__int32 player)
@@ -580,6 +586,7 @@ class cNetworkRuntime
 
     void onServerMessage(__int32 from, char* buffer, __int32 bufferSize)
     {
+        if(_endingPeers.count(from)||_disconnectDeadline)return;
         // Host authority is local-only, never supplied by a remote identity.
         if (!_server || from <= 0) return;
         string decrypted;
@@ -716,6 +723,7 @@ class cNetworkRuntime
 
     void onDeletePlayer(__int32 player)
     {
+        _endingPeers.erase(player);
         std::map<__int32, string>::iterator pending = _pendingLeaveMessages.find(player);
         string leaveMessage;
         if (pending != _pendingLeaveMessages.end())
@@ -1228,7 +1236,7 @@ public:
 
     ~cNetworkRuntime()
     {
-        if (_client || _server) disconnect();
+        if (_client || _server) { disconnect(); finishDisconnect(); }
     }
 
     bool hostOnPort(unsigned short port = DEFAULT_NETWORK_PORT)
@@ -1308,6 +1316,11 @@ public:
 
     void update()
     {
+        if(_disconnectDeadline){
+            if(GetTickCount64()>=_disconnectDeadline||!outgoingPending())finishDisconnect();
+            return;
+        }
+        drainEndingPeers();
         int filePeer; string fileId; std::wstring destination;
         if (_fileDialog.poll(filePeer,fileId,destination) && !destination.empty()) _files.accept({filePeer,fileId},destination);
         if (_client && _connectDeadline && GetTickCount64() >= _connectDeadline)
@@ -1315,6 +1328,7 @@ public:
             addChatLine("connection timed out", CLKError);
             _remoteEnded = true;
             disconnect();
+            return;
         }
         if (_client && _transportConnecting)
         {
@@ -1357,7 +1371,7 @@ public:
                 if (!_remoteEnded && !reason.empty()) addChatLine(reason, CLKError);
                 _remoteEnded = true;
                 disconnect();
-
+                return;
             }
             else
             {
@@ -1416,7 +1430,7 @@ public:
 
     void showNotice(const string& text, bool error = false) { addChatLine(text, error ? CLKError : CLKSystem); }
 
-    bool clientReady() const { return _client && _localPlayerId >= 0; }
+    bool clientReady() const { return !_disconnectDeadline && _client && _localPlayerId >= 0; }
 
     __int32 latencyMS() const
     {
@@ -1581,7 +1595,7 @@ public:
 
     bool isHost() const
     {
-        return _server != NULL;
+        return !_disconnectDeadline && _server != NULL;
     }
 
     void sendVoice(NetworkVoicePacket packet)
@@ -1620,15 +1634,21 @@ public:
     bool disconnect()
     {
         if (!_client && !_server) return false;
+        if(_disconnectDeadline)return true;
         _screens.clear();
         _files.clear(); _fileBudgets.clear(); _peerBudgets.clear(); _voiceActiveUntil = 0;
-        const bool hosting = _server != NULL;
         _transportConnecting = false;
         _connectDeadline = 0;
         if (_client && !_remoteEnded) sendRawControlFromClient(NAMTDisconnect);
         if (_server)
             sendRawStringFromServerToAll(NAMTSessionEnd, "system: Host stopped the server.", CHAT_MAX_LINE_CHARS);
-        flushOutgoing();
+        _disconnectDeadline=GetTickCount64()+250;
+        return true;
+    }
+private:
+    void finishDisconnect()
+    {
+        const bool hosting=_server!=nullptr;
         // Receive callbacks use the transport objects. Join their workers
         // before clearing pointers or freeing either object.
         stopUdpWorkers();
@@ -1637,6 +1657,7 @@ public:
         _client = NULL;
         _server = NULL;
         releaseTransportRegistry();
+        _disconnectDeadline=0;_endingPeers.clear();
         _remoteEnded = false;
         _localPlayerId = -1;
         _players.clear();
@@ -1654,6 +1675,5 @@ public:
         _nextClientHeartbeat = _nextServerBroadcast = 0;
         _latencyMS = _throughputBPS = 0;
         addChatLine(hosting ? "Hosting stopped." : "disconnected", CLKSystem);
-        return true;
     }
 };

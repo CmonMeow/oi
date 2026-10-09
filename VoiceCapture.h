@@ -1,4 +1,5 @@
 #pragma once
+#include "VoiceAudioFormat.h"
 #include <windows.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
@@ -16,7 +17,7 @@
 class VoiceCapture
 {
 public:
-    enum { SampleRate = 16000, FrameSamples = 320, ReferenceLead = 320 };
+    enum { SampleRate = VoiceAudioFormat::SampleRate, FrameSamples = VoiceAudioFormat::FrameSamples, ReferenceLead = FrameSamples };
     using Frame = std::array<int16_t, FrameSamples>;
 private:
     template<class T> using ComPtr = Microsoft::WRL::ComPtr<T>;
@@ -37,7 +38,8 @@ private:
     Frame _partial = {};
     size_t _partialCount = 0;
     int64_t _partialStart = 0;
-    ULONGLONG _nextDeviceCheck = 0;
+    ULONGLONG _nextDeviceCheck = 0, _nextOutputCheck = 0;
+    std::wstring _observedOutput;
     bool _running = false, _resetEcho = false, _outputChanged = false;
     bool _haveMicrophone = false, _referenceFailed = false;
 
@@ -66,18 +68,23 @@ private:
         ComPtr<IMMDevice> microphone,speakers;
         HRESULT result=_devices->GetDefaultAudioEndpoint(eCapture,eMultimedia,&microphone);
         if(FAILED(result))return false;
-        if(!_microphone.client || deviceId(microphone.Get())!=_microphone.id) {
+        const auto microphoneId=deviceId(microphone.Get());
+        if(!_microphone.client || microphoneId!=_microphone.id) {
             discardMicrophone();_haveMicrophone=false;
-            if(deviceId(microphone.Get())!=_microphoneId)_resetEcho=true;
+            if(microphoneId!=_microphoneId)_resetEcho=true;
             result=open(_microphone,microphone.Get(),false);
             if(FAILED(result)){Error("WASAPI microphone initialization failed (0x%08lX)",result);return false;}
             _microphoneId=_microphone.id;
         }
         result=_devices->GetDefaultAudioEndpoint(eRender,eMultimedia,&speakers);
-        if(FAILED(result) || !_speakers.client || deviceId(speakers.Get())!=_speakers.id) {
+        const auto speakerId=deviceId(speakers.Get());
+        if(FAILED(result) || !_speakers.client || speakerId!=_speakers.id) {
             _reference.clear();
             // Reopen voice playback as well when Windows changes the default output.
-            if(deviceId(speakers.Get())!=_speakerId){_outputChanged=true;_resetEcho=true;}
+            if(speakerId!=_speakerId){
+                _resetEcho=true;
+                if(speakerId!=_observedOutput){_observedOutput=speakerId;_outputChanged=true;}
+            }
             if(SUCCEEDED(result))result=open(_speakers,speakers.Get(),true);
             else _speakers.close();
             if(FAILED(result)) {
@@ -116,7 +123,8 @@ private:
             bool silent=(flags&AUDCLNT_BUFFERFLAGS_SILENT)!=0;
             valid=valid&&(silent||data);
             if(valid) {
-                const int64_t start=static_cast<int64_t>((qpc+312)/625); // 100 ns -> 16 kHz
+                const int64_t start=static_cast<int64_t>((qpc/10000000)*SampleRate+
+                    ((qpc%10000000)*SampleRate+5000000)/10000000); // 100 ns -> samples
                 if(loopback) {
                     SpeakerBlock block{start,std::vector<int16_t>(count,0)};
                     if(!silent)std::copy_n(reinterpret_cast<int16_t*>(data),count,block.samples.begin());
@@ -139,9 +147,22 @@ public:
     VoiceCapture& operator=(const VoiceCapture&)=delete;
     ~VoiceCapture(){stop();_devices.Reset();if(SUCCEEDED(_com))CoUninitialize();}
     static int64_t clockSamples() {
-        LARGE_INTEGER now,frequency;QueryPerformanceCounter(&now);QueryPerformanceFrequency(&frequency);
-        return (now.QuadPart/frequency.QuadPart)*SampleRate+
-            (now.QuadPart%frequency.QuadPart)*SampleRate/frequency.QuadPart;
+        static const auto frequency=[](){LARGE_INTEGER value;QueryPerformanceFrequency(&value);return value.QuadPart;}();
+        LARGE_INTEGER now;QueryPerformanceCounter(&now);
+        return (now.QuadPart/frequency)*SampleRate+
+            (now.QuadPart%frequency)*SampleRate/frequency;
+    }
+    void pollOutputDevice() {
+        if(GetTickCount64()<_nextOutputCheck)return;
+        _nextOutputCheck=GetTickCount64()+1000;
+        if(!_devices && FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator),nullptr,CLSCTX_ALL,IID_PPV_ARGS(&_devices))))return;
+        ComPtr<IMMDevice> output;
+        if(FAILED(_devices->GetDefaultAudioEndpoint(eRender,eMultimedia,&output))){
+            if(!_observedOutput.empty()){_observedOutput.clear();_outputChanged=true;_resetEcho=true;}
+            return;
+        }
+        const auto id=deviceId(output.Get());
+        if(!id.empty()&&id!=_observedOutput){_observedOutput=id;_outputChanged=true;_resetEcho=true;}
     }
     bool start() {
         if(_running)return true;
@@ -173,7 +194,10 @@ public:
         if(clockSamples()<frame.start+FrameSamples+ReferenceLead+FrameSamples/2)return false;
         microphone=frame.samples;reference.fill(0);
         const int64_t start=frame.start+ReferenceLead;
+        // Earlier samples cannot serve this or any subsequent microphone frame.
+        while(!_reference.empty()&&_reference.front().start+static_cast<int64_t>(_reference.front().samples.size())<=start)_reference.pop_front();
         for(const auto& block:_reference) {
+            if(block.start>=start+FrameSamples)break;
             int64_t begin=(std::max)(start,block.start);
             int64_t end=(std::min)(start+FrameSamples,block.start+static_cast<int64_t>(block.samples.size()));
             if(begin<end)std::copy_n(block.samples.begin()+(begin-block.start),static_cast<size_t>(end-begin),reference.begin()+(begin-start));

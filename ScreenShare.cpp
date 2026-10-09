@@ -99,6 +99,12 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
         ScreenDpiScope dpi;
         if(controller&&window){RECT bounds;GetClientRect(window,&bounds);controller->put_Bounds(bounds);}
     }
+    void stopWatching(){
+        if(!viewMode)return;
+        viewMode=false;
+        if(!active){SendMessageW(window,WM_CLOSE,0,0);return;}
+        post(screenMessage("unwatch"));hideShareWindow();
+    }
     void shutdown() {
         ++generation;ready=false;viewMode=false;picking=false;pending.clear();
         if(active)send({ScreenSignaling::Stop,-1,ownShare,{},{}});
@@ -123,7 +129,7 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
             if(message==ChooseScreenMessage){state->chooseSource();return 0;}
             if(message==WM_SIZE){state->resized();return 0;}
             if(message==WM_DPICHANGED){const RECT& bounds=*reinterpret_cast<RECT*>(lp);SetWindowPos(window,nullptr,bounds.left,bounds.top,bounds.right-bounds.left,bounds.bottom-bounds.top,SWP_NOZORDER|SWP_NOACTIVATE);return 0;}
-            if(message==WM_CLOSE){state->shutdown();DestroyWindow(window);return 0;}
+            if(message==WM_CLOSE){if(state->viewMode&&state->active){state->stopWatching();return 0;}state->shutdown();DestroyWindow(window);return 0;}
             if(message==WM_NCDESTROY){state->shutdown();state->window=nullptr;SetWindowLongPtrW(window,GWLP_USERDATA,0);}
         }
         return DefWindowProcW(window,message,wp,lp);
@@ -251,7 +257,7 @@ ScreenShare::ScreenShare(HWND parent,Send send,Notice notice):state(std::make_sh
     state->com=CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED|COINIT_DISABLE_OLE1DDE);
 }
 ScreenShare::~ScreenShare(){close();if(SUCCEEDED(state->com))CoUninitialize();}
-void ScreenShare::close(){if(state->window)SendMessageW(state->window,WM_CLOSE,0,0);else if(state->controller||state->active)state->shutdown();}
+void ScreenShare::close(){state->viewMode=false;if(state->window)SendMessageW(state->window,WM_CLOSE,0,0);else if(state->controller||state->active)state->shutdown();}
 bool ScreenShare::sharing() const{return state->active;}
 bool ScreenShare::focused() const{return state->window && GetForegroundWindow()==state->window;}
 void ScreenShare::toggle(){
@@ -261,13 +267,7 @@ void ScreenShare::toggle(){
     if(state->open())state->post(screenMessage("choose"));else state->picking=false;
 }
 bool ScreenShare::watching() const{return state->viewMode;}
-void ScreenShare::stopWatching(){
-    if(!state->viewMode)return;
-    state->viewMode=false;
-    if(!state->active){close();return;}
-    state->post(screenMessage("unwatch"));
-    state->hideShareWindow();
-}
+void ScreenShare::stopWatching(){state->stopWatching();}
 void ScreenShare::watch(int owner,const string& share){
     if(share==state->ownShare||!state->open())return;
     state->viewMode=true;ShowWindow(state->window,SW_MAXIMIZE);

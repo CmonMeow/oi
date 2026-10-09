@@ -1,4 +1,5 @@
 #pragma once
+#include "VoiceAudioFormat.h"
 
 #include "Network/SessionTransport.hpp"
 #include "sodium.h"
@@ -573,7 +574,7 @@ struct NetworkPlayerAssignPacket
     __int32 playerId;
 };
 
-enum { VOICE_SAMPLE_RATE = 16000, VOICE_SAMPLES_PER_PACKET = 320,
+enum { VOICE_SAMPLE_RATE = VoiceAudioFormat::SampleRate, VOICE_SAMPLES_PER_PACKET = VoiceAudioFormat::FrameSamples,
        VOICE_MAX_OPUS_BYTES = 1275, VOICE_CODEC_OPUS = 1, VOICE_CODEC_ADPCM = 2 };
 #pragma pack(pop, networkPlayerPackets)
 
