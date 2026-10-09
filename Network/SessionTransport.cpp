@@ -318,6 +318,8 @@ public:
 class PeerChannelTable
 {
 	std::unordered_map<__int32, IntrusivePtr<ChannelInterface>> _users;
+	// Non-owning reverse index; updated under the host peer-state mutex.
+	std::unordered_map<ChannelInterface*, __int32> _peerIds;
 
 	bool getByIndex(unsigned index, IntrusivePtr<ChannelInterface>& result, __int32* key) const
 	{
@@ -357,13 +359,29 @@ public:
 
 	bool put(__int32 key, ChannelInterface* value)
 	{
+		if (!value) return false;
+		auto existing = _peerIds.find(value);
+		if (existing != _peerIds.end() && existing->second != key) return false;
+		auto old = _users.find(key);
+		if (old != _users.end()) _peerIds.erase(old->second.GetRef());
 		_users[key] = value;
+		_peerIds[value] = key;
 		return true;
 	}
 
 	bool removeKey(__int32 key)
 	{
-		return _users.erase(key) != 0;
+		auto it = _users.find(key);
+		if (it == _users.end()) return false;
+		_peerIds.erase(it->second.GetRef());
+		_users.erase(it);
+		return true;
+	}
+
+	__int32 peerId(ChannelInterface* channel) const
+	{
+		auto it = _peerIds.find(channel);
+		return it == _peerIds.end() ? -1 : it->second;
 	}
 
 	std::vector<__int32> timedOutPeers() const

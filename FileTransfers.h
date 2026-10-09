@@ -60,6 +60,9 @@ private:
     std::map<string, std::shared_ptr<Source>> sources;
     std::map<Key, Download> downloads;
     std::map<Key, Upload> uploads;
+    struct PendingControl { unsigned char type; unsigned __int64 offset; ULONGLONG expires; };
+    std::map<std::pair<Key,string>,PendingControl> pendingControls;
+    std::pair<Key,string> lastControl;
     ULONGLONG lastChunk = 0;
     Key lastServed;
     Send send;
@@ -81,11 +84,34 @@ private:
     bool transmit(int peer, const NetPacket& raw) {
         return send(peer, vector<unsigned char>(raw.data(), raw.data() + raw.size()));
     }
-    void control(unsigned char type, const Key& key, const string& token, unsigned __int64 offset = 0) {
-        auto raw = header(type, key.second, token);
-        if (type == Ack) raw.putUInt64(offset);
-        transmit(key.first, raw);
+    void discardControls(const Key& key) {
+        for(auto it=pendingControls.begin();it!=pendingControls.end();)
+            if(it->first.first==key)it=pendingControls.erase(it);else ++it;
     }
+    void control(unsigned char type, const Key& key, const string& token, unsigned __int64 offset = 0) {
+        // ACKs are cumulative; terminal controls supersede any earlier state.
+        const auto pendingKey=std::make_pair(key,token);
+        if(type==Cancel&&token.empty())discardControls(key);
+        auto previous=pendingControls.find(pendingKey);
+        if(previous!=pendingControls.end() && (previous->second.type==Cancel||previous->second.type==Done) && type==Ack)return;
+        auto raw=header(type,key.second,token);if(type==Ack)raw.putUInt64(offset);
+        if(transmit(key.first,raw)){pendingControls.erase(pendingKey);return;}
+        // Unsolicited invalid accepts can generate cancels: do not let them fill memory.
+        if(type==Cancel&&previous==pendingControls.end()&&pendingControls.size()>=1024)return;
+        pendingControls[pendingKey]={type,offset,GetTickCount64()+30000};
+    }
+    void retryControls(ULONGLONG now) {
+        const size_t work=(std::min)(pendingControls.size(),size_t(128));
+        for(size_t i=0;i<work&&!pendingControls.empty();++i){
+            auto it=pendingControls.upper_bound(lastControl);if(it==pendingControls.end())it=pendingControls.begin();
+            lastControl=it->first;
+            const auto& key=it->first.first;const auto& token=it->first.second;const auto& pending=it->second;
+            if(now>=pending.expires){pendingControls.erase(it);continue;}
+            auto raw=header(pending.type,key.second,token);if(pending.type==Ack)raw.putUInt64(pending.offset);
+            if(transmit(key.first,raw))pendingControls.erase(it);
+        }
+    }
+
     std::shared_ptr<File> newFile() {
         return std::shared_ptr<File>(new File,[this](File* file){
             io.submit([file]() -> FileIoQueue::Completion { delete file; return {}; },true);
@@ -132,7 +158,7 @@ public:
     }
     bool offer(const std::wstring& path, const vector<int>& peers) {
         if (peers.empty()) { notice("No recipients are ready for file transfers.", true); return false; }
-        if (sources.size() >= 8 || !localPath(path)) { notice("File offer limit reached or path is not a local file.", true); return false; }
+        if (!localPath(path)) { notice("Path is not a local file.", true); return false; }
         auto source = std::make_shared<Source>(); source->file = newFile();
         source->name = utf8(path.substr(path.find_last_of(L"\\/") + 1));
         if (!validName(source->name)) { notice("Unsupported filename (maximum 200 UTF-8 bytes).", true); return false; }
@@ -234,11 +260,10 @@ public:
         if (type == Offer) {
             unsigned __int64 size; string name;
             if (!token.empty() || !raw.getUInt64(size) || size > MaxFileBytes || !raw.getString(name,200) || !validName(name) || !raw.fullyRead() || downloads.count(key)) return;
-            size_t fromPeer = 0; for (const auto& entry : downloads) if (entry.first.first == peer) ++fromPeer;
-            if (downloads.size() >= 32 || fromPeer >= 8) return;
             Download d; d.name = name; d.size = size; d.touched = now; downloads.emplace(key, std::move(d)); announce(peer,id); return;
         }
         if (type == Cancel && token.empty() && raw.fullyRead()) {
+            discardControls(key);
             auto it = downloads.find(key);
             if (it != downloads.end() && (it->second.file || it->second.state == "save")) {
                 if(releaseDownload(it->second))it->second.state = "withdrawn";
@@ -267,6 +292,7 @@ public:
         }
         if (type == Cancel) {
             if (!raw.fullyRead()) return;
+            pendingControls.erase(std::make_pair(key,token));
             auto up = uploads.find(key); if (up != uploads.end() && up->second.token == token) { notice("File transfer cancelled by recipient.",false); uploads.erase(up); }
             auto down = downloads.find(key); if (down != downloads.end() && down->second.file && down->second.token == token) failDownload(key,down->second,"sender unavailable",false);
             return;
@@ -330,6 +356,7 @@ public:
     void update(bool voiceActive = true) {
         io.poll();
         const auto now = GetTickCount64();
+        retryControls(now);
         for (auto it = downloads.begin(); it != downloads.end();) {
             if (it->second.file && now - it->second.touched > 30000) failDownload(it->first,it->second,"timed out");
             if (!it->second.file && now - it->second.touched > 600000) it = downloads.erase(it); else ++it;
@@ -389,9 +416,10 @@ public:
         }
     }
     void peerLeft(int peer) {
+        for(auto it=pendingControls.begin();it!=pendingControls.end();)if(it->first.first.first==peer)it=pendingControls.erase(it);else ++it;
         for (auto it = uploads.begin(); it != uploads.end();) if (it->first.first == peer) it = uploads.erase(it); else ++it;
         for (auto& entry : downloads) if (entry.first.first == peer) { if(releaseDownload(entry.second))entry.second.state = "unavailable"; }
         for (auto& entry : sources) entry.second->peers.erase(peer);
     }
-    void clear() { for(auto& entry:downloads)releaseDownload(entry.second); uploads.clear(); downloads.clear(); sources.clear(); lastChunk = 0; }
+    void clear() { pendingControls.clear(); for(auto& entry:downloads)releaseDownload(entry.second); uploads.clear(); downloads.clear(); sources.clear(); lastChunk = 0; }
 };

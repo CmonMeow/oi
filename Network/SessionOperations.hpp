@@ -1022,21 +1022,8 @@ bool HostSession::GetClientAddress(__int32 client, sockaddr_in& address)
 
 __int32 HostSession::findPeerIdForChannel(ChannelInterface* ch)
 {
-	if (!ch)
-		return -1;
-	unsigned it;
-	__int32 i;
-	peerStateMutex.lock();
-	IntrusivePtr<ChannelInterface> itch;
-	if (users.getFirst(it, itch, &i))
-		do
-			if (itch.GetRef() == ch)
-				break;
-		while (users.getNext(it, itch, &i));
-	if (!itch)
-		i = -1;
-	peerStateMutex.unlock();
-	return i;
+	std::lock_guard<std::recursive_mutex> lock(peerStateMutex);
+	return users.peerId(ch);
 }
 
 void HostSession::DrainIncomingPayloads(HostPayloadHandler* callback, void* context)
