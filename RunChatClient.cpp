@@ -242,7 +242,8 @@ void RunChatClient(HWND hWnd)
         if (micClicked || hotkeyClicked || screenClicked) input.KeyUp(VK_LBUTTON);
         if(screenClicked) {
             selectingHotkey=false;releaseHotkey=0;input.Clear();
-            if(network.isHost() || network.clientReady()) screenShare.toggle();
+            if(screenShare.watching()) screenShare.stopWatching();
+            else if(network.isHost() || network.clientReady()) screenShare.toggle();
             else {chatBox.deactivate();browser.toggle(directory);}
         }
         if (micClicked && !settings.voiceEnabled()) settings.toggleVoiceEnabled();
@@ -278,7 +279,7 @@ void RunChatClient(HWND hWnd)
             DrawChatButton(voiceChat.micEnabled() ? "MIC ON" : "MIC OFF",
                                         micButton, voiceChat.micEnabled(), voiceChat.transmitting(network));
             DrawChatButton(selectingHotkey ? "PRESS KEY" : settings.talkKeyLabel().c_str(), hotkeyButton, selectingHotkey);
-            DrawChatButton(!network.hasConnection() ? "HOSTS" : screenShare.sharing() ? "STOP SHARE" : "SCREEN",screenButton,screenShare.sharing());
+            DrawChatButton(!network.hasConnection() ? "HOSTS" : screenShare.watching() ? "STOP WATCH" : screenShare.sharing() ? "STOP SHARE" : "SCREEN",screenButton,screenShare.sharing());
             SwapBuffers(dc);
         }
 

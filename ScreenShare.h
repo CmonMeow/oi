@@ -18,5 +18,7 @@ public:
     void update();
     void close();
     bool sharing() const;
+    bool watching() const;
+    void stopWatching();
     bool focused() const;
 };

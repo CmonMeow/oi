@@ -12,6 +12,7 @@ using Microsoft::WRL::Callback;
 namespace {
 const wchar_t* const ScreenUrl=L"https://oi/";
 constexpr UINT FocusScreenMessage=WM_APP+1;
+constexpr UINT ChooseScreenMessage=WM_APP+2;
 // WebView initialization callbacks need the same DPI context as their window,
 // even when the chat window uses Windows' automatic scaling.
 struct ScreenDpiScope {
@@ -36,7 +37,8 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
 {
     HWND parent=nullptr,window=nullptr;
     HRESULT com=E_FAIL;
-    bool ready=false,active=false;
+    bool ready=false,active=false,viewMode=false,picking=false;
+    ULONGLONG notificationUntil=0,notificationNext=0;
     unsigned generation=0;
     string ownShare;
     ScreenSignaling::Event watching{ScreenSignaling::Close};
@@ -51,7 +53,45 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
     void error(const char* text,HRESULT result) {
         char code[24];sprintf_s(code," (0x%08lX)",(unsigned long)result);notice(string(text)+code,true);
     }
+    void hideShareWindow(){
+        if(!viewMode&&window){ShowWindow(window,SW_HIDE);SetForegroundWindow(parent);SetFocus(parent);}
+    }
+    void chooseSource(){
+        if(!web||active||!picking)return;
+        ScreenDpiScope dpi;
+        ShowWindow(window,viewMode?SW_SHOW:SW_SHOWNORMAL);
+        controller->put_IsVisible(TRUE);SetForegroundWindow(window);
+        controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+        const unsigned current=generation;std::weak_ptr<State> weak=shared_from_this();
+        HRESULT result=web->CallDevToolsProtocolMethod(L"Runtime.evaluate",
+            LR"json({"expression":"setTimeout(()=>document.getElementById('choose').onclick(),0)","userGesture":true})json",
+            Callback<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler>([weak,current](HRESULT result,LPCWSTR)->HRESULT{
+                auto s=weak.lock();if(!s||s->generation!=current)return S_OK;
+                if(FAILED(result)){s->picking=false;s->hideShareWindow();s->error("Could not open screen selection.",result);}return S_OK;
+            }).Get());
+        if(FAILED(result)){picking=false;hideShareWindow();error("Could not open screen selection.",result);}
+    }
+    void hideShareNotification() {
+        const auto now=GetTickCount64();
+        if(!active||!web||now>=notificationUntil||now<notificationNext)return;
+        notificationNext=now+250;
+        UINT32 browser=0;if(FAILED(web->get_BrowserProcessId(&browser))||!browser)return;
+        // The browser's Hide link minimizes the bar into the taskbar. Only
+        // hide this browser's recognized oi bar; leave the picker untouched.
+        EnumWindows([](HWND candidate,LPARAM browser)->BOOL {
+            DWORD process=0;GetWindowThreadProcessId(candidate,&process);
+            if(process!=(DWORD)browser||!IsWindowVisible(candidate))return TRUE;
+            wchar_t cls[64],title[128];GetClassNameW(candidate,cls,64);GetWindowTextW(candidate,title,128);
+            if(wcscmp(cls,L"Chrome_WidgetWin_1")!=0)return TRUE;
+            if(wcscmp(title,L"oi is sharing a window.")!=0&&
+               wcscmp(title,L"oi is sharing a window and audio.")!=0&&
+               wcscmp(title,L"oi is sharing your screen.")!=0&&
+               wcscmp(title,L"oi is sharing your screen and audio.")!=0)return TRUE;
+            ShowWindowAsync(candidate,SW_HIDE);return TRUE;
+        },(LPARAM)browser);
+    }
     void post(const string& value) {
+        if(ready&&web&&value==screenMessage("choose")){PostMessageW(window,ChooseScreenMessage,0,0);return;}
         if(ready&&web) { if(FAILED(web->PostWebMessageAsString(wideScreen(value).c_str()))) error("Could not communicate with the screen viewer."); }
         else if(pending.size()<256) pending.push_back(value);
     }
@@ -60,7 +100,7 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
         if(controller&&window){RECT bounds;GetClientRect(window,&bounds);controller->put_Bounds(bounds);}
     }
     void shutdown() {
-        ++generation;ready=false;pending.clear();
+        ++generation;ready=false;viewMode=false;picking=false;pending.clear();
         if(active)send({ScreenSignaling::Stop,-1,ownShare,{},{}});
         if(watching.peer>=0)send({ScreenSignaling::Close,watching.peer,watching.share,watching.connection,{}});
         active=false;ownShare.clear();watching={ScreenSignaling::Close};
@@ -80,6 +120,7 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
                     state->controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
                 return 0;
             }
+            if(message==ChooseScreenMessage){state->chooseSource();return 0;}
             if(message==WM_SIZE){state->resized();return 0;}
             if(message==WM_DPICHANGED){const RECT& bounds=*reinterpret_cast<RECT*>(lp);SetWindowPos(window,nullptr,bounds.left,bounds.top,bounds.right-bounds.left,bounds.bottom-bounds.top,SWP_NOZORDER|SWP_NOACTIVATE);return 0;}
             if(message==WM_CLOSE){state->shutdown();DestroyWindow(window);return 0;}
@@ -96,6 +137,7 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
         if(fields[1].empty()||!end||*end||peer< -1||peer>INT_MAX)return;
         const auto& kind=fields[0];
         if(kind=="ready") { ready=true;auto queue=std::move(pending);pending.clear();for(const auto& value:queue)post(value);return; }
+        if(kind=="pick-finished"){picking=false;hideShareWindow();return;}
         if(kind=="error"){notice(SanitiseChatLine(fields[4]),true);return;}
         if(kind=="video") {
             unsigned lw=0,lh=0,lf=0,rw=0,rh=0,rf=0;char extra=0;
@@ -109,7 +151,7 @@ struct ScreenShare::State : std::enable_shared_from_this<ScreenShare::State>
         }
         if(!ScreenSignaling::validId(fields[2]))return;
         ScreenSignaling::Event event{0,(int)peer,fields[2],fields[3],fields[4]};
-        if(kind=="start") { if(active)return;active=true;ownShare=event.share;event.kind=ScreenSignaling::Start; }
+        if(kind=="start") { if(active)return;active=true;ownShare=event.share;event.kind=ScreenSignaling::Start;notificationUntil=GetTickCount64()+5000;notificationNext=0;hideShareWindow(); }
         else if(kind=="stop") { if(!active||ownShare!=event.share)return;relay.stop(event.share);active=false;ownShare.clear();event.kind=ScreenSignaling::Stop; }
         else {
             if(!ScreenSignaling::validId(event.connection))return;
@@ -212,8 +254,25 @@ ScreenShare::~ScreenShare(){close();if(SUCCEEDED(state->com))CoUninitialize();}
 void ScreenShare::close(){if(state->window)SendMessageW(state->window,WM_CLOSE,0,0);else if(state->controller||state->active)state->shutdown();}
 bool ScreenShare::sharing() const{return state->active;}
 bool ScreenShare::focused() const{return state->window && GetForegroundWindow()==state->window;}
-void ScreenShare::toggle(){if(state->active)state->post(screenMessage("stop-local"));else if(state->open())state->post(screenMessage("choose"));}
-void ScreenShare::watch(int owner,const string& share){if(state->open()&&share!=state->ownShare)state->post(screenMessage("view",owner,share));}
+void ScreenShare::toggle(){
+    if(state->active){state->post(screenMessage("stop-local"));return;}
+    if(state->picking)return;
+    state->picking=true;
+    if(state->open())state->post(screenMessage("choose"));else state->picking=false;
+}
+bool ScreenShare::watching() const{return state->viewMode;}
+void ScreenShare::stopWatching(){
+    if(!state->viewMode)return;
+    state->viewMode=false;
+    if(!state->active){close();return;}
+    state->post(screenMessage("unwatch"));
+    state->hideShareWindow();
+}
+void ScreenShare::watch(int owner,const string& share){
+    if(share==state->ownShare||!state->open())return;
+    state->viewMode=true;ShowWindow(state->window,SW_MAXIMIZE);
+    state->post(screenMessage("view",owner,share));
+}
 void ScreenShare::receive(const ScreenSignaling::Event& event){
     if(event.kind==ScreenSignaling::Media){state->relay.receive(event);return;}
     if(event.kind==ScreenSignaling::Close)state->relay.close(event.connection);
@@ -227,4 +286,4 @@ void ScreenShare::receive(const ScreenSignaling::Event& event){
     if(event.kind==ScreenSignaling::Stop && state->ownShare==event.share){state->active=false;state->ownShare.clear();}
     state->post(screenMessage(kinds[event.kind],event.peer,event.share,event.connection,event.payload));
 }
-void ScreenShare::update(){state->relay.update();}
+void ScreenShare::update(){state->relay.update();state->hideShareNotification();}

@@ -130,9 +130,11 @@
     <ClInclude Include="NetworkProtocol.h" />
     <ClInclude Include="NetworkRuntime.h" />
     <ClInclude Include="VoiceChat.h" />
+    <ClInclude Include="VoiceCapture.h" />
     <ClInclude Include="VoiceCodec.h" />
     <ClInclude Include="VoiceMixer.h" />
     <ClInclude Include="VoiceProcessing.h" />
+    <ClInclude Include="VoiceEchoSuppressor.h" />
     <ClInclude Include="Network\SequenceBitmap.hpp" />
     <ClInclude Include="Network\SessionTransport.hpp" />
     <ClInclude Include="Network\SessionOperations.hpp" />

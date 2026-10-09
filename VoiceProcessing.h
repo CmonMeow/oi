@@ -1,5 +1,6 @@
 #pragma once
 
+#include "VoiceEchoSuppressor.h"
 #include <array>
 #include <deque>
 #include <cstdint>
@@ -7,7 +8,7 @@
 #include "speex/speex_preprocess.h"
 
 // All processing and queues belong to the voice/UI thread. No microphone data
-// is retained across mute/PTT sessions.
+// is queued for transmission across mute/PTT sessions.
 class cVoiceProcessing
 {
 public:
@@ -20,11 +21,13 @@ private:
     std::deque<Frame> _leadIn;
     std::deque<Frame> _ready;
     int _hold = 0;
+    VoiceEchoSuppressor _speakerEcho;
+    bool _previousEcho=false;
 
     void configure()
     {
-        int enabled = 1, noiseDb = -20, echoDb = -40, talkingEchoDb = -15;
-        int target = 8000, maxGainDb = 12;
+        int enabled = 1, noiseDb = -12, echoDb = -40, talkingEchoDb = -15;
+        int target = 16000, maxGainDb = 24;
         speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_DENOISE, &enabled);
         speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noiseDb);
         speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_ECHO_STATE, _echo);
@@ -37,7 +40,7 @@ private:
 
 public:
     cVoiceProcessing()
-        : _echo(speex_echo_state_init(FrameSamples, SampleRate / 5)),
+        : _echo(speex_echo_state_init(FrameSamples, SampleRate / 2)),
           _preprocess(speex_preprocess_state_init(FrameSamples, SampleRate))
     {
         int rate = SampleRate;
@@ -54,13 +57,17 @@ public:
     cVoiceProcessing(const cVoiceProcessing&) = delete;
     cVoiceProcessing& operator=(const cVoiceProcessing&) = delete;
 
-    void resetEcho() { speex_echo_state_reset(_echo); }
+    void resetEcho() { speex_echo_state_reset(_echo);_speakerEcho.reset();_previousEcho=false; }
 
-    void reset()
+    void reset(bool resetFilter = true)
     {
         _leadIn.clear();
         _ready.clear();
         _hold = 0;
+        _speakerEcho.reset();_previousEcho=false;
+        // Mute/PTT clears pending microphone data without discarding the
+        // learned speaker path or restarting automatic gain on every utterance.
+        if (!resetFilter) return;
         resetEcho();
         speex_preprocess_state_destroy(_preprocess);
         _preprocess = speex_preprocess_state_init(FrameSamples, SampleRate);
@@ -71,7 +78,14 @@ public:
     {
         Frame clean;
         speex_echo_cancellation(_echo, microphone, playback.data(), clean.data());
+        bool echo=_speakerEcho.analyze(clean.data(),playback.data());
+        // Keep downward AGC correction, but do not amplify recognized echo.
+        int increase=echo?0:12;
+        speex_preprocess_ctl(_preprocess,SPEEX_PREPROCESS_SET_AGC_INCREMENT,&increase);
         speex_preprocess_run(_preprocess, clean.data());
+        // Speex preprocessing delays its output by one frame.
+        _speakerEcho.apply(clean.data(),_previousEcho);
+        _previousEcho=echo;
         int probability = 0;
         speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_GET_PROB, &probability);
         // Speech probability follows the estimated background noise, rather
