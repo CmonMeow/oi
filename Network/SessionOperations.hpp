@@ -732,9 +732,6 @@ bool HostSession::QueryConnectionMetrics(__int32 to, __int32& latencyMS, __int32
 	latencyMS = (__int32)channel->roundTripTime();
 	throughputBPS = (__int32)channel->estimatedSendRate();
 
-	bool hasTimedOut = channel->hasTimedOut();
-	if (hasTimedOut)
-		finalizePeerRemoval(to);
 	peerStateMutex.unlock();
 	return true;
 }
@@ -1106,6 +1103,8 @@ void HostSession::ClearSendReceipts()
 void HostSession::DrainPeerEvents(PeerJoinedHandler* callbackCreate, PeerLeftHandler* callbackDelete, void* context)
 {
 	peerStateMutex.lock();
+	// Timeout enforcement is independent of display-statistics sampling.
+	for (auto peer : users.timedOutPeers()) finalizePeerRemoval(peer);
 	for (size_t i = 0; i < pendingDepartures.size(); i++)
 	{
 		PeerLeftEvent& info = pendingDepartures[i];

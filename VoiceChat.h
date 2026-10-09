@@ -80,7 +80,7 @@ class cVoiceChat
 
     void startRecording(){
         if(_recording||_captureFailed)return;
-        _processing.reset(false);
+        // stopRecording already clears capture history and drains the processor.
         if(!_capture.start()){captureFailed();return;}
         _recording=true;
     }

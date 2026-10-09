@@ -366,6 +366,14 @@ public:
 		return _users.erase(key) != 0;
 	}
 
+	std::vector<__int32> timedOutPeers() const
+	{
+		std::vector<__int32> result;
+		for (const auto& peer : _users)
+			if (peer.second->hasTimedOut()) result.push_back(peer.first);
+		return result;
+	}
+
 	bool getFirst(unsigned& iterator, IntrusivePtr<ChannelInterface>& first, __int32* key = NULL) const
 	{
 		iterator = 0;

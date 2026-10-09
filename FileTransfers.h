@@ -1,11 +1,13 @@
 #pragma once
 #include "NetworkProtocol.h"
+#include "FileIoQueue.h"
+#include <atomic>
 #include <functional>
 #include <map>
 #include <memory>
 #include <set>
 
-// All transfer and file state is serviced by the application thread.
+// Protocol state stays on the application thread; disk work uses one bounded worker.
 // The relay never parses this plaintext protocol or opens a file.
 class FileTransfers
 {
@@ -24,6 +26,7 @@ private:
     struct File {
         HANDLE handle = INVALID_HANDLE_VALUE;
         std::wstring temporary;
+        std::atomic<int> phase{0}; // 0 active, 1 committing a save, 2 cancelled
         ~File() { close(); if (!temporary.empty()) DeleteFileW(temporary.c_str()); }
         void close() { if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle); handle = INVALID_HANDLE_VALUE; }
     };
@@ -36,7 +39,8 @@ private:
     };
     struct Download {
         string name, token, state = "save";
-        unsigned __int64 size = 0, offset = 0;
+        unsigned __int64 size = 0, offset = 0, queuedOffset = 0;
+        bool finishing = false;
         ULONGLONG touched = 0;
         std::shared_ptr<File> file;
         std::wstring destination;
@@ -46,10 +50,13 @@ private:
         std::shared_ptr<Source> source;
         string token;
         unsigned __int64 offset = 0, acknowledged = 0;
-        bool finishing = false;
+        bool finishing = false, reading = false;
+        vector<unsigned char> buffer;
+        size_t cursor = 0;
         ULONGLONG touched = 0;
         crypto_generichash_state hash;
     };
+    FileIoQueue io; // Outlives maps and their deferred handle cleanup.
     std::map<string, std::shared_ptr<Source>> sources;
     std::map<Key, Download> downloads;
     std::map<Key, Upload> uploads;
@@ -79,9 +86,24 @@ private:
         if (type == Ack) raw.putUInt64(offset);
         transmit(key.first, raw);
     }
+    std::shared_ptr<File> newFile() {
+        return std::shared_ptr<File>(new File,[this](File* file){
+            io.submit([file]() -> FileIoQueue::Completion { delete file; return {}; },true);
+        });
+    }
+    bool releaseDownload(Download& d) {
+        if (d.file) {
+            int active = 0;
+            if (!d.file->phase.compare_exchange_strong(active,2) && active == 1) return false;
+            d.file.reset();
+        }
+        return true;
+    }
     void failDownload(const Key& key, Download& d, const string& reason, bool tellPeer = true) {
+        // A save already committing cannot be cancelled or reported as failed.
+        if (!releaseDownload(d)) return;
         if (tellPeer && !d.token.empty()) control(Cancel, key, d.token);
-        d.file.reset(); d.state = reason; d.touched = GetTickCount64();
+        d.state = reason; d.touched = GetTickCount64();
         notice(d.name + ": " + reason, true);
     }
     static bool validName(const string& name) {
@@ -91,6 +113,7 @@ private:
     }
 public:
     FileTransfers(Send s, Notice n, Announce a) : send(std::move(s)), notice(std::move(n)), announce(std::move(a)) {}
+    ~FileTransfers() { clear(); }
     static bool localPath(const std::wstring& path) {
         return path.size() > 3 && ((path[0] >= L'A' && path[0] <= L'Z') || (path[0] >= L'a' && path[0] <= L'z')) &&
             path[1] == L':' && path[2] == L'\\' && path.find(L':', 2) == std::wstring::npos &&
@@ -110,24 +133,32 @@ public:
     bool offer(const std::wstring& path, const vector<int>& peers) {
         if (peers.empty()) { notice("No recipients are ready for file transfers.", true); return false; }
         if (sources.size() >= 8 || !localPath(path)) { notice("File offer limit reached or path is not a local file.", true); return false; }
-        auto source = std::make_shared<Source>(); source->file = std::make_shared<File>();
+        auto source = std::make_shared<Source>(); source->file = newFile();
         source->name = utf8(path.substr(path.find_last_of(L"\\/") + 1));
         if (!validName(source->name)) { notice("Unsupported filename (maximum 200 UTF-8 bytes).", true); return false; }
-        // Deny concurrent writers/deletion so the offered bytes cannot change during a transfer.
-        source->file->handle = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
-        BY_HANDLE_FILE_INFORMATION info = {}; LARGE_INTEGER size = {};
-        if (source->file->handle == INVALID_HANDLE_VALUE || GetFileType(source->file->handle) != FILE_TYPE_DISK ||
-            !GetFileInformationByHandle(source->file->handle, &info) || (info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) ||
-            !GetFileSizeEx(source->file->handle, &size) || size.QuadPart < 0 || size.QuadPart > MaxFileBytes) {
-            notice("Cannot offer file: inaccessible, in use, or exceeds 4,294,967,296 bytes.", true); return false;
-        }
-        source->size = (unsigned __int64)size.QuadPart; source->expires = GetTickCount64() + 600000;
-        const string id = randomId();
-        auto raw = header(Offer, id); raw.putUInt64(source->size); raw.putString(source->name, 200);
-        for (int peer : peers) if (transmit(peer, raw)) source->peers.insert(peer);
-        if (source->peers.empty()) { notice("File recipients are unavailable.", true); return false; }
+        source->peers.insert(peers.begin(),peers.end());
+        source->expires = GetTickCount64() + 600000;
+        const string id = randomId(); auto file = source->file;
+        if (!io.submit([this,file,path,id]() -> FileIoQueue::Completion {
+            // Deny concurrent writers/deletion throughout all recipients' transfers.
+            file->handle = CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+            BY_HANDLE_FILE_INFORMATION info = {}; LARGE_INTEGER size = {};
+            bool ok = file->handle != INVALID_HANDLE_VALUE && GetFileType(file->handle) == FILE_TYPE_DISK &&
+                GetFileInformationByHandle(file->handle,&info) && !(info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT)) &&
+                GetFileSizeEx(file->handle,&size) && size.QuadPart >= 0 && size.QuadPart <= MaxFileBytes;
+            return [this,id,ok,size] {
+                auto it = sources.find(id); if (it == sources.end()) return;
+                auto source = it->second;
+                if (!ok) { sources.erase(it); notice("Cannot offer file: inaccessible, in use, or exceeds 4,294,967,296 bytes.",true); return; }
+                source->size = size.QuadPart; source->expires = GetTickCount64()+600000;
+                auto raw = header(Offer,id); raw.putUInt64(source->size); raw.putString(source->name,200);
+                for (auto peer=source->peers.begin();peer!=source->peers.end();)
+                    if (!transmit(*peer,raw)) peer=source->peers.erase(peer); else ++peer;
+                if (source->peers.empty()) { sources.erase(it); notice("File recipients are unavailable.",true); return; }
+                announce(-1,id);
+            };
+        })) { notice("File I/O queue is busy.",true); return false; }
         sources[id] = source;
-        announce(-1,id);
         return true;
     }
     std::wstring suggestedName(const Key& key) const {
@@ -172,16 +203,27 @@ public:
         auto it = downloads.find(key);
         if (it == downloads.end() || it->second.file || it->second.state != "save") return false;
         size_t active = 0; for (const auto& entry : downloads) if (entry.second.file) ++active;
-        if (active >= 4 || !localPath(destination) || GetFileAttributesW(destination.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        if (active >= 4 || !localPath(destination)) {
             notice("Choose a new local filename; at most four downloads can run.", true); return false;
         }
-        auto& d = it->second; d.file = std::make_shared<File>(); d.destination = destination; d.token = randomId();
-        const auto temp = destination.substr(0, destination.find_last_of(L'\\') + 1) + L".oi-" + wide(d.token) + L".part";
-        d.file->handle = CreateFileW(temp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (d.file->handle == INVALID_HANDLE_VALUE) { d.file.reset(); notice("Cannot create download in selected folder.", true); return false; }
-        d.file->temporary = temp; d.offset = 0; d.touched = GetTickCount64();
-        crypto_generichash_init(&d.hash, nullptr, 0, 32);
-        control(Accept, key, d.token); return true;
+        auto& d = it->second; d.file = newFile(); d.destination = destination; d.token = randomId();
+        const auto temp = destination.substr(0,destination.find_last_of(L'\\')+1)+L".oi-"+wide(d.token)+L".part";
+        auto file=d.file; auto token=d.token;
+        d.offset=d.queuedOffset=0; d.finishing=false; d.touched=GetTickCount64();
+        crypto_generichash_init(&d.hash,nullptr,0,32);
+        if (!io.submit([this,file,temp,destination,key,token]() -> FileIoQueue::Completion {
+            if (file->phase == 0 && GetFileAttributesW(destination.c_str()) == INVALID_FILE_ATTRIBUTES) {
+                file->handle=CreateFileW(temp.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+                if(file->handle!=INVALID_HANDLE_VALUE)file->temporary=temp;
+            }
+            const bool ok=file->handle!=INVALID_HANDLE_VALUE;
+            return [this,key,token,ok] {
+                auto it=downloads.find(key); if(it==downloads.end()||!it->second.file||it->second.token!=token)return;
+                if(!ok){failDownload(key,it->second,"cannot create download; choose a new local filename",false);return;}
+                it->second.touched=GetTickCount64(); control(Accept,key,token);
+            };
+        })) { failDownload(key,d,"file I/O queue is busy",false); return false; }
+        return true;
     }
     void receive(int peer, const vector<unsigned char>& bytes) {
         if (bytes.empty() || bytes.size() > MaxPacketBytes) return;
@@ -199,7 +241,7 @@ public:
         if (type == Cancel && token.empty() && raw.fullyRead()) {
             auto it = downloads.find(key);
             if (it != downloads.end() && (it->second.file || it->second.state == "save")) {
-                it->second.file.reset(); it->second.state = "withdrawn";
+                if(releaseDownload(it->second))it->second.state = "withdrawn";
             }
             return;
         }
@@ -231,33 +273,62 @@ public:
         }
         auto it = downloads.find(key); if (it == downloads.end() || !it->second.file || it->second.token != token) return;
         auto& d = it->second;
+        if (d.finishing) return;
         if (type == Chunk) {
             unsigned __int64 offset; vector<unsigned char> data;
-            if (!raw.getUInt64(offset) || !raw.getBytes(data,ChunkBytes) || data.empty() || !raw.fullyRead() || offset != d.offset || data.size() > d.size - d.offset) { failDownload(key,d,"invalid chunk"); return; }
-            DWORD written = 0;
-            if (!WriteFile(d.file->handle,data.data(),(DWORD)data.size(),&written,nullptr) || written != data.size()) { failDownload(key,d,"write failed"); return; }
-            crypto_generichash_update(&d.hash,data.data(),data.size()); d.offset += written; d.touched = now; control(Ack,key,token,d.offset);
+            if (!raw.getUInt64(offset) || !raw.getBytes(data,ChunkBytes) || data.empty() || !raw.fullyRead() || offset != d.queuedOffset || data.size() > d.size-d.queuedOffset) { failDownload(key,d,"invalid chunk"); return; }
+            const auto count=data.size(); auto file=d.file;
+            if (!io.submit([this,file,key,token,data=std::move(data)]() mutable -> FileIoQueue::Completion {
+                DWORD written=0;
+                bool ok=file->phase==0 && WriteFile(file->handle,data.data(),(DWORD)data.size(),&written,nullptr) && written==data.size();
+                return [this,key,token,ok,data=std::move(data)] {
+                    auto it=downloads.find(key);if(it==downloads.end()||!it->second.file||it->second.token!=token)return;
+                    auto& d=it->second;
+                    if(!ok){failDownload(key,d,"write failed");return;}
+                    crypto_generichash_update(&d.hash,data.data(),data.size());d.offset+=data.size();d.touched=GetTickCount64();control(Ack,key,token,d.offset);
+                };
+            })) { failDownload(key,d,"file I/O queue is busy"); return; }
+            d.queuedOffset+=count; d.touched=now;
         } else if (type == Finish) {
-            unsigned char digest[32], actual[32];
-            if (!raw.get(digest,32) || !raw.fullyRead() || d.offset != d.size) { failDownload(key,d,"incomplete transfer"); return; }
-            crypto_generichash_final(&d.hash,actual,32);
-            if (sodium_memcmp(digest,actual,32) || !FlushFileBuffers(d.file->handle)) { failDownload(key,d,"integrity or disk error"); return; }
-            d.file->close();
-            // Preserve Windows' downloaded-file provenance without executing or inspecting the content.
-            HANDLE zone = CreateFileW((d.file->temporary + L":Zone.Identifier").c_str(), GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
-            if (zone == INVALID_HANDLE_VALUE) { failDownload(key,d,"cannot mark downloaded file; choose a drive supporting Windows security metadata"); return; }
-            const char mark[] = "[ZoneTransfer]\r\nZoneId=3\r\n";
-            DWORD written = 0;
-            const bool marked = WriteFile(zone,mark,sizeof(mark)-1,&written,nullptr) && written == sizeof(mark)-1 && FlushFileBuffers(zone);
-            const bool closed = CloseHandle(zone) != FALSE;
-            if (!marked || !closed) { failDownload(key,d,"cannot write downloaded-file security metadata"); return; }
-            // No overwrite flag: never replace an existing user file, even if created during transfer.
-            if (!MoveFileExW(d.file->temporary.c_str(),d.destination.c_str(),0)) { failDownload(key,d,"cannot save destination"); return; }
-            d.file->temporary.clear(); d.file.reset(); d.state = "saved"; d.touched = now; control(Done,key,token);
-            notice("Saved " + displayName(d.name) + ".",false);
+            unsigned char digest[32],actual[32];
+            if (!raw.get(digest,32) || !raw.fullyRead() || d.offset!=d.size) { failDownload(key,d,"incomplete transfer"); return; }
+            auto hash=d.hash; crypto_generichash_final(&hash,actual,32);
+            if(sodium_memcmp(digest,actual,32)){failDownload(key,d,"integrity error");return;}
+            auto file=d.file;auto destination=d.destination;
+            if(!io.submit([this,file,destination,key,token]() -> FileIoQueue::Completion {
+                string error;
+                if(file->phase!=0)return {};
+                if(!FlushFileBuffers(file->handle))error="disk flush failed";
+                file->close();
+                if(error.empty()) {
+                    HANDLE zone=CreateFileW((file->temporary+L":Zone.Identifier").c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+                    if(zone==INVALID_HANDLE_VALUE)error="cannot mark downloaded file; choose a drive supporting Windows security metadata";
+                    else {
+                        const char mark[]="[ZoneTransfer]\r\nZoneId=3\r\n";DWORD written=0;
+                        bool marked=WriteFile(zone,mark,sizeof(mark)-1,&written,nullptr)&&written==sizeof(mark)-1&&FlushFileBuffers(zone);
+                        bool closed=CloseHandle(zone)!=FALSE;
+                        if(!marked||!closed)error="cannot write downloaded-file security metadata";
+                    }
+                }
+                int active=0;
+                if(error.empty() && file->phase.compare_exchange_strong(active,1)) {
+                    // No overwrite: a destination created during download stays intact.
+                    if(MoveFileExW(file->temporary.c_str(),destination.c_str(),0))file->temporary.clear();
+                    else {error="cannot save destination";file->phase=0;}
+                } else if(error.empty())return {};
+                return [this,key,token,error] {
+                    auto it=downloads.find(key);if(it==downloads.end()||!it->second.file||it->second.token!=token)return;
+                    auto& d=it->second;
+                    if(!error.empty()){failDownload(key,d,error);return;}
+                    d.file.reset();d.state="saved";d.touched=GetTickCount64();control(Done,key,token);
+                    notice("Saved "+displayName(d.name)+".",false);
+                };
+            })) {failDownload(key,d,"file I/O queue is busy");return;}
+            d.finishing=true;d.touched=now;
         }
     }
     void update(bool voiceActive = true) {
+        io.poll();
         const auto now = GetTickCount64();
         for (auto it = downloads.begin(); it != downloads.end();) {
             if (it->second.file && now - it->second.touched > 30000) failDownload(it->first,it->second,"timed out");
@@ -270,6 +341,21 @@ public:
         for (auto it = sources.begin(); it != sources.end();) {
             if (now >= it->second->expires || it->second->peers.empty()) it = sources.erase(it); else ++it;
         }
+        for (auto& entry : uploads) {
+            auto& u=entry.second;
+            if(u.finishing||u.reading||u.cursor<u.buffer.size()||u.offset==u.source->size)continue;
+            const auto key=entry.first;const auto token=u.token;auto file=u.source->file;
+            const auto offset=u.offset;const unsigned count=(unsigned)(std::min)((unsigned __int64)FlightBytes,u.source->size-offset);
+            u.reading=io.submit([this,file,key,token,offset,count]() -> FileIoQueue::Completion {
+                vector<unsigned char> bytes(count);LARGE_INTEGER pos;pos.QuadPart=offset;DWORD read=0;
+                bool ok=SetFilePointerEx(file->handle,pos,nullptr,FILE_BEGIN)&&ReadFile(file->handle,bytes.data(),count,&read,nullptr)&&read==count;
+                return [this,key,token,ok,bytes=std::move(bytes)]() mutable {
+                    auto it=uploads.find(key);if(it==uploads.end()||it->second.token!=token)return;
+                    if(!ok){control(Cancel,key,token);notice("File read failed.",true);uploads.erase(it);return;}
+                    auto& u=it->second;u.reading=false;u.buffer=std::move(bytes);u.cursor=0;
+                };
+            });
+        }
         if (uploads.empty() || (voiceActive && now - lastChunk < 64)) return;
         unsigned __int64 outstanding = 0;
         for (const auto& entry : uploads) outstanding += entry.second.offset - entry.second.acknowledged;
@@ -280,7 +366,7 @@ public:
             auto it = uploads.upper_bound(lastServed); if (it == uploads.end()) it = uploads.begin();
             const auto ready = [outstanding](const Upload& u) {
                 return !u.finishing && (u.offset == u.source->size ? u.offset == u.acknowledged :
-                    outstanding + (std::min)((unsigned __int64)ChunkBytes,u.source->size-u.offset) <= FlightBytes);
+                    u.cursor < u.buffer.size() && outstanding + (std::min)((unsigned __int64)ChunkBytes,u.source->size-u.offset) <= FlightBytes);
             };
             for (size_t n = 0; n < uploads.size(); ++n) {
                 if (ready(it->second)) break;
@@ -294,21 +380,18 @@ public:
                 u.finishing = transmit(it->first.first,raw); return;
             }
             const unsigned count = (unsigned)(std::min)((unsigned __int64)ChunkBytes,u.source->size-u.offset);
-            vector<unsigned char> bytes(count); LARGE_INTEGER pos; pos.QuadPart = u.offset; DWORD read = 0;
-            if (!SetFilePointerEx(u.source->file->handle,pos,nullptr,FILE_BEGIN) || !ReadFile(u.source->file->handle,bytes.data(),count,&read,nullptr) || read != count) {
-                control(Cancel,it->first,u.token); notice("File read failed.",true); uploads.erase(it); return;
-            }
+            vector<unsigned char> bytes(u.buffer.begin()+u.cursor,u.buffer.begin()+u.cursor+count);
             auto raw = header(Chunk,it->first.second,u.token); raw.putUInt64(u.offset); raw.putBytes(bytes,ChunkBytes);
             if (!transmit(it->first.first,raw)) return;
-            crypto_generichash_update(&u.hash,bytes.data(),bytes.size()); u.offset += count;
+            crypto_generichash_update(&u.hash,bytes.data(),bytes.size()); u.offset += count; u.cursor += count;
             outstanding += count;
             lastChunk = now; // Voice: one chunk per 64 ms. Idle: bounded pipelining.
         }
     }
     void peerLeft(int peer) {
         for (auto it = uploads.begin(); it != uploads.end();) if (it->first.first == peer) it = uploads.erase(it); else ++it;
-        for (auto& entry : downloads) if (entry.first.first == peer) { entry.second.file.reset(); entry.second.state = "unavailable"; }
+        for (auto& entry : downloads) if (entry.first.first == peer) { if(releaseDownload(entry.second))entry.second.state = "unavailable"; }
         for (auto& entry : sources) entry.second->peers.erase(peer);
     }
-    void clear() { uploads.clear(); downloads.clear(); sources.clear(); lastChunk = 0; }
+    void clear() { for(auto& entry:downloads)releaseDownload(entry.second); uploads.clear(); downloads.clear(); sources.clear(); lastChunk = 0; }
 };

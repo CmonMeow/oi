@@ -97,6 +97,7 @@ class cNetworkRuntime
     vector<NetworkChatLine> _chatLines;
     unsigned __int64 _nextClientHeartbeat;
     unsigned __int64 _nextServerBroadcast;
+    unsigned __int64 _nextHostStatistics = 0;
     __int32 _localPlayerId;
     __int32 _latencyMS;
     __int32 _throughputBPS;
@@ -1261,6 +1262,7 @@ public:
         _privateChatKeyReady = false;
         ensurePrivateChatKey();
         _nextServerBroadcast = 0;
+        _nextHostStatistics = 0;
         _server = MakeHostSession();
         if (!_server || !_server->StartSession("oi", "", port))
         {
@@ -1384,10 +1386,12 @@ public:
             }
         }
 
-        if (_server)
+        const auto statisticsNow = GetTickCount64();
+        if (_server && statisticsNow >= _nextHostStatistics)
         {
-            __int32 totalLatency = 0;
-            __int32 totalThroughput = 0;
+            _nextHostStatistics = statisticsNow + 1000;
+            __int64 totalLatency = 0;
+            __int64 totalThroughput = 0;
             __int32 counted = 0;
             for (size_t i = 0; i < _players.size(); ++i)
             {
@@ -1400,8 +1404,8 @@ public:
                     ++counted;
                 }
             }
-            _latencyMS = counted ? totalLatency / counted : 0;
-            _throughputBPS = counted ? totalThroughput / counted : 0;
+            _latencyMS = counted ? (__int32)(totalLatency / counted) : 0;
+            _throughputBPS = counted ? (__int32)(totalThroughput / counted) : 0;
         }
         _files.update(GetTickCount64() < _voiceActiveUntil);
     }
@@ -1673,6 +1677,7 @@ private:
         _privateChatKeyReady = false;
         ensurePrivateChatKey();
         _nextClientHeartbeat = _nextServerBroadcast = 0;
+        _nextHostStatistics = 0;
         _latencyMS = _throughputBPS = 0;
         addChatLine(hosting ? "Hosting stopped." : "disconnected", CLKSystem);
     }

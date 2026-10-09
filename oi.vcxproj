@@ -115,6 +115,7 @@
     <ClInclude Include="HostDirectoryClient.h" />
     <ClInclude Include="HostBrowser.h" />
     <ClInclude Include="FileTransfers.h" />
+    <ClInclude Include="FileIoQueue.h" />
     <ClInclude Include="FileSaveDialog.h" />
     <ClInclude Include="ClientSettings.h" />
     <ClInclude Include="NetworkProtocol.h" />

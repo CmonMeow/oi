@@ -28,6 +28,7 @@ class HostDirectoryClient {
 public:
     std::vector<HostDirectory::Entry> entries;
     unsigned page=0,pages=1;
+    unsigned long long entriesRevision=0;
     std::string status="Finding hosts...",publishStatus;
     explicit HostDirectoryClient(const std::string& address,uint32_t appVersion):hostname(address),version(appVersion) {
         sodium_init();directory.sin_family=AF_INET;directory.sin_port=htons(HostDirectory::Port);
@@ -51,14 +52,14 @@ public:
     }
     void refresh(unsigned requestedPage=0) {
         if(socket==INVALID_SOCKET)return;
-        if(requestedPage!=page)entries.clear();
+        if(requestedPage!=page){entries.clear();++entriesRevision;}
         page=requestedPage;fetching=false;nextQuery=0;status="Finding hosts...";
     }
     void update(bool isHost,unsigned short port,unsigned users,const std::string& hostName) {
         using namespace HostDirectory;auto now=GetTickCount64();
         if(hosting&&!isHost)retire();if(hosting!=isHost){hosting=isHost;nextRegistration=0;publishStatus=hosting?"Publishing host...":"";}
         // Expiry must run even while DNS resolution is failing.
-        if(lastList&&now-lastList>=LeaseMs){entries.clear();lastList=0;page=0;pages=1;status="Directory unavailable. Use /connect or /host.";}
+        if(lastList&&now-lastList>=LeaseMs){entries.clear();++entriesRevision;lastList=0;page=0;pages=1;status="Directory unavailable. Use /connect or /host.";}
         if(lastPublished&&now-lastPublished>=LeaseMs)publishStatus="Host listing expired. Check UDP forwarding.";
         if(socket==INVALID_SOCKET){if(hosting)publishStatus="Directory unavailable. Direct connections still work.";return;}
         if(!resolved){
@@ -79,7 +80,7 @@ public:
                 else if(p.kind==List && p.count<=PageSize && p.pages>=1 && p.pages<=(MaxHosts+PageSize-1)/PageSize && p.page<p.pages){
                     bool valid=true;for(unsigned i=0;i<p.count;++i)if(!validName(p.entries[i].name)||!p.entries[i].port||!p.entries[i].address||p.entries[i].version!=version)valid=false;
                     if(!valid)continue;
-                    entries.assign(p.entries,p.entries+p.count);page=p.page;pages=p.pages;fetching=false;lastList=now;nextQuery=now+15000;
+                    entries.assign(p.entries,p.entries+p.count);++entriesRevision;page=p.page;pages=p.pages;fetching=false;lastList=now;nextQuery=now+15000;
                     status=entries.empty()?"No hosts online. Type /host to start one.":"Click a host to join.";
                 }
             }
