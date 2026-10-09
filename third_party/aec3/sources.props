@@ -1,0 +1,1775 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1\absl\numeric\int128.cc">
+      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_absl_numeric_int128.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1\absl\strings\charconv.cc">
+      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_absl_strings_charconv.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1\absl\strings\numbers.cc">
+      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_absl_strings_numbers.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\checks.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_checks.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\cpu_info.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_cpu_info.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\event.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_event.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\experiments\field_trial_parser.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_experiments_field_trial_parser.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\logging.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_logging.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\memory\aligned_malloc.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_memory_aligned_malloc.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\platform_thread.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_platform_thread.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\platform_thread_types.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_platform_thread_types.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\race_checker.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_race_checker.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\ref_counter.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ref_counter.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\string_utils.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_string_utils.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\strings\string_builder.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_strings_string_builder.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\synchronization\yield_policy.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_synchronization_yield_policy.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\system\system_time.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_system_system_time.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\system_time.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_system_time.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\task_queue_stdlib.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_task_queue_stdlib.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\time_utils.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_time_utils.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\api\audio\audio_processing.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_audio_audio_processing.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\api\audio\echo_canceller3_config.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_audio_echo_canceller3_config.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\api\environment\deprecated_global_field_trials.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_environment_deprecated_global_field_trials.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\api\environment\environment_factory.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_environment_environment_factory.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\api\environment\force_test_environment.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_environment_force_test_environment.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\api\field_trials_registry.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_field_trials_registry.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\api\rtc_event_log\rtc_event_log.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_rtc_event_log_rtc_event_log.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\api\task_queue\default_task_queue_factory_stdlib.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_task_queue_default_task_queue_factory_stdlib.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\api\task_queue\task_queue_base.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_task_queue_task_queue_base.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\system_wrappers\source\clock.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_source_clock.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\system_wrappers\source\metrics.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_source_metrics.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\resampler\sinc_resampler_sse.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_resampler_sinc_resampler_sse.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\third_party\ooura\fft_size_128\ooura_fft_sse2.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_third_party_ooura_fft_size_128_ooura_fft_sse2.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\resampler\sinc_resampler_avx2.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_resampler_sinc_resampler_avx2.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\audio_util.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_audio_util.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\resampler\push_sinc_resampler.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_resampler_push_sinc_resampler.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\resampler\sinc_resampler.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_resampler_sinc_resampler.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\signal_processing\division_operations.c">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_signal_processing_division_operations.c.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\signal_processing\energy.c">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_signal_processing_energy.c.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\signal_processing\get_scaling_square.c">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_signal_processing_get_scaling_square.c.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\signal_processing\resample_48khz.c">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_signal_processing_resample_48khz.c.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\signal_processing\resample_by_2_internal.c">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_signal_processing_resample_by_2_internal.c.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\signal_processing\resample_fractional.c">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_signal_processing_resample_fractional.c.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\signal_processing\spl_inl.c">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_signal_processing_spl_inl.c.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\third_party\ooura\fft_size_128\ooura_fft.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_third_party_ooura_fft_size_128_ooura_fft.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\third_party\ooura\fft_size_256\fft4g.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_third_party_ooura_fft_size_256_fft4g.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\vad\vad_core.c">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_vad_vad_core.c.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\vad\vad_filterbank.c">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_vad_vad_filterbank.c.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\vad\vad_gmm.c">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_vad_vad_gmm.c.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\vad\vad_sp.c">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_vad_vad_sp.c.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\vad\webrtc_vad.c">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_vad_webrtc_vad.c.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\adaptive_fir_filter_avx2.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_adaptive_fir_filter_avx2.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\adaptive_fir_filter_erl_avx2.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_adaptive_fir_filter_erl_avx2.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\fft_data_avx2.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_fft_data_avx2.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\matched_filter_avx2.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_matched_filter_avx2.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\vector_math_avx2.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_vector_math_avx2.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\adaptive_fir_filter.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_adaptive_fir_filter.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\adaptive_fir_filter_erl.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_adaptive_fir_filter_erl.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\aec3_common.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_aec3_common.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\aec3_fft.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_aec3_fft.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\aec_state.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_aec_state.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\alignment_mixer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_alignment_mixer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\api_call_jitter_metrics.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_api_call_jitter_metrics.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\block_buffer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_block_buffer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\block_delay_buffer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_block_delay_buffer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\block_framer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_block_framer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\block_processor.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_block_processor.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\block_processor_metrics.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_block_processor_metrics.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\clockdrift_detector.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_clockdrift_detector.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\coarse_filter_update_gain.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_coarse_filter_update_gain.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\comfort_noise_generator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_comfort_noise_generator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\config_selector.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_config_selector.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\decimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_decimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\dominant_nearend_detector.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_dominant_nearend_detector.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\downsampled_render_buffer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_downsampled_render_buffer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\echo_audibility.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_echo_audibility.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\echo_canceller3.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_echo_canceller3.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\echo_path_delay_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_echo_path_delay_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\echo_path_variability.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_echo_path_variability.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\echo_remover.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_echo_remover.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\echo_remover_metrics.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_echo_remover_metrics.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\erl_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_erl_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\erle_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_erle_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\fft_buffer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_fft_buffer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\filter_analyzer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_filter_analyzer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\frame_blocker.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_frame_blocker.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\fullband_erle_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_fullband_erle_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\matched_filter.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_matched_filter.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\matched_filter_lag_aggregator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_matched_filter_lag_aggregator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\moving_average_spectrum.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_moving_average_spectrum.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\multi_channel_content_detector.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_multi_channel_content_detector.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\refined_filter_update_gain.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_refined_filter_update_gain.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\render_buffer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_render_buffer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\render_delay_buffer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_render_delay_buffer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\render_delay_controller.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_render_delay_controller.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\render_delay_controller_metrics.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_render_delay_controller_metrics.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\render_signal_analyzer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_render_signal_analyzer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\residual_echo_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_residual_echo_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\reverb_decay_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_reverb_decay_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\reverb_frequency_response.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_reverb_frequency_response.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\reverb_model.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_reverb_model.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\reverb_model_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_reverb_model_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\signal_dependent_erle_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_signal_dependent_erle_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\spectrum_buffer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_spectrum_buffer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\stationarity_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_stationarity_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\subband_erle_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_subband_erle_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\subband_nearend_detector.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_subband_nearend_detector.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\subtractor.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_subtractor.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\subtractor_output.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_subtractor_output.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\subtractor_output_analyzer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_subtractor_output_analyzer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\suppression_filter.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_suppression_filter.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\suppression_gain.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_suppression_gain.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\aec3\transparent_mode.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_aec3_transparent_mode.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\audio_buffer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_audio_buffer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\capture_mixer\audio_content_analyzer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_capture_mixer_audio_content_analyzer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\capture_mixer\capture_mixer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_capture_mixer_capture_mixer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\capture_mixer\channel_content_remixer.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_capture_mixer_channel_content_remixer.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\capture_mixer\dc_levels_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_capture_mixer_dc_levels_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\capture_mixer\energy_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_capture_mixer_energy_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\capture_mixer\remixing_logic.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_capture_mixer_remixing_logic.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\capture_mixer\saturation_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_capture_mixer_saturation_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\high_pass_filter.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_high_pass_filter.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\logging\apm_data_dumper.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_logging_apm_data_dumper.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\ns\fast_math.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ns_fast_math.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\ns\histograms.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ns_histograms.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\ns\noise_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ns_noise_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\ns\noise_suppressor.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ns_noise_suppressor.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\ns\ns_fft.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ns_ns_fft.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\ns\prior_signal_model.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ns_prior_signal_model.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\ns\prior_signal_model_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ns_prior_signal_model_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\ns\quantile_noise_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ns_quantile_noise_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\ns\signal_model.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ns_signal_model.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\ns\signal_model_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ns_signal_model_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\ns\speech_probability_estimator.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ns_speech_probability_estimator.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\ns\suppression_params.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ns_suppression_params.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\ns\wiener_filter.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_ns_wiener_filter.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\splitting_filter.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_splitting_filter.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\three_band_filter_bank.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_three_band_filter_bank.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\modules\audio_processing\utility\cascaded_biquad_filter.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;WEBRTC_APM_DEBUG_DUMP=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_utility_cascaded_biquad_filter.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1\absl\base\internal\raw_logging.cc">
+      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_absl_base_internal_raw_logging.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1\absl\strings\ascii.cc">
+      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_absl_strings_ascii.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1\absl\strings\internal\charconv_bigint.cc">
+      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_absl_strings_internal_charconv_bigint.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1\absl\strings\internal\charconv_parse.cc">
+      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_absl_strings_internal_charconv_parse.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1\absl\strings\match.cc">
+      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_absl_strings_match.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\rtc_base\string_encode.cc">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_string_encode.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\webrtc\common_audio\signal_processing\splitting_filter.c">
+      <PreprocessorDefinitions>_WINSOCKAPI_;NDEBUG;WEBRTC_WIN;_WIN32;__STDC_FORMAT_MACROS=1;NOMINMAX;_USE_MATH_DEFINES;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_signal_processing_splitting_filter.c.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1\absl\strings\internal\memutil.cc">
+      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ObjectFileName>$(IntDir)aec3_absl_strings_internal_memutil.cc.obj</ObjectFileName>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemGroup>
+</Project>

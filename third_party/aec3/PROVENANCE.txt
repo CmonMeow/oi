@@ -1,0 +1,9 @@
+Selected AEC3, high-pass filter, conventional denoiser, and GMM VAD sources.
+Packaging source: https://github.com/Sqhh99/webrtc-audio-processing
+Commit: 65f1b3b959d3aaff17bd6611418980f49a5af3b8
+WebRTC upstream: M153, 9ea5afcad008b940468c2a15aec339592cf5a935
+Abseil: 20250814.1
+Selected using linked members and compiler dependencies of VoiceEchoCancellation.cpp.
+No RNNoise model, neural VAD, AGC, network, or browser implementation is included.
+Original source unchanged. sources.props builds this subset directly with MSVC x64.
+AVX2 implementations are selected by upstream CPU dispatch, not required by the client.

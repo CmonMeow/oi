@@ -44,7 +44,7 @@
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)third_party\opus\include;$(ProjectDir)third_party\speexdsp\include;$(ProjectDir)third_party\libsodium\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)third_party\opus\include;$(ProjectDir)third_party\libsodium\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;SODIUM_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles />
       <StringPooling>true</StringPooling>
@@ -71,6 +71,7 @@
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
   </ItemDefinitionGroup>
+  <Import Project="third_party\aec3\sources.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="SignPrivateRelease" AfterTargets="Build" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Exec Command="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(ProjectDir)SignRelease.ps1&quot; -Executable &quot;$(TargetPath)&quot;" />
@@ -78,30 +79,19 @@
   <Target Name="CopyVoiceProcessingLicense" AfterTargets="Build">
     <Copy SourceFiles="$(ProjectDir)third_party\webview2\LICENSE.txt" DestinationFiles="$(OutDir)webview2-LICENSE.txt" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(ProjectDir)third_party\webview2\NOTICE.txt" DestinationFiles="$(OutDir)webview2-NOTICE.txt" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(ProjectDir)third_party\speexdsp\COPYING" DestinationFiles="$(OutDir)speexdsp-LICENSE.txt" SkipUnchangedFiles="true" />
+
   </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
   <ItemGroup>
-    <ClCompile Include="third_party\speexdsp\libspeexdsp\preprocess.c">
-      <PreprocessorDefinitions>HAVE_CONFIG_H;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)third_party\speexdsp\win32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ClCompile>
-    <ClCompile Include="third_party\speexdsp\libspeexdsp\mdf.c">
-      <PreprocessorDefinitions>HAVE_CONFIG_H;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)third_party\speexdsp\win32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ClCompile>
-    <ClCompile Include="third_party\speexdsp\libspeexdsp\fftwrap.c">
-      <PreprocessorDefinitions>HAVE_CONFIG_H;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)third_party\speexdsp\win32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ClCompile>
-    <ClCompile Include="third_party\speexdsp\libspeexdsp\filterbank.c">
-      <PreprocessorDefinitions>HAVE_CONFIG_H;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)third_party\speexdsp\win32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ClCompile>
-    <ClCompile Include="third_party\speexdsp\libspeexdsp\smallft.c">
-      <PreprocessorDefinitions>HAVE_CONFIG_H;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)third_party\speexdsp\win32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    <ClCompile Include="VoiceEchoCancellation.cpp">
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\aec3\webrtc;$(ProjectDir)third_party\aec3\subprojects\abseil-cpp-20250814.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;WEBRTC_WIN;WEBRTC_APM_DEBUG_DUMP=0;WEBRTC_ENABLE_AVX2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <ClCompile Include="MainVoiceClient.cpp" />
     <ClCompile Include="ScreenShare.cpp" />
@@ -135,7 +125,7 @@
     <ClInclude Include="VoiceMixer.h" />
     <ClInclude Include="VoiceProcessing.h" />
     <ClInclude Include="VoiceAudioFormat.h" />
-    <ClInclude Include="VoiceEchoSuppressor.h" />
+    <ClInclude Include="VoiceEchoCancellation.h" />
     <ClInclude Include="Network\SequenceBitmap.hpp" />
     <ClInclude Include="Network\SessionTransport.hpp" />
     <ClInclude Include="Network\SessionOperations.hpp" />

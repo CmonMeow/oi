@@ -38,3 +38,5 @@ BEGIN
         VALUE "Translation", 0x0409, 1200
     END
 END
+
+AEC3_NOTICES RCDATA "third_party\\aec3\\NOTICES.txt"

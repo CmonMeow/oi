@@ -1,12 +1,10 @@
 #pragma once
 #include "VoiceAudioFormat.h"
 
-#include "VoiceEchoSuppressor.h"
 #include <array>
 #include <deque>
 #include <cstdint>
-#include "speex/speex_echo.h"
-#include "speex/speex_preprocess.h"
+#include "VoiceEchoCancellation.h"
 
 // All processing and queues belong to the voice/UI thread. No microphone data
 // is queued for transmission across mute/PTT sessions.
@@ -17,80 +15,43 @@ public:
     typedef std::array<int16_t, FrameSamples> Frame;
 
 private:
-    SpeexEchoState* _echo;
-    SpeexPreprocessState* _preprocess;
+    VoiceEchoCancellation _echo;
     std::deque<Frame> _leadIn;
     std::deque<Frame> _ready;
     int _hold = 0;
-    VoiceEchoSuppressor _speakerEcho;
-    bool _previousEcho=false;
-
-    void configure()
-    {
-        int enabled = 1, noiseDb = -12, echoDb = -40, talkingEchoDb = -15;
-        int target = 16000, maxGainDb = 24;
-        speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_DENOISE, &enabled);
-        speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noiseDb);
-        speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_ECHO_STATE, _echo);
-        speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_ECHO_SUPPRESS, &echoDb);
-        speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_ECHO_SUPPRESS_ACTIVE, &talkingEchoDb);
-        speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_AGC, &enabled);
-        speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_AGC_TARGET, &target);
-        speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_SET_AGC_MAX_GAIN, &maxGainDb);
-    }
+    int _speechFrames = 0;
 
 public:
-    cVoiceProcessing()
-        : _echo(speex_echo_state_init(FrameSamples, SampleRate / 2)),
-          _preprocess(speex_preprocess_state_init(FrameSamples, SampleRate))
-    {
-        int rate = SampleRate;
-        speex_echo_ctl(_echo, SPEEX_ECHO_SET_SAMPLING_RATE, &rate);
-        configure();
-    }
-
-    ~cVoiceProcessing()
-    {
-        speex_preprocess_state_destroy(_preprocess);
-        speex_echo_state_destroy(_echo);
-    }
+    cVoiceProcessing() = default;
 
     cVoiceProcessing(const cVoiceProcessing&) = delete;
     cVoiceProcessing& operator=(const cVoiceProcessing&) = delete;
 
-    void resetEcho() { speex_echo_state_reset(_echo);_speakerEcho.reset();_previousEcho=false; }
+    void resetEcho() { reset(); }
 
     void reset(bool resetFilter = true)
     {
         _leadIn.clear();
         _ready.clear();
         _hold = 0;
-        // Mute/PTT clears pending microphone data without discarding the
-        // learned speaker path or restarting automatic gain on every utterance.
-        if (!resetFilter) { _speakerEcho.reset();_previousEcho=false;return; }
-        resetEcho();
-        speex_preprocess_state_destroy(_preprocess);
-        _preprocess = speex_preprocess_state_init(FrameSamples, SampleRate);
-        configure();
+        _speechFrames = 0;
+        _echo.reset(resetFilter);
     }
 
     void process(const int16_t* microphone, const Frame& playback, bool pushToTalk)
     {
         Frame clean;
-        speex_echo_cancellation(_echo, microphone, playback.data(), clean.data());
-        bool echo=_speakerEcho.analyze(clean.data(),playback.data());
-        // Keep downward AGC correction, but do not amplify recognized echo.
-        int increase=echo?0:12;
-        speex_preprocess_ctl(_preprocess,SPEEX_PREPROCESS_SET_AGC_INCREMENT,&increase);
-        speex_preprocess_run(_preprocess, clean.data());
-        // Speex preprocessing delays its output by one frame.
-        _speakerEcho.apply(clean.data(),_previousEcho);
-        _previousEcho=echo;
-        int probability = 0;
-        speex_preprocess_ctl(_preprocess, SPEEX_PREPROCESS_GET_PROB, &probability);
-        // Speech probability follows the estimated background noise, rather
-        // than a fixed microphone volume threshold. Hysteresis avoids chatter.
-        if (pushToTalk || probability >= (_hold ? 35 : 65)) _hold = 12;
+        const bool speech = _echo.process(microphone, playback.data(), clean.data());
+        int64_t energy = 0;
+        for (int16_t sample : clean) energy += static_cast<int64_t>(sample) * sample;
+        // Ignore near-silent classifier triggers (-50 dBFS RMS). Preroll and
+        // hangover retain quieter consonants around an actual utterance.
+        const bool audible = energy >= FrameSamples * 100LL * 100;
+        if (speech && audible) { if (_speechFrames < 2) ++_speechFrames; }
+        else _speechFrames = 0;
+        // Classify the echo-cancelled signal, retaining leading consonants and
+        // short pauses without adjusting microphone gain or speaker volume.
+        if (pushToTalk || _speechFrames == 2) _hold = 12;
         if (_hold)
         {
             while (!_leadIn.empty())
