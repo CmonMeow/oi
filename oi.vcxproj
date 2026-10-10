@@ -109,6 +109,7 @@
     <ClInclude Include="maff.h" />
     <ClInclude Include="sysdef.h" />
     <ClInclude Include="ChatBox.h" />
+    <ClInclude Include="ChatSelection.h" />
     <ClInclude Include="ChatCommands.h" />
     <ClInclude Include="HostDirectoryProtocol.h" />
     <ClInclude Include="HostDirectoryProbe.h" />

@@ -79,6 +79,7 @@ class cNetworkRuntime
     void announceFile(int from, const string& id) {
         addChatLine(from < 0 ? "You offered a file:" : playerDisplayName(from) + " offered a file:",CLKSystem);
         NetworkChatLine line; line.kind = CLKFile; line.fileSender = from; line.fileId = id;
+        line.historyId = ++_nextChatLineId;
         _chatLines.push_back(line);
         while (_chatLines.size() > CHAT_MAX_HISTORY_LINES) _chatLines.erase(_chatLines.begin());
     }
@@ -95,6 +96,7 @@ class cNetworkRuntime
     ClientSessionInterface* _client;
     vector<__int32> _players;
     vector<NetworkChatLine> _chatLines;
+    unsigned long long _nextChatLineId = 0;
     unsigned __int64 _nextClientHeartbeat;
     unsigned __int64 _nextServerBroadcast;
     unsigned __int64 _nextHostStatistics = 0;
@@ -796,6 +798,7 @@ class cNetworkRuntime
             NetworkChatLine chatLine;
             chatLine.text = text.substr(offset, count);
             chatLine.kind = kind;
+            chatLine.historyId = ++_nextChatLineId;
             _chatLines.push_back(chatLine);
             offset += count;
             while (offset < text.size() && text[offset] == ' ')
@@ -1213,6 +1216,7 @@ public:
             },
             [this](int owner,const string& id) {
                 NetworkChatLine line; line.kind=CLKScreen; line.fileSender=owner; line.fileId=id;
+                line.historyId = ++_nextChatLineId;
                 _chatLines.push_back(line);
                 if(_chatLines.size()>CHAT_MAX_HISTORY_LINES) _chatLines.erase(_chatLines.begin());
             }),

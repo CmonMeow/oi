@@ -1,9 +1,15 @@
 #pragma once
 
 #include <shellapi.h>
+#include "ChatSelection.h"
 
 class cChatBox
 {
+    ChatSelection _selection;
+    bool _selecting=false, _selectionMoved=false;
+    vec2i _selectionMouse;
+    HWND _selectionWindow=nullptr;
+    unsigned long long _historyTail=0;
     bool _active;
     string _draft;
     size_t _cursor;
@@ -21,6 +27,45 @@ class cChatBox
         INPUT_CHAR_WIDTH = 12,
         HISTORY_WHEEL_LINES = 3
     };
+
+    string historyText(const cNetworkRuntime& network,const NetworkChatLine& line) const {
+        if(line.kind==CLKFile)return FitChatText(network.fileLabel(line.fileSender,line.fileId),(int)boxWidth()-24);
+        if(line.kind==CLKScreen)return FitChatText(network.screenLabel(line.fileSender,line.fileId),(int)boxWidth()-24);
+        return line.text;
+    }
+    bool historyPoint(const cNetworkRuntime& network,ChatSelection::Point& point,bool clamp=false) const {
+        const auto& lines=network.chatLines();const size_t rows=visibleRows();
+        const size_t last=lines.size()>_scrollOffset?lines.size()-_scrollOffset:0;
+        const size_t first=last>rows?last-rows:0;if(first==last)return false;
+        const int top=BOX_Y+(int)rows*LINE_HEIGHT+INPUT_HEIGHT+18-22;
+        const int mouseY=App.size.y-input.mouse.y;
+        int row=(int)floor((top+LINE_HEIGHT-2-mouseY)/(double)LINE_HEIGHT);
+        if(!clamp&&(row<0||row>=(int)(last-first)||input.mouse.x<BOX_X||input.mouse.x>BOX_X+boxWidth()))return false;
+        row=(std::max)(0,(std::min)(row,(int)(last-first)-1));
+        const auto& line=lines[first+row];auto text=historyText(network,line);
+        int x=input.mouse.x-(BOX_X+8);size_t column=0;
+        while(column<text.size()) {int width=ChatTextWidth(text.substr(column,1));if(x<width/2)break;x-=width;++column;}
+        point={line.historyId,column};return true;
+    }
+    void copySelection(const cNetworkRuntime& network) {
+        const auto text=_selection.text(network.chatLines(),[&](const NetworkChatLine& line){return historyText(network,line);});
+        if(text.empty())return;
+        int count=MultiByteToWideChar(CP_UTF8,0,text.data(),(int)text.size(),nullptr,0);
+        if(count<=0)return;
+        HGLOBAL memory=GlobalAlloc(GMEM_MOVEABLE,(count+1)*sizeof(wchar_t));if(!memory)return;
+        auto buffer=static_cast<wchar_t*>(GlobalLock(memory));if(!buffer){GlobalFree(memory);return;}
+        MultiByteToWideChar(CP_UTF8,0,text.data(),(int)text.size(),buffer,count);buffer[count]=0;GlobalUnlock(memory);
+        if(!OpenClipboard(GetActiveWindow())){GlobalFree(memory);return;}
+        if(!EmptyClipboard()||!SetClipboardData(CF_UNICODETEXT,memory))GlobalFree(memory);
+        CloseClipboard();
+    }
+    void drawSelection(const cNetworkRuntime& network,const NetworkChatLine& line,float y) {
+        const auto text=historyText(network,line);size_t first,last;
+        if(!_selection.range(line.historyId,text.size(),first,last)||first==last)return;
+        const float left=BOX_X+8.f+ChatTextWidth(text.substr(0,first));
+        const float right=(std::min)(BOX_X+boxWidth()-8.f,BOX_X+8.f+ChatTextWidth(text.substr(0,last)));
+        if(left<right)QueueChatRect(left,y-2,right,y+LINE_HEIGHT-2,59.f/255.f,0.f,1.f,1.f,false);
+    }
 
     static void DrainTextInput()
     {
@@ -466,7 +511,7 @@ public:
 
     size_t historyOffset() const { return _scrollOffset; }
 
-    void deactivate() { _active = false; }
+    void deactivate() { _active = false; _selecting=false; _selection.clear(); }
 
     bool active() const
     {
@@ -484,6 +529,10 @@ public:
 
     void update(cNetworkRuntime& network)
     {
+        const auto& current=network.chatLines();
+        if(_selection.anchor.first&&_historyTail&&!current.empty()&&current.back().historyId!=_historyTail)
+            for(size_t i=0;i<current.size();++i)if(current[i].historyId==_historyTail){_scrollOffset+=current.size()-i-1;break;}
+        _historyTail=current.empty()?0:current.back().historyId;
         clampScroll(network);
         const bool capturesMouse = mouseOver();
         __int32 mouseWheel = capturesMouse ? input.ConsumeMouseWheel() : 0;
@@ -512,11 +561,37 @@ public:
             }
         }
 
-        if (input.leftClick() && capturesMouse && openLinkUnderMouse(network))
-        {
-            input.KeyUp(VK_LBUTTON);
-            return;
+        const auto& history=network.chatLines();
+        if(_selection.anchor.first) {
+            bool anchor=false,end=false;
+            for(const auto& line:history){anchor|=line.historyId==_selection.anchor.first;end|=line.historyId==_selection.end.first;}
+            if(!anchor||!end){_selection.clear();_selecting=false;}
         }
+        if(ControlDown()&&input.pressed('C')&&_selection.selected()){
+            copySelection(network);input.KeyUp('C');DrainTextInput();return;
+        }
+        if(_selecting){
+            if(GetForegroundWindow()!=_selectionWindow){_selecting=false;input.KeyUp(VK_LBUTTON);return;}
+            if(abs(input.mouse.x-_selectionMouse.x)>3||abs(input.mouse.y-_selectionMouse.y)>3||mouseWheel)_selectionMoved=true;
+            if(_selectionMoved)historyPoint(network,_selection.end,true);
+            const bool held=(GetAsyncKeyState(VK_LBUTTON)&0x8000)||GetCapture()==_selectionWindow;
+            if(!held){
+                _selecting=false;
+                ChatSelection::Point released;
+                if(!_selectionMoved&&historyPoint(network,released)&&released==_selection.anchor)openLinkUnderMouse(network);
+            }
+            input.KeyUp(VK_LBUTTON);DrainTextInput();return;
+        }
+        if(input.leftClick()) {
+            ChatSelection::Point point;
+            _selection.clear();
+            if(capturesMouse&&historyPoint(network,point)){
+                _selection.anchor=_selection.end=point;_selecting=true;_selectionMoved=false;
+                _selectionMouse=input.mouse;_selectionWindow=GetActiveWindow();_active=false;
+                input.KeyUp(VK_LBUTTON);DrainTextInput();return;
+            }
+        }
+        if(input.pressed(VK_ESCAPE))_selection.clear();
         if (ControlDown() && input.pressed('V'))
         {
             if (!_active) { _active = true; _cursor = _draft.size(); }
@@ -641,6 +716,7 @@ public:
         float textY = y + height - 22.f;
         for (size_t i = first; i < newestExclusive; ++i)
         {
+            drawSelection(network,lines[i],textY-(float)(i-first)*lineHeight);
             float r = .96f;
             float g = .96f;
             float b = .96f;

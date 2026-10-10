@@ -909,9 +909,9 @@ IntrusivePtr<PacketBuffer> HostSession::SendPayload(__int32 to, BYTE* buffer, __
 	{
 		if (!users.get(to, channel))
 		{
-
-			Error("HostSession::SendPayload: cannot find channel #%d, users.card=%u", to, users.card());
-			Error("HostSession: users.get failed when sending to %d", to);
+			// Disconnect can remove the channel before the application consumes
+			// its departure event. Reject in-flight voice/data without logging
+			// this normal race; checking at the caller cannot make it atomic.
 			peerStateMutex.unlock();
 			return NULL;
 		}
