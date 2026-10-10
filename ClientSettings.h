@@ -1,6 +1,7 @@
 #pragma once
 #include <fstream>
 #include <string>
+#include "HostDirectoryProtocol.h"
 
 enum ClientSettingBits
 {
@@ -13,6 +14,7 @@ struct PackedClientSettings
     unsigned char bits;
     unsigned char talkKey = VK_SHIFT;
     std::string serverAddress = DEFAULT_NETWORK_ADDRESS;
+    std::string hostName = LocalUserName();
 
     PackedClientSettings()
         : bits(CSVoiceEnabled)
@@ -38,6 +40,8 @@ struct PackedClientSettings
                 char address[256] = {};
                 if (file.getline(address, sizeof(address)) && address[0])
                     serverAddress = address;
+                char name[34]={};
+                if(file.getline(name,sizeof(name))&&HostDirectory::validName(name))hostName=name;
             }
         }
     }
@@ -47,7 +51,7 @@ struct PackedClientSettings
         std::ofstream file("ClientSettings", std::ios::binary | std::ios::trunc);
         file.write((const char*)&bits, sizeof(bits));
         file.write((const char*)&talkKey, sizeof(talkKey));
-        file << serverAddress << '\n';
+        file << serverAddress << '\n' << hostName << '\n';
     }
 
     void setServerAddress(const std::string& address)

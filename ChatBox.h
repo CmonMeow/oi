@@ -9,7 +9,8 @@ class cChatBox
     bool _selecting=false, _selectionMoved=false;
     vec2i _selectionMouse;
     HWND _selectionWindow=nullptr;
-    unsigned long long _historyTail=0;
+    unsigned long long _historyTail=0, _hoverLine=0;
+    ULONGLONG _hoverSince=0;
     bool _active;
     string _draft;
     size_t _cursor;
@@ -46,6 +47,21 @@ class cChatBox
         int x=input.mouse.x-(BOX_X+8);size_t column=0;
         while(column<text.size()) {int width=ChatTextWidth(text.substr(column,1));if(x<width/2)break;x-=width;++column;}
         point={line.historyId,column};return true;
+    }
+    void drawTimestamp(const cNetworkRuntime& network,bool focused) {
+        ChatSelection::Point point;
+        if(!focused||_selecting||!historyPoint(network,point)){_hoverLine=0;return;}
+        if(point.first!=_hoverLine){_hoverLine=point.first;_hoverSince=GetTickCount64();return;}
+        if(GetTickCount64()-_hoverSince<500)return;
+        for(const auto& line:network.chatLines())if(line.historyId==point.first){
+            const auto& t=line.receivedAt;char text[32];
+            snprintf(text,sizeof(text),"%04u-%02u-%02u %02u:%02u:%02u",t.wYear,t.wMonth,t.wDay,t.wHour,t.wMinute,t.wSecond);
+            const int width=ChatTextWidth(text)+16;
+            const float x=(float)(std::max)(4,(std::min)(input.mouse.x+12,App.size.x-width-4));
+            const float y=(float)(std::max)(4,(std::min)(App.size.y-input.mouse.y+20,App.size.y-26));
+            QueueChatRect(x,y,x+width,y+22,.08f,.08f,.08f,1.f,false);
+            QueueChatText(text,x+8,y+4,.94f,.94f,.94f);break;
+        }
     }
     void copySelection(const cNetworkRuntime& network) {
         const auto text=_selection.text(network.chatLines(),[&](const NetworkChatLine& line){return historyText(network,line);});
@@ -416,6 +432,10 @@ class cChatBox
             network.changeName(command.substr(5));
             break;
 
+        case ChatCommand::Hostname:
+            network.setHostName(command.substr(9));
+            break;
+
         case ChatCommand::Dedicated:
             network.setDedicated(command.substr(10));
             break;
@@ -775,6 +795,7 @@ public:
             float caretX = x + 10.f + ChatTextWidth("> " + draft.substr(0, cursorInView));
             QueueChatRect(caretX, y + 12.f, caretX + 1.f, y + 26.f, .70f, 1.f, .9f, 1.f, false);
         }
+        drawTimestamp(network,windowFocused);
 
 
     }

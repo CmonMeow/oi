@@ -46,6 +46,7 @@ enum ChatLineKind
 struct NetworkChatLine
 {
     unsigned long long historyId = 0;
+    SYSTEMTIME receivedAt = {};
     string text;
     ChatLineKind kind;
     int fileSender = -1;

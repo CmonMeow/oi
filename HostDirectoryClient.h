@@ -9,7 +9,7 @@ class HostDirectoryClient {
     bool winsock=false,resolved=false,resolving=false,hosting=false;
     sockaddr_in directory={},listedDirectory={};
     AsyncResolver resolver;
-    std::string hostname;
+    std::string hostname,publishedName;
     uint32_t version;
     HostDirectory::Packet query,registration,lastListed;
     bool fetching=false,registering=false,haveListing=false;
@@ -57,6 +57,7 @@ public:
     }
     void update(bool isHost,unsigned short port,unsigned users,const std::string& hostName) {
         using namespace HostDirectory;auto now=GetTickCount64();
+        if(isHost&&publishedName!=hostName){cancelRegistration();publishedName=hostName;nextRegistration=0;}
         if(hosting&&!isHost)retire();if(hosting!=isHost){hosting=isHost;nextRegistration=0;publishStatus=hosting?"Publishing host...":"";}
         // Expiry must run even while DNS resolution is failing.
         if(lastList&&now-lastList>=LeaseMs){entries.clear();++entriesRevision;lastList=0;page=0;pages=1;status="Directory unavailable. Use /connect or /host.";}

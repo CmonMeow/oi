@@ -42,8 +42,8 @@ inline bool sameEndpoint(const sockaddr_in& a,const sockaddr_in& b) {
 }
 inline uint64_t endpointKey(const sockaddr_in& a) { return (uint64_t(a.sin_addr.s_addr)<<16)|a.sin_port; }
 inline bool validName(const char* name) {
-    size_t n=0;for(;n<33 && name[n];++n)if(!((name[n]>='A'&&name[n]<='Z')||(name[n]>='a'&&name[n]<='z')))return false;
-    return n>0 && n<=32;
+    size_t n=0;for(;n<33 && name[n];++n)if((unsigned char)name[n]<32||(unsigned char)name[n]>126)return false;
+    return n>0 && n<=32 && name[0]!=' ' && name[n-1]!=' ';
 }
 inline bool decode(const void* data,int length,Packet& p) {
     if(length!=sizeof(p))return false;

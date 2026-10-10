@@ -1,6 +1,7 @@
 #pragma once
 #include "NetworkProtocol.h"
 #include "FileIoQueue.h"
+#include "TransferProgress.h"
 #include <atomic>
 #include <functional>
 #include <map>
@@ -45,6 +46,7 @@ private:
         std::shared_ptr<File> file;
         std::wstring destination;
         crypto_generichash_state hash;
+        TransferProgress progress;
     };
     struct Upload {
         std::shared_ptr<Source> source;
@@ -55,6 +57,7 @@ private:
         size_t cursor = 0;
         ULONGLONG touched = 0;
         crypto_generichash_state hash;
+        TransferProgress progress;
     };
     FileIoQueue io; // Outlives maps and their deferred handle cleanup.
     std::map<string, std::shared_ptr<Source>> sources;
@@ -203,10 +206,13 @@ public:
         if (key.first == -1) {
             auto it = sources.find(key.second); if (it == sources.end()) return "File offer withdrawn or expired";
             name = it->second->name; bytes = it->second->size; state = "offered/cancel";
+            bool sending=false,unknown=false;long long remaining=0;
+            for(const auto& upload:uploads)if(upload.first.second==key.second){sending=true;auto eta=upload.second.progress.remaining(bytes,upload.second.acknowledged,GetTickCount64());if(eta<0)unknown=true;else remaining=(std::max)(remaining,eta);}
+            if(sending)state=TransferProgress::eta(unknown?-1:remaining)+" cancel";
         } else {
             auto it = downloads.find(key); if (it == downloads.end()) return "File offer expired";
             const auto& d = it->second; name = d.name; bytes = d.size;
-            state = d.file ? std::to_string(d.size ? (unsigned long long)d.offset * 100 / d.size : 0) + "% cancel" : d.state;
+            state = d.file ? std::to_string(d.size ? (unsigned long long)d.offset * 100 / d.size : 0) + "% "+(d.finishing?string("saving"):TransferProgress::eta(d.progress.remaining(d.size,d.offset,GetTickCount64())))+" cancel" : d.state;
         }
         name = displayName(name); if (name.size() > 25) name = name.substr(0,12) + "..." + name.substr(name.size()-10);
         char size[32];
@@ -284,7 +290,7 @@ public:
             if (type == Ack) {
                 if (!raw.getUInt64(offset) || !raw.fullyRead() || u.finishing || offset > u.offset || offset <= u.acknowledged ||
                     (offset != u.source->size && offset % ChunkBytes != 0)) return;
-                u.acknowledged = offset; u.touched = now;
+                u.acknowledged = offset; u.touched = now; u.progress.update(offset,now);
             } else if (raw.fullyRead() && u.finishing) {
                 notice("Sent " + displayName(u.source->name) + ".",false); u.source->peers.erase(peer); uploads.erase(it);
             }
@@ -311,7 +317,7 @@ public:
                     auto it=downloads.find(key);if(it==downloads.end()||!it->second.file||it->second.token!=token)return;
                     auto& d=it->second;
                     if(!ok){failDownload(key,d,"write failed");return;}
-                    crypto_generichash_update(&d.hash,data.data(),data.size());d.offset+=data.size();d.touched=GetTickCount64();control(Ack,key,token,d.offset);
+                    crypto_generichash_update(&d.hash,data.data(),data.size());d.offset+=data.size();d.touched=GetTickCount64();d.progress.update(d.offset,d.touched);control(Ack,key,token,d.offset);
                 };
             })) { failDownload(key,d,"file I/O queue is busy"); return; }
             d.queuedOffset+=count; d.touched=now;

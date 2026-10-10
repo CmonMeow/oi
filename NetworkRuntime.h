@@ -79,7 +79,7 @@ class cNetworkRuntime
     void announceFile(int from, const string& id) {
         addChatLine(from < 0 ? "You offered a file:" : playerDisplayName(from) + " offered a file:",CLKSystem);
         NetworkChatLine line; line.kind = CLKFile; line.fileSender = from; line.fileId = id;
-        line.historyId = ++_nextChatLineId;
+        line.historyId = ++_nextChatLineId; GetLocalTime(&line.receivedAt);
         _chatLines.push_back(line);
         while (_chatLines.size() > CHAT_MAX_HISTORY_LINES) _chatLines.erase(_chatLines.begin());
     }
@@ -798,7 +798,7 @@ class cNetworkRuntime
             NetworkChatLine chatLine;
             chatLine.text = text.substr(offset, count);
             chatLine.kind = kind;
-            chatLine.historyId = ++_nextChatLineId;
+            chatLine.historyId = ++_nextChatLineId; GetLocalTime(&chatLine.receivedAt);
             _chatLines.push_back(chatLine);
             offset += count;
             while (offset < text.size() && text[offset] == ' ')
@@ -1216,7 +1216,7 @@ public:
             },
             [this](int owner,const string& id) {
                 NetworkChatLine line; line.kind=CLKScreen; line.fileSender=owner; line.fileId=id;
-                line.historyId = ++_nextChatLineId;
+                line.historyId = ++_nextChatLineId; GetLocalTime(&line.receivedAt);
                 _chatLines.push_back(line);
                 if(_chatLines.size()>CHAT_MAX_HISTORY_LINES) _chatLines.erase(_chatLines.begin());
             }),
@@ -1488,6 +1488,14 @@ public:
         addChatLine("Click an active transfer to cancel it.",CLKSystem);
     }
 
+    string participantSessionKey(int player) const {auto it=_privateChatKeys.find(player);return it==_privateChatKeys.end()?string():it->second;}
+    void setHostName(const string& argument) {
+        const auto name=TrimWhitespace(argument);
+        if(!_settings)return;
+        if(name.empty()){showNotice("Host name: "+_settings->hostName);return;}
+        if(!HostDirectory::validName(name.c_str())){showNotice("Host name must be 1-32 printable characters.",true);return;}
+        _settings->hostName=name;_settings->save();showNotice("Host name: "+name);
+    }
     void changeName(const string& argument)
     {
         string name = TrimWhitespace(argument);

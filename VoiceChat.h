@@ -216,6 +216,9 @@ public:
         return player == network.localPlayerId() ? transmitting(network) : _mixer.speaking(player, GetTickCount64());
     }
 
+    int userVolume(int player) const {return _mixer.volume(player);}
+    void setUserVolume(int player,int percent,const cNetworkRuntime& network){_mixer.setVolume(player,percent,network.participantSessionKey(player));}
+
     bool micEnabled() const { return _transmitEnabled && _recording; }
 
     void update(cNetworkRuntime& network, bool talkKeyDown, const PackedClientSettings& settings, bool micClicked = false)
@@ -231,7 +234,9 @@ public:
             _playbackReady=false;openPlayback();
         }
         const bool networkActive = network.clientReady() || network.isHost();
-        if (_networkWasActive && !networkActive) cleanupPlaybackBuffers(true);
+        if (_networkWasActive && !networkActive) {cleanupPlaybackBuffers(true);_mixer.clearVolumes();}
+        _mixer.retainPlayers(network.participants());
+        _mixer.validateVolumes([&](int player){return network.participantSessionKey(player);});
         _networkWasActive = networkActive;
         if (!settings.voiceEnabled())
         {
